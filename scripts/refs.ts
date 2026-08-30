@@ -250,6 +250,21 @@ const REFS: ReadonlyArray<Ref> = [
     tag: "October2021",
   },
   {
+    name: "bang",
+    // A Shopify app, unrelated to Live. Here for its Effect and UI patterns.
+    repo: "mw10013/bang",
+    branch: "main",
+    private: true,
+  },
+  {
+    name: "prelive",
+    // An abandoned attempt at doing this as an Ableton Live extension. Not being pursued;
+    // kept as a reference for how it reached the object model.
+    repo: "mw10013/ableton-extension-prelive",
+    branch: "main",
+    private: true,
+  },
+  {
     name: "graphql-docs",
     // Crawled rather than downloaded. The `source` branch of graphql.github.io is 599 MB,
     // and 2.3 MB of that is the documentation: `src/app/conf` alone is 309 MB of
