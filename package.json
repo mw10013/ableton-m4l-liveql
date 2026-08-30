@@ -5,15 +5,25 @@
   "main": "liveql-n4m.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "refs:graphql": "rm -rf refs/graphql && mkdir -p refs/graphql && curl -L https://github.com/graphql/graphql-js/archive/refs/tags/v16.13.1.tar.gz | tar -xz -C refs/graphql --strip-components=1",
-    "refs:graphql-yoga": "rm -rf refs/graphql-yoga && mkdir -p refs/graphql-yoga && curl -L https://github.com/dotansimha/graphql-yoga/archive/refs/tags/graphql-yoga@5.18.1.tar.gz | tar -xz -C refs/graphql-yoga --strip-components=1",
-    "refs:graphql-spec": "rm -rf refs/graphql-spec && mkdir -p refs/graphql-spec && curl -L https://github.com/graphql/graphql-spec/archive/refs/tags/September2025.tar.gz | tar -xz -C refs/graphql-spec --strip-components=1",
-    "refs:graphql-docs": "rm -rf refs/graphql-docs && mkdir -p refs/graphql-docs && curl -L https://github.com/graphql/graphql.github.io/archive/refs/heads/source.tar.gz | tar -xz -C refs/graphql-docs --strip-components=1"
+    "refs": "node scripts/refs.ts",
+    "refs:all": "node scripts/refs.ts fetch --all",
+    "refs:check": "node scripts/refs.ts check",
+    "typecheck:scripts": "tsc -p scripts --noEmit"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "graphql": "16.13.1",
     "graphql-yoga": "5.18.1"
-  }
+  },
+  "devDependencies": {
+    "@effect/platform-node": "4.0.0-rc.112",
+    "@types/node": "26.4.0",
+    "effect": "4.0.0-rc.112",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=24.16.0"
+  },
+  "packageManager": "pnpm@10.17.1"
 }
