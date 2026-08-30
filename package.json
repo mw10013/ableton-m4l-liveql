@@ -8,7 +8,8 @@
     "refs": "node scripts/refs.ts",
     "refs:all": "node scripts/refs.ts fetch --all",
     "refs:check": "node scripts/refs.ts check",
-    "typecheck:scripts": "tsc -p scripts --noEmit"
+    "typecheck:scripts": "tsc -p scripts --noEmit",
+    "build:dist": "rm -rf dist && mkdir -p dist && cp liveql.amxd liveql-m4l.js liveql-n4m.js package.json pnpm-lock.yaml dist/ && pnpm install --dir dist --prod --config.node-linker=hoisted --ignore-scripts"
   },
   "author": "",
   "license": "ISC",
@@ -22,8 +23,9 @@
     "effect": "4.0.0-rc.112",
     "typescript": "7.0.2"
   },
+  "//engines": "liveql-n4m.js runs under Node for Max's bundled Node (v20.6.1 in Live 12 Suite, v22.18.0 in the Live 12 Beta), not the Node on your PATH -- this floor describes that runtime. Separately, `node scripts/refs.ts` needs Node >=22.18 for native TypeScript type stripping.",
   "engines": {
-    "node": ">=24.16.0"
+    "node": ">=20.6.0"
   },
   "packageManager": "pnpm@10.17.1"
 }

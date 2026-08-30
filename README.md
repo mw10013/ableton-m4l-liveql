@@ -13,10 +13,12 @@ External clients send GraphQL queries and mutations over HTTP. The Node server t
 
 ## Setup
 
+Development setup. To build a distributable device, see [Productionizing the device](#productionizing-the-device).
+
 1. Install dependencies:
 
    ```bash
-   npm install
+   pnpm install
    ```
 
 2. Drop `liveql.amxd` onto any track in your Live Set.
@@ -24,6 +26,32 @@ External clients send GraphQL queries and mutations over HTTP. The Node server t
 3. Click the start button on the device to launch the server.
 
 4. The GraphQL API is now available at `http://localhost:4000/graphql`. The server also serves GraphiQL, an interactive query editor you can open in your browser at the same address.
+
+## Productionizing the device
+
+`liveql.amxd` in the root only runs out of this repo. `dist/` is a throwaway, self-contained copy with
+production-only dependencies — freezing the device *there* bundles everything into a single file you can
+hand to someone else. Your dev tree and dev device are never touched.
+
+1. Build `dist/`:
+
+   ```bash
+   pnpm build:dist
+   ```
+
+   Copies the device and both scripts into `dist/`, then installs a production-only `node_modules` there
+   (drops typescript, effect, @types/node — 116 MB to 9.2 MB).
+
+2. Open `dist/liveql.amxd` in Max and change the object box to
+   `node.script liveql-n4m.js @autostart 0 @watch 0`.
+
+3. Click **Freeze** in the device toolbar, then **File → Save**.
+
+4. Ship `dist/liveql.amxd`. Delete `dist/` whenever you like — `pnpm build:dist` rebuilds it.
+
+Not yet run for this device: if the frozen device can't find `node_modules`, the fallback is a Max Project
+with `node_modules` in a folder registered in the project's search path with **Embedded** enabled — see
+`docs/vignettes/03_n4m_projects_devices.maxvig.xml` in the Node for Max package that ships with Max.
 
 ## What you can query
 

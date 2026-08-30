@@ -3,3 +3,4 @@ node_modules
 .DS_Store
 refs/
 todo.md
+dist
