@@ -193,7 +193,10 @@ interface Ref {
    * name so a whole extension can be excluded without spelling out versioned filenames.
    */
   readonly exclude?: ReadonlyArray<string>;
-  /** Tag template for versioned refs; {v} is the resolved version. */
+  /**
+   * Tag template for versioned refs; {v} is the resolved version. A tag with no {v} is
+   * a fixed pin kept in this file, for a source with no package.json version to read.
+   */
   readonly tag?: string;
   readonly version?: VersionSource;
   /** Branch to track, for refs with no version to align to. */
@@ -238,11 +241,13 @@ const REFS: ReadonlyArray<Ref> = [
   {
     name: "graphql-spec",
     repo: "graphql/graphql-spec",
-    // Tracks the working draft rather than a dated release (September2025 and its
-    // predecessors are tags, and a tag with no package.json pin has no slot in a Ref).
-    // The parts this project reads -- type system, execution, validation -- are the
-    // stable half of the document, so the draft and the release say the same thing.
-    branch: "main",
+    // The edition graphql-js 16 implements, and the one its own documentation links to
+    // throughout (`spec.graphql.org/October2021/#sec-...`). Deliberately not the working
+    // draft: the draft is where the 17 line is heading, so on anything the two disagree
+    // about -- incremental delivery, the newer error semantics -- it would describe a
+    // runtime this project does not have. Bump alongside the `graphql` dependency, whose
+    // major picks the edition: 17 lands on September2025.
+    tag: "October2021",
   },
   {
     name: "graphql-docs",
@@ -552,6 +557,11 @@ const resolve = Effect.fn(function* (ref: Ref) {
   // range. The exact version the portal reported goes in the stamp, not in the target,
   // so a maintenance release refreshes quietly instead of reading as drift.
   if (ref.fluidTopics) return { ref, target: ref.fluidTopics.version };
+  // A tag with no {v} names itself -- a fixed pin in this file rather than a read of a
+  // package.json. Reported as `ok <tag>` rather than by age, unlike a branch or a crawl:
+  // a tag's content does not move, so only editing the pin can make the copy stale.
+  if (ref.tag && !ref.version && !ref.tag.includes("{v}"))
+    return { ref, target: ref.tag, version: ref.tag };
   if (!ref.version || !(ref.tag ?? ref.dir))
     return yield* new RefsError({
       reason: `${ref.name} needs either a branch or a version plus a tag or dir`,
@@ -1237,7 +1247,7 @@ const fillStaging = Effect.fn(function* (staging: string, ref: Ref, target: stri
 const sourceKind = (ref: Ref) => {
   if (ref.crawl) return "crawl";
   if (ref.fluidTopics) return "api";
-  return "branch";
+  return ref.branch ? "branch" : "tag";
 };
 
 const fetchRef = Effect.fn(function* ({ ref, source, target, version }: Resolved) {
