@@ -30,8 +30,8 @@ High-level structure in the embedded patcher JSON:
 - **V8 JS runtime:** `v8 liveql-m4l.js` is present, with `parameter_enable` disabled. This is the Max JS side that talks to Live via LiveAPI (consistent with the repo's `liveql-m4l.js`). The `v8` object requires Max 9 (Ableton Live 12). [5]
 - **Node for Max runtime:** `node.script liveql-n4m.js @autostart 0 @watch 1` is present. This runs a separate Node.js process for the GraphQL server. It does not autostart and will restart on file changes via `@watch`. [6] [7]
 - **Configurable port:** The device includes a `live.numbox` (range 1024–65535, default 4000) wired through `prepend script start` to `node.script`. The port number is passed as a process argument and read in `liveql-n4m.js` via `process.argv[2]`.
-- **Manual lifecycle controls:** The patch includes message boxes for `script start`, `script stop`, `script status`, `script processStatus`, and `script running`, which map directly to `node.script`'s `script` messages. [7]
-- **NPM hooks:** There are message boxes for `script npm install` and `script npm --version`. The Node for Max `script npm …` message is a wrapper over npm that installs dependencies from `package.json` in the same directory as the Node script argument. [7]
+- **Manual lifecycle controls:** The patch includes message boxes for `script start` (via `prepend script start`), `script stop`, `script status`, and `script processStatus`, which map directly to `node.script`'s `script` messages. [7] The `running` status comes back out of `node.script`'s right outlet and is picked off by a `route running` object — there is no `script running` message box.
+- **NPM hook (being removed):** One message box, `script npm install`, wired straight to the main `node.script`. The Node for Max `script npm …` message is a wrapper over npm that runs in the same directory as the Node script argument. [7] **Do not click it.** It runs Max's bundled npm 9.8.1 against this repo's pnpm tree and crashes; see `npm-install-affordance-research.md`, which concludes the box and its comment should be deleted from the patcher. Dependencies are installed with `pnpm install` from a terminal instead. (An earlier `script npm --version` box and a `p npm` subpatcher containing `node.script .` were already removed — see `archive/node-script-dot-error-research.md`.)
 - **Node stdout/stderr logging:** Node output is routed through `route stdout stderr` and printed to Max (`print stdout`, `print stderr`, `print info`).
 - **Monitoring UI:** A bundled bpatcher `n4m.monitor.maxpat` is embedded, which comes from the Node for Max package and provides status/monitoring via a `jweb` element.
 - **MIDI pass-through:** `midiin` is wired directly to `midiout`, so the device itself does not alter MIDI unless the JS/Node logic does so elsewhere.
@@ -50,6 +50,10 @@ Node for Max bundles its own Node.js binary — it does not use the system Node 
 - You can override the bundled binary using `@node_bin_path` and `@npm_bin_path` attributes on `node.script`. Both should be changed together to avoid incompatibilities. [8]
 
 ### How `package.json` and `node_modules` Work
+
+This is how Node for Max's own npm integration behaves. **We do not use it** — see the
+`script npm install` note above — but the location rules matter, because they are what makes a plain
+`pnpm install` in the repo root land in the right place.
 
 - `script npm install` sent to a `node.script` object runs npm **in the same directory as the script file** referenced by the object's first argument. [10]
 - `package.json` must be in that same directory. You can generate one with `script npm init`. [10]
@@ -169,10 +173,20 @@ For `liveql-m4l.js` (Max JS via `v8`, not Node), changes are picked up when the 
 
 ### Installing Node Dependencies
 
-1. **Open the Max editor** — see step 2 above.
-2. **Switch to performance mode** — click the lock icon (bottom-left of Max editor) or press Cmd+E so the patcher is locked. Message boxes are only clickable in performance mode.
-3. **Click the `script npm install` message box** in the patcher. This runs npm in the same directory as `liveql-n4m.js`, installing `graphql` and `graphql-yoga` from `package.json` into a `node_modules/` folder next to the script. [7] [10]
-4. **Check output** — npm stdout/stderr is routed to the Max Console. Open the Max Console from the Max editor sidebar (click the console icon, or Window → Max Console) to see install progress and errors. [7]
+From a terminal in the repo root:
+
+```bash
+pnpm install
+```
+
+`node.script` sets its child process `cwd` to the script file's directory, so `node_modules` next to
+`liveql-n4m.js` — which is what `pnpm install` in the repo root produces — is exactly where Node's
+resolution walk starts. [10]
+
+Do **not** use the patcher's `script npm install` message box. It runs Max's bundled npm 9.8.1, which
+cannot read pnpm's `node_modules` layout and crashes, and would pull `devDependencies` into the device
+even if it worked. Full analysis in `npm-install-affordance-research.md`; runtime and module-resolution
+detail in `node-for-max-runtime-research.md`.
 
 ### Starting the Node Script
 
@@ -249,29 +263,19 @@ flowchart LR
     1024–65535]
     START[script start]
     STOP[script stop]
-    STATUS[script status / processStatus / running]
-    NPMV[script npm --version]
-    NPMI[script npm install]
+    STATUS[script status / processStatus]
     ROUTE[route stdout stderr]
+    RUNNING[route running]
     OUT[print stdout/stderr/info]
     MON[n4m.monitor.maxpat]
 
     PORT --> START --> NODE
     STOP --> NODE
     STATUS --> NODE
-    NPMV --> NODE
     NODE --> ROUTE --> OUT
+    NODE --> RUNNING --> MON
     NODE --> V8
     V8 --> NODE
-    NODE --> MON
-    NPMI --> P_NPM
-
-    subgraph P_NPM[p npm]
-      DOT[node.script .]
-      ROUTE_NPM[route npm -> route success]
-      UNPACK[dict.unpack status:]
-      DOT --> ROUTE_NPM --> UNPACK
-    end
   end
 ```
 

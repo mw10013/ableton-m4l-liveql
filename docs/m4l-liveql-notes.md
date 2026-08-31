@@ -61,7 +61,7 @@ The sibling project at `../liveql_note_list` looks like a CRA web app that conne
 These steps focus on confirming it still works in modern Live versions without rewriting the device.
 
 1) Install dependencies for the Node side
-- Run `npm install` in this repo so `node_modules` exists for `liveql-n4m.js`.
+- Run `pnpm install` in this repo so `node_modules` exists for `liveql-n4m.js`. (This repo is pnpm-managed; `npm` cannot read its `node_modules` layout.)
 
 2) Load the `.amxd` in Live and confirm Node for Max is running
 - Insert the device on a track.
