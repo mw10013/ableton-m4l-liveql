@@ -14,8 +14,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "graphql": "16.13.1",
-    "graphql-yoga": "5.18.1"
+    "graphql": "16.14.2",
+    "graphql-yoga": "5.22.0"
   },
   "devDependencies": {
     "@effect/platform-node": "4.0.0-rc.112",
