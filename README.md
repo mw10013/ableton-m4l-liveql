@@ -55,23 +55,27 @@ with `node_modules` in a folder registered in the project's search path with **E
 
 ## What you can query
 
-**Song state** — Check whether the song is playing, get the song view, see which track is selected or which clip is in the detail view.
+**Song state** — Transport, tempo, time signature, arrangement loop, metronome, swing, record and overdub state, scale (`root_note`, `scale_name`, `scale_intervals`), undo/redo availability, and the song view: selected track, selected scene, highlighted clip slot, detail clip. `live_app` reports the Live version.
 
-**Tracks** — List all tracks or access a specific track by index. Read properties like name and whether a track has MIDI input.
+**Tracks and scenes** — List regular, return and visible tracks, the master track, and scenes; or address one by index. Read name, color, arm/mute/solo, fold state, playing and fired slot indices, and arrangement clips.
 
-**Clip slots and clips** — Navigate the session grid. Check if a clip slot contains a clip, then read clip properties like name, length, time signature, and looping state.
+**Clip slots and clips** — Navigate the session grid. Read clip markers (`loop_start`, `loop_end`, `start_marker`, `end_marker`, `position`), looping, length, time signature, color, mute, launch settings, playing state, and the clip view's grid (`grid_quantization`, `grid_is_triplet`).
 
-**MIDI notes** — Read the full list of notes from a MIDI clip, including pitch, start time, duration, velocity, probability, and mute state.
+**By id** — `clip(id)`, `clip_slot(id)`, `track(id)` and `scene(id)` refetch exactly the object a mutation returned. They return `null` for an unknown id or an id of another type.
+
+**MIDI notes** — The LOM's read-only note functions are clip fields under their own names: `get_all_notes_extended`, `get_notes_by_id`, `get_notes_extended` and `get_selected_notes_extended`, each returning `{ notes }` with pitch, start time, duration, velocity, probability, and mute state. Null on audio clips.
 
 ## What you can mutate
 
-**Playback** — Start, continue, and stop the song.
+**Playback** — Start, continue, and stop the song; stop all clips; jump; undo and redo; capture MIDI; create MIDI tracks and scenes; fire and stop clip slots, scenes and clips.
 
-**Tracks** — Rename tracks.
+**Properties** — `song_set_properties`, `track_set_properties`, `scene_set_properties`, `clip_set_properties`, `clip_view_set_properties` and `song_view_set_properties` batch property writes. The clip batch applies markers in an order that never violates Live's start/end constraints. Song view setters push a clip into Live's Detail View or select a track, scene or slot.
 
-**Clips** — Toggle looping, set clip properties (name, time signature), and fire clips.
+**Clips** — Create an empty MIDI clip in a slot or the arrangement, delete, duplicate to a slot or the arrangement, crop, duplicate loop, scrub.
 
-**MIDI notes** — Add new notes, modify existing notes, select notes, and remove notes by ID or by pitch/time range.
+**MIDI notes** — `clip_add_new_notes` returns the note ids Live assigned. Modify (stale ids fail loudly instead of being ignored), select, remove by id or region, duplicate by id or region, quantize. `clip_write_notes`, the one mutation without a LOM counterpart, runs `set`, `add_new_notes`, `apply_note_modifications` and `remove_notes_by_id` in one request and returns the refreshed clip with the added ids.
+
+Names mirror the LOM verbatim: fields and mutation suffixes are LOM properties and functions, and arguments are the LOM parameter or dictionary-key names.
 
 ## Examples
 
@@ -104,7 +108,7 @@ curl -s http://localhost:4000/graphql \
 # get notes from the first clip slot of the first track
 curl -s http://localhost:4000/graphql \
   -H 'Content-Type: application/json' \
-  -d '{"query":"{ live_set { track(index: 0) { clip_slot(index: 0) { clip { name notes { pitch start_time duration velocity } } } } } }"}' | jq .
+  -d '{"query":"{ live_set { track(index: 0) { clip_slot(index: 0) { clip { name get_all_notes_extended { notes { pitch start_time duration velocity } } } } } } }"}' | jq .
 
 # set looping off using the clip id looked up via indexes
 # first query:
@@ -112,6 +116,14 @@ curl -s http://localhost:4000/graphql \
 # then use that id here
 curl -s http://localhost:4000/graphql \
   -H 'Content-Type: application/json' \
-  -d '{"query":"mutation { clip_set_looping(id: 39, looping: false) { id looping } }"}' | jq .
+  -d '{"query":"mutation { clip_set_properties(id: 39, properties: { looping: false }) { id looping } }"}' | jq .
+
+# refetch a clip by id, then add notes and get the ids Live assigned
+curl -s http://localhost:4000/graphql \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"{ clip(id: 39) { loop_start loop_end start_marker end_marker } }"}' | jq .
+curl -s http://localhost:4000/graphql \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"mutation { clip_add_new_notes(id: 39, notes: [{ pitch: 60, start_time: 0, duration: 1 }]) { note_ids clip { length } } }"}' | jq .
   
 ```
