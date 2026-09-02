@@ -27,6 +27,25 @@ Development setup. To build a distributable device, see [Productionizing the dev
 
 4. The GraphQL API is now available at `http://localhost:4000/graphql`. The server also serves GraphiQL, an interactive query editor you can open in your browser at the same address.
 
+## Tests
+
+```bash
+pnpm test        # schema and resolvers, no Live needed
+pnpm test:n4m    # the same suite under Node for Max's bundled Node
+```
+
+`pnpm test` fakes `max-api` and answers `get` / `set` / `call` the way `liveql-m4l.js` does, then drives
+the real schema through graphql-yoga. That covers everything up to the `v8` boundary: schema shape,
+marker ordering, the by-id null semantics, note payloads and the error messages. It touches nothing in
+Live and needs no device running. `pnpm test:n4m` reruns it under the Node binary the device actually
+uses, which is not the Node on your PATH.
+
+The questions only Live can answer live in `test/live/`, off by default because they mutate the open Set:
+
+```bash
+pnpm test:live   # open a disposable Set with a MIDI clip and the device started first
+```
+
 ## Productionizing the device
 
 `liveql.amxd` in the root only runs out of this repo. `dist/` is a throwaway, self-contained copy with
@@ -40,7 +59,8 @@ hand to someone else. Your dev tree and dev device are never touched.
    ```
 
    Copies the device and both scripts into `dist/`, then installs a production-only `node_modules` there
-   (drops typescript, effect, @types/node — 116 MB to 9.2 MB).
+   (drops typescript, effect, @types/node — 139 MB to 19 MB). Most of what is left is `graphql` itself,
+   11 MB of it, since v17 ships a separate `__dev__` build alongside the production one.
 
 2. Open `dist/liveql.amxd` in Max and change the object box to
    `node.script liveql-n4m.js @autostart 0 @watch 0`.

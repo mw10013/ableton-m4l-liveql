@@ -161,6 +161,25 @@ The suite mutates a Set, so it must never run by default and should print the Se
   for the manual grid step. Half a day plus one Live session to run it and fill the JSDocs.
 - Allowlist test: an hour, depends on `refs/m4l-docs` being fetched.
 
+## What Landed, And Where This Doc Was Wrong
+
+Implemented 2026-09-01 as `test/`, 42 assertions, green under both the PATH Node (v26.7.0) and the
+bundled binary (v22.18.0 — the Live 12 Suite one; the v20.6.1 that `package.json` and the Node for Max
+README recorded is gone, and `engines` is now a single `>=22.18.0`). Two things in the plan above do not
+survive contact with Node 22:
+
+- **`node --test test/` does not work.** A bare directory argument is treated as a file to run:
+  `Error: Cannot find module '.../test'`. The scripts pass shell-expanded globs instead
+  (`node --test test/*.test.js`), which also works on Node 20 where the runner has no glob support.
+- **Everything under a directory named `test` is a test file.** Under bare `node --test`, `fake-max.js`,
+  `fake-lom.js` and `server.js` are each loaded and reported as a passing test. The helpers moved to
+  `test/helpers/` and the globs never match them.
+
+Also changed: no `.als` fixture is checked in. `test/live/` discovers the first MIDI track with a clip in
+whatever Set is open, saves that clip's markers and notes, and restores them afterwards. Cases whose
+answer is the point (does Live clamp? does `loop_end` alias `end_marker`?) print a `RECORD:` line and
+assert only the invariant, so the suite does not bake in a guess about Live.
+
 ## Appendix: The 2026-09-01 Harness
 
 The throwaway harness that verified the schema pass, kept here so the suite can start from it rather

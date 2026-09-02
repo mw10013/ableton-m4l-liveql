@@ -40,6 +40,14 @@ function outletFailedResult(actionId, message) {
 }
 outletFailedResult.local = 1; // prevent Max from exposing as a message handler
 
+/**
+ * The wire contract the Node layer is written against: a single property is
+ * recorded only when `LiveAPI.get` yields exactly one value, so a member Live
+ * omits on this object reads as an empty list and drops out of the result; a
+ * child is the id at index 1, where `id 0` means none; a child list is the ids
+ * with the `id` tokens stripped. `test/helpers/fake-lom.js` mirrors these four
+ * loops, so a change to what this function outlets means a change there.
+ */
 function get(json) {
   let actionId = null;
   try {

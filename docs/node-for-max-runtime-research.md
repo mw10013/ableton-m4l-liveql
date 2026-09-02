@@ -25,7 +25,7 @@ $N4M = /Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Max/Max.ap
 
 | Question | Answer |
 | --- | --- |
-| Which Node? | `$N4M/source/bin/osx/node/node`, a **Node binary bundled inside Ableton Live**. v20.6.1 in Live 12 Suite, v22.18.0 in the Live 12 Beta. Nothing to do with the Node on your `PATH` (v26.7.0 here). |
+| Which Node? | `$N4M/source/bin/osx/node/node`, a **Node binary bundled inside Ableton Live**, v22.18.0. Nothing to do with the Node on your `PATH` (v26.7.0 here). |
 | Is `liveql-n4m.js` embedded in the `.amxd`? | **No.** The device stores `"embed" : 0`. It is an external file on disk, found by name. |
 | Where is it found? | Next to the `.amxd`. Both live in the repo root, and Max searches the patcher's own folder. |
 | Why does it see our `node_modules`? | Because `node.script` sets the child process `cwd` to *the script file's directory* — the repo root. Node's ordinary `node_modules` walk starts there. |
@@ -77,7 +77,7 @@ single easiest way to get lost in this architecture.
 │ PROCESS 2  —  NODE FOR MAX PROCESS MANAGER   (process title: "N4M PM")            │
 │ 100% [C74]. None of our code runs here. We never touch this process.              │
 │                                                                                   │
-│ execPath : $N4M/source/bin/osx/node/node        ← Ableton's Node v20.6.1          │
+│ execPath : $N4M/source/bin/osx/node/node        ← Ableton's Node v22.18.0         │
 │ entry    : $N4M/source/index.js                                                   │
 │                                                                                   │
 │   A supervisor: starts/stops/restarts scripts, pipes stdio, runs the file         │
@@ -92,7 +92,7 @@ single easiest way to get lost in this architecture.
 │ PROCESS 3  —  node.script CHILD PROCESS                                           │
 │ THE MIXED ONE. Ableton's runtime, Ableton's bootstrap, our application on top.    │
 │                                                                                   │
-│   [C74] Node binary  $N4M/source/bin/osx/node/node   ← v20.6.1, ships with Live   │
+│   [C74] Node binary  $N4M/source/bin/osx/node/node   ← v22.18.0, ships with Live  │
 │     │                                                                             │
 │     ▼                                                                             │
 │   [C74] bootstrap    $N4M/source/lib/nsRunner.js                                  │
@@ -233,7 +233,7 @@ code paths" — because they *are*.
   │ NODE_PATH =                       │        │ <repo>/node_modules/graphql-yoga    │
   │   $N4M/source/lib/exposed         │        │   → symlink →                       │
   │                                   │        │ <repo>/node_modules/.pnpm/          │
-  │   max-api.js  ← THE ONLY MODULE   │        │   graphql-yoga@5.18.1_graphql@…/    │
+  │   max-api.js  ← THE ONLY MODULE   │        │   graphql-yoga@5.22.0_graphql@…/    │
   │                 N4M EXPOSES       │        │                                     │
   │                                   │        │ 414 files load at runtime           │
   │ (an ESM loader hook at            │        │ (graphql, @graphql-tools/*,         │
@@ -275,80 +275,71 @@ is application code and only we can provide it.**
 
 ## 6. Node versions, and what to do about `engines`
 
+Rechecked 2026-09-01: Live 12 Suite now bundles **v22.18.0**, the same Node the Beta had. What follows
+is the current state; the two-floors arrangement this section used to describe is gone with it.
+
 ### The facts
 
 | Where | Node | Source |
 | --- | --- | --- |
-| Live 12 Suite (what we run against) | **v20.6.1** | `$N4M/source/bin/osx/node/node --version`, and `$N4M/README.md` states "Node v20.6.1 / NPM v9.8.1" |
-| Live 12 Beta | **v22.18.0** | same binary path inside the Beta app bundle |
+| Live 12 Suite (what we run against) | **v22.18.0** | `$N4M/source/bin/osx/node/node --version` |
 | This dev machine's `PATH` | v26.7.0 | `node --version` |
 
-The bundled binary is a universal Mach-O (x86_64 + arm64, 191 MB). The version is Ableton's choice and moves
-only when Live moves.
+`$N4M/README.md` still says "Node v20.6.1 / NPM v9.8.1". It is stale — Ableton shipped a new binary and
+left the README. **Ask the binary, never the README.** The bundled binary is a universal Mach-O
+(x86_64 + arm64, 214 MB). The version is Ableton's choice and moves only when Live moves.
 
-### The problem we had
+### One runtime, one floor
 
-`package.json` declared `"engines": { "node": ">=24.16.0" }`. Nothing in the runtime is anywhere near that,
-and nothing in the dependency tree asks for it either — `graphql-yoga` wants `>=18`, `graphql` wants `>=17`,
-`@effect/platform-node` wants `>=18`, `typescript` wants `>=16.20`. The number described the Node that
-happened to be on this laptop, and it described it in the one field whose job is to describe **the runtime
-the shipped code needs**. Read literally it claimed the device requires Node 24 — which would mean the
-device cannot run in Live at all.
+`package.json` once declared `"engines": { "node": ">=24.16.0" }` — a number that described the laptop,
+not the runtime, in the one field whose job is to describe the runtime the shipped code needs. It was
+corrected to 20.6.0 with a second, higher floor recorded in `scripts/package.json`, because
+`node scripts/refs.ts` needs native TypeScript type stripping and the bundled Node of the day could not
+do it:
 
-### What was actually true
-
-Two different runtimes, two different floors, and the mistake was collapsing them into one number:
-
-- **The device** runs on N4M's Node. Floor: **20.6.0**.
-- **`scripts/refs.ts`** is executed directly by Node (`node scripts/refs.ts`) and therefore needs native
-  TypeScript type stripping. Measured, not guessed:
-  - Node 20.6.1 → `TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts"`
-  - Node 22.18.0 → runs correctly
-  So the real floor is **22.18.0**, not 24.16.0.
-
-### What was changed
-
-Root `package.json` — now describes the runtime, with the reasoning inline:
-
-```json
-"//engines": "liveql-n4m.js runs under Node for Max's bundled Node (v20.6.1 in Live 12 Suite,
-              v22.18.0 in the Live 12 Beta), not the Node on your PATH. This floor describes
-              that runtime. The refs tooling needs a newer Node -- see scripts/package.json.",
-"engines": { "node": ">=20.6.0" },
+```
+$ "$N4M/source/bin/osx/node/node" scripts/refs.ts list
+TypeError [ERR_UNKNOWN_FILE_EXTENSION]: Unknown file extension ".ts"
 ```
 
-`scripts/package.json` — the dev-tooling floor, recorded where the tooling lives. `scripts/` already had its
-own `package.json` (it marks the directory ESM), so this is the natural home:
+That is no longer true. The same command on the same path today:
+
+```
+$ "$N4M/source/bin/osx/node/node" scripts/refs.ts list
+effect           ok  4.0.0-rc.112
+graphql          ok  17.0.2
+...
+```
+
+The device's floor and the refs tooling's floor are now the same number, so the root `package.json`
+carries it alone:
 
 ```json
-"//engines": "refs.ts is run directly by Node, so it needs native TypeScript type stripping.
-              Verified: Node 22.18.0 runs it, Node 20.6.1 fails with ERR_UNKNOWN_FILE_EXTENSION.
-              This is a dev-tooling floor only -- it does not apply to the device runtime,
-              see the root package.json.",
+"//engines": "Node for Max bundles v22.18.0 -- `\"$N4M/source/bin/osx/node/node\" --version`, not the
+              Node on your PATH; the Node for Max README claiming v20.6.1 is stale, the binary is what
+              runs. That is also the floor `node scripts/refs.ts` needs for native TypeScript type
+              stripping, so one number covers both.",
 "engines": { "node": ">=22.18.0" },
 ```
 
-Why split rather than just raise the root to 22.18: `engines` on the root package is what a package manager
-checks against *your* Node at install time (and what pnpm hard-fails on if `engine-strict` is ever enabled).
-Putting 22.18 there would assert the device needs 22.18, which is false for Live 12 Suite and would be an
-actively misleading thing to hand to anyone packaging this later. `scripts/` is not a workspace member, so
-its `engines` is documentary — but it is documentary *in the right place*, next to the code it constrains.
+`scripts/package.json` keeps only what makes `scripts/` ESM. There is nothing left for a second
+`engines` to say.
 
 ---
 
 ## 7. pnpm-specific notes
 
-Using pnpm is fine. Confirmed by running the bundled Node 20.6.1 against the real tree:
+Using pnpm is fine. Confirmed by running the bundled Node against the real tree (rerun 2026-09-01):
 
 ```
 yoga ok: function
-graphql 16.13.1
+graphql 17.0.2
 max-api ok: function
-node v20.6.1
+node v22.18.0
 ```
 
 pnpm's symlink farm works because Node resolves realpaths by default: `node_modules/graphql-yoga` is a
-symlink into `node_modules/.pnpm/graphql-yoga@5.18.1_graphql@16.13.1/`, and once resolved there, its peers
+symlink into `node_modules/.pnpm/graphql-yoga@5.22.0_graphql@17.0.2/`, and once resolved there, its peers
 resolve alongside it. This would only break under `--preserve-symlinks`, and N4M does not pass it (`execArgv`
 is just `--import <loader>`).
 
@@ -442,10 +433,10 @@ Verified output: **0 symlinks**, 10 MB, same 1,887 files. That is what goes in `
 
 ### Version caveat for whoever we ship to
 
-The bundled dependencies run on *their* Live's Node, not ours: 20.6.1 on Live 12 Suite, 22.18.0 on the
-Beta, and whatever a future Live ships. Our production deps are comfortable there (`graphql-yoga` >=18,
-`graphql` >=17), but anything added later needs checking against **20.6.1**, not against the Node on the
-dev machine. That is exactly what the root `engines` field now records.
+The bundled dependencies run on *their* Live's Node, not ours: v22.18.0 today, and whatever a future
+Live ships. Our production deps are comfortable there (`graphql-yoga` >=18, `graphql` >=17), but anything
+added later needs checking against **22.18.0**, not against the Node on the dev machine. That is exactly
+what the root `engines` field records.
 
 ---
 
@@ -454,9 +445,9 @@ dev machine. That is exactly what the root `engines` field now records.
 ```bash
 N4M="/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Max/Max.app/Contents/Resources/C74/packages/Node for Max"
 
-# Bundled Node version (and the Beta's)
-"$N4M/source/bin/osx/node/node" --version                       # v20.6.1
-tail -3 "$N4M/README.md"                                        # Node v20.6.1 / NPM v9.8.1
+# Bundled Node version -- the binary, not the package README, which is stale
+"$N4M/source/bin/osx/node/node" --version                       # v22.18.0
+tail -3 "$N4M/README.md"                                        # claims Node v20.6.1 / NPM v9.8.1
 
 # Our deps resolve under the bundled Node, from the repo root
 NODE_PATH="$N4M/source/lib/exposed" "$N4M/source/bin/osx/node/node" \
@@ -471,8 +462,7 @@ NODE_PATH="$N4M/source/lib/exposed" "$N4M/source/bin/osx/node/node" \
   -e 'require("graphql-yoga");require("max-api");console.log(Object.keys(require.cache).length)'   # 424
 
 # The engines floor, measured rather than assumed
-"$N4M/source/bin/osx/node/node" scripts/refs.ts list            # ERR_UNKNOWN_FILE_EXTENSION
-"<Live 12 Beta>/…/node" scripts/refs.ts list                    # works (v22.18.0)
+"$N4M/source/bin/osx/node/node" scripts/refs.ts list            # works: type stripping, so >=22.18.0
 
 # Device internals: embed flags and dependency cache
 python3 -c "…"  # decode the ptch JSON chunk out of liveql.amxd

@@ -3,18 +3,28 @@
 Date: 2026-08-31
 
 Answers one question — can we move `graphql` and `graphql-yoga` to their latest pins, and what
-breaks — and records why the answer for `graphql` is **16.14.2, not 17.0.2**, even though 17 was
-measured working.
+breaks — and records why the answer for `graphql` was **16.14.2, not 17.0.2** at the time, even though
+17 was measured working. That answer expired three weeks later; see the banner and
+[§7](#7-the-move-to-17-2026-09-01).
 
 Everything below was verified on this machine against **the Node binary Ableton actually ships**,
 not the Node on `PATH`. Commands are in [Appendix: how this was verified](#appendix-how-this-was-verified)
 so any claim can be re-checked.
 
+> **Superseded, 2026-09-01. The project is on `graphql` 17.0.2.** Live 12 Suite now bundles Node
+> **v22.18.0**, not v20.6.1, which satisfies `graphql@17`'s `^22.0.0 || ^24.0.0 || ^25.0.0 || >=26.0.0`.
+> That was the one and only blocker this doc found, so the trigger in
+> [§3.4](#34-the-trigger-to-revisit) fired and the upgrade was taken: pin bump, the two `refs.ts` edits
+> from [§6.2](#62-what-17-would-have-required), and the ref re-fetches. See
+> [§7](#7-the-move-to-17-2026-09-01) for what it took and how it was verified. Everything else below
+> stands as written, measured on the v20.6.1 binary of the day.
+
 Shorthand used throughout:
 
 ```
 $N20 = /Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Max/Max.app/
-       Contents/Resources/C74/packages/Node for Max/source/bin/osx/node/node   # v20.6.1
+       Contents/Resources/C74/packages/Node for Max/source/bin/osx/node/node
+       # v20.6.1 when this was measured; that same path is v22.18.0 as of 2026-09-01
 ```
 
 ---
@@ -23,14 +33,14 @@ $N20 = /Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Max/Max.ap
 
 | Question | Answer |
 | --- | --- |
-| What moved? | `graphql` 16.13.1 → **16.14.2**, `graphql-yoga` 5.18.1 → **5.22.0**. |
+| What moved? | `graphql` 16.13.1 → **16.14.2**, `graphql-yoga` 5.18.1 → **5.22.0**. Since 2026-09-01, `graphql` is on **17.0.2** — [§7](#7-the-move-to-17-2026-09-01). |
 | Is `graphql-yoga` 5.22.0 safe? | **Yes, and it is the load-bearing half.** 5.18.1 → 5.22.0 is entirely additive, and 5.21.3 patches a prototype-pollution vulnerability. |
-| Why not `graphql` 17.0.2? | Its `engines` excludes Node 20.6.1 — the Node that ships in Live 12 Suite. See [§3](#3-why-not-graphql-17). |
+| Why not `graphql` 17.0.2? | Its `engines` excluded the Node that shipped in Live 12 Suite at the time, v20.6.1. See [§3](#3-why-not-graphql-17) — and the banner above: the Suite is on v22.18.0 now, so this reason has expired. |
 | But does 17 actually work on 20.6.1? | **Yes, measured.** Byte-identical responses. It works by accident of one guarded call site, not by support. [§3.2](#32-why-17-survives-node-206-anyway) |
 | Do any v16 → v17 breaking changes hit this project? | **None.** All twelve miss. [§4](#4-the-v16--v17-breaking-changes-mapped-to-this-project) |
 | Did any behavior change at all? | **No.** Three stacks, identical output across query, mutation, error and GraphiQL paths. [§5](#5-verification) |
 | Did `scripts/refs.ts` need editing? | **No.** Both refs read their pin out of `package.json`, so re-fetching was the whole job. 17 *would* have needed two hand edits. [§6](#6-refs-impact) |
-| When do we revisit 17? | When Node for Max ships 22 in the **stable** Live release. The beta is already on 22.18.0. [§3.4](#34-the-trigger-to-revisit) |
+| When do we revisit 17? | **Now.** The trigger was "when Node for Max ships 22 in the stable Live release"; it did. [§3.4](#34-the-trigger-to-revisit) |
 
 ---
 
@@ -90,8 +100,10 @@ graphql@16.14.2 engines.node = "^12.22.0 || ^14.16.0 || ^16.0.0 || >=17.0.0"
 Confirmed by the upgrade guide's own first line, under **Platform Requirements**: "Node.js version:
 v17 requires `^22.0.0 || ^24.0.0 || ^25.0.0 || >=26.0.0`."
 
-Node for Max in **Live 12 Suite is v20.6.1** — outside that range. The Live 12 Beta is on 22.18.0,
-which is inside it. So 17 is supported on the beta runtime and unsupported on the shipping one.
+Node for Max in Live 12 Suite **was v20.6.1** when this was written — outside that range — while the
+Beta was on 22.18.0, inside it. So 17 was supported on the beta runtime and unsupported on the shipping
+one. As of 2026-09-01 the Suite is on 22.18.0 too and this paragraph is history; see the banner at the
+top.
 
 This is invisible at install time and will stay invisible. `pnpm install` runs under the Node on
 `PATH` (v26.7.0 here), which satisfies `>=26.0.0`, so the constraint is checked against a runtime
@@ -159,12 +171,20 @@ Four facts, taken together:
 The asymmetry decides it. Deferring 17 costs a pin bump later. Shipping a device that will not
 start under stable Live costs a hand-tested debugging session in someone else's DAW.
 
-### 3.4 The trigger to revisit
+### 3.4 The trigger to revisit — fired 2026-09-01
 
-When Node for Max ships **22** in the stable Live release — the beta already has 22.18.0. At that
-point 17 is in-support, and the move is a one-line pin change plus the two `refs.ts` edits in
+The trigger was Node for Max shipping **22** in the stable Live release. It has:
+
+```
+$ "/Applications/Ableton Live 12 Suite.app/…/Node for Max/source/bin/osx/node/node" --version
+v22.18.0
+```
+
+22.18.0 satisfies `^22.0.0 || ^24.0.0 || ^25.0.0 || >=26.0.0`, so 17 is in-support on the runtime the
+device actually uses. The move is a one-line pin change plus the two `refs.ts` edits in
 [§6.2](#62-what-17-would-have-required), both of which `refs.ts` already anticipates in its own
-comments.
+comments. Not done here; §4 and §5 say nothing in this project's usage is touched by v17, so the
+upgrade is a decision about appetite for churn, not about risk.
 
 ### 3.5 What 16.14.2 brings over 16.13.1
 
@@ -297,8 +317,8 @@ and `graphql-js-docs` still on `16` — correct for a 16.x pin, not stale.
 
 ### 6.2 What 17 would have required
 
-Two hand edits, both already called out in `refs.ts`'s own comments — worth recording so the future
-upgrade does not have to rediscover them.
+Both edits were made on 2026-09-01, exactly as written here — the predictions held with no surprises.
+Two hand edits, both already called out in `refs.ts`'s own comments.
 
 **`scripts/refs.ts:242-250` — the spec edition.** The comment states the rule and the target:
 
@@ -331,8 +351,64 @@ uses it.
 ### 6.3 Docs that did not need changing
 
 `AGENTS.md`'s Refs section describes `refs/graphql-spec/spec/` as "the edition graphql-js 16
-implements". Still accurate on a 16.x pin. It becomes wrong the moment `graphql` moves to 17, and
-should be updated in the same commit as [§6.2](#62-what-17-would-have-required).
+implements". Accurate on a 16.x pin, wrong the moment `graphql` moved to 17 — updated in the same pass
+as [§6.2](#62-what-17-would-have-required), along with the `api-v16` path in the line below it.
+
+---
+
+## 7. The move to 17 (2026-09-01)
+
+Taken once Live 12 Suite's bundled Node turned out to be v22.18.0. The work was exactly what
+[§6.2](#62-what-17-would-have-required) predicted:
+
+| Change | |
+| --- | --- |
+| `package.json` | `"graphql": "16.14.2"` → `"17.0.2"` |
+| `scripts/refs.ts` | spec `tag: "October2021"` → `"September2025"` |
+| `scripts/refs.ts` | crawl `api-v16` → `api-v17`, `version: "16"` → `"17"` |
+| `AGENTS.md` | Refs section: spec edition and the `api-v17/` path |
+| `refs/` | re-fetched `graphql`, `graphql-spec`, `graphql-js-docs`; `pnpm refs:check` clean |
+
+`graphql-yoga` needed nothing: 5.22.0's peer range already reads
+`^15.2.0 || ^16.0.0 || ^17.0.0` ([§2.1](#21-the-peer-range-widened-it-did-not-move)), and pnpm resolved
+`graphql-yoga@5.22.0_graphql@17.0.2` without a peer warning.
+
+### 7.1 Verification
+
+The three-stack byte-comparison of [§5](#5-verification) is superseded by the test suite that landed
+the same day: **42 assertions across the schema, resolvers, marker ordering, note payloads and every
+error string, green on `graphql@17.0.2` under both the PATH Node (v26.7.0) and the bundled v22.18.0**
+(`pnpm test`, `pnpm test:n4m`). That covers strictly more of the surface than the four hand-run curl
+stacks did.
+
+Three things the suite does not reach, checked by hand under the bundled Node:
+
+```
+graphiql: 200 text/html contains GraphiQL
+introspection: 33 types
+graphql: 17.0.2 node: v22.18.0
+```
+
+And [§4.1](#41-the-one-behavior-worth-checking-by-hand)'s load-bearing coercion claim, re-run on the
+installed 17.0.2 — identical to the table there, so `liveql-n4m.js:77-88` still holds:
+
+```
+Boolean(0) = false        Int(1.5)  = THROW
+Boolean(1) = true         Int("3")  = 3
+Boolean(2) = true         Float("3") = 3
+Boolean("0") = THROW      String(1) = "1"
+Boolean(null) = THROW     String(true) = "true"
+```
+
+`serialize` is still a function on the built-in scalars in 17 — renamed to `coerceOutputValue`,
+deprecated, not removed.
+
+### 7.2 One v17 tightening worth knowing
+
+`require("graphql/package.json")` no longer resolves: 17's `exports` map does not list it
+(`Cannot find module '.../graphql/package.json.mjs'`). Nothing in this project does that — the version
+is read from the workspace `package.json` — but a probe script that pokes at a dependency's own
+manifest will trip on it.
 
 ---
 

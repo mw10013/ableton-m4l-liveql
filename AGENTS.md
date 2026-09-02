@@ -13,14 +13,15 @@
 - `liveql-m4l.js` — Max JS (`v8` object). Talks to the LOM through `LiveAPI`, receives actions on its inlet, returns results on its outlet.
 - `liveql-n4m.js` — Node for Max script. Serves the GraphQL schema and resolvers with graphql-yoga; resolvers dispatch actions to the Max layer over `max-api` and await the matching result by `actionId`.
 - `scripts/refs.ts` — reference-source fetcher. The only TypeScript here, and the only place Effect is used.
+- `test/` — `node:test` suite. `test/helpers/` fakes the Max layer; `test/live/` is opt-in and needs Live.
 - `docs/` — research notes. Reference material for humans, not load-bearing: do not cite from code.
 - `dist/` — throwaway build output from `pnpm build:dist`. Never edit; rebuild it.
 
 ## Runtime
 
-- `liveql-n4m.js` runs under **Node for Max's bundled Node**, not the Node on your PATH (v20.6.1 in Live 12 Suite, v22.18.0 in the Live 12 Beta). It is CommonJS: `require`, no ESM, no bundler, no TypeScript.
+- `liveql-n4m.js` runs under **Node for Max's bundled Node**, not the Node on your PATH. That binary is **v22.18.0** — ask it, not the Node for Max README, which still claims v20.6.1 and is stale. It is CommonJS: `require`, no ESM, no bundler, no TypeScript.
 - `liveql-m4l.js` runs under Max's **`v8` object**, not Node. No `require`, no Node globals. Top-level `inlets`/`outlets` must be bare globals — `let`/`const` breaks Max's attribute binding. Mark helpers `fn.local = 1` so Max does not expose them as message handlers.
-- `node scripts/refs.ts` runs under the Node on your PATH and needs **>=22.18** for native TypeScript type stripping.
+- `node scripts/refs.ts` runs under the Node on your PATH and needs **>=22.18** for native TypeScript type stripping — the same floor the bundled Node sets, so `engines` carries one number.
 
 ## Refs
 
@@ -29,9 +30,9 @@ Downloaded reference sources are in `refs/`, pinned to the versions this workspa
 - **Live Object Model / Max docs**: `refs/m4l-docs/apiref/lom/` (crawled markdown; also `reference/`, `userguide/`)
 - **graphql-js**: `refs/graphql/src/` (the implementation the server executes against — resolver signatures, error shapes)
 - **graphql-yoga**: `refs/graphql-yoga/` (server used by `liveql-n4m.js`)
-- **GraphQL spec (October2021)**: `refs/graphql-spec/spec/` (the edition graphql-js 16 implements)
+- **GraphQL spec (September2025)**: `refs/graphql-spec/spec/` (the edition graphql-js 17 implements)
 - **GraphQL docs**: `refs/graphql-docs/learn/` (conceptual docs, crawled)
-- **graphql-js docs**: `refs/graphql-js-docs/docs/`, API reference in `api-v16/`
+- **graphql-js docs**: `refs/graphql-js-docs/docs/`, API reference in `api-v17/`
 - **Effect v4**: `refs/effect/ai-docs/`, source in `packages/` (only relevant to `scripts/refs.ts`)
 - **bang**: `refs/bang/` — a Shopify app, unrelated to Live. Here for its Effect and tooling patterns.
 - **prelive**: `refs/prelive/` — abandoned attempt at doing this as an Ableton Live extension. Kept for how it reached the object model.
@@ -39,15 +40,19 @@ Downloaded reference sources are in `refs/`, pinned to the versions this workspa
 ## Commands
 
 ```bash
+pnpm test               # node:test suite for the schema and resolvers, no Live needed
+pnpm test:n4m           # the same suite under Node for Max's bundled Node
+pnpm test:live          # opt-in end-to-end suite; needs Live and mutates the open Set
 pnpm refs:check         # report refs that drifted from their pins (exit 1 if any)
 pnpm refs fetch <name>  # re-fetch one ref; `pnpm refs:all` for every non-opt-in ref
 pnpm typecheck:scripts  # typecheck scripts/ (the only TypeScript in the repo)
 pnpm build:dist         # build the self-contained dist/ device (see README)
 ```
 
-- There is no test suite and no lint step. `pnpm test` is a placeholder that exits 1.
+- There is no lint step. `pnpm test` fakes `max-api` and drives the real schema through yoga, so it covers everything up to the `v8` boundary; run it, and `pnpm test:n4m`, after touching `liveql-n4m.js`.
+- `liveql-m4l.js` has no unit tests: a `LiveAPI` shim's fidelity is the very thing in question. `test/helpers/fake-lom.js` mirrors its wire contract instead, so a change to the bridge's output shape means a change there.
 - Run `pnpm typecheck:scripts` after editing `scripts/refs.ts`. Not necessary if just research.
-- The device itself is exercised by hand in Live: drop `liveql.amxd` on a track, click start, query `http://localhost:4000/graphql`. `curl` examples are in the README.
+- The device itself is exercised by hand in Live: drop `liveql.amxd` on a track, click start, query `http://localhost:4000/graphql`. `curl` examples are in the README. `pnpm test:live` is that session written as assertions.
 
 ## JavaScript Guidelines
 

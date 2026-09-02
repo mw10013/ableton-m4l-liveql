@@ -241,13 +241,12 @@ const REFS: ReadonlyArray<Ref> = [
   {
     name: "graphql-spec",
     repo: "graphql/graphql-spec",
-    // The edition graphql-js 16 implements, and the one its own documentation links to
-    // throughout (`spec.graphql.org/October2021/#sec-...`). Deliberately not the working
-    // draft: the draft is where the 17 line is heading, so on anything the two disagree
-    // about -- incremental delivery, the newer error semantics -- it would describe a
-    // runtime this project does not have. Bump alongside the `graphql` dependency, whose
-    // major picks the edition: 17 lands on September2025.
-    tag: "October2021",
+    // The edition graphql-js 17 implements, and the one its own documentation links to
+    // throughout (`spec.graphql.org/September2025/#sec-...`). Deliberately not the working
+    // draft: the draft is where the line after this one is heading, so on anything the two
+    // disagree about it would describe a runtime this project does not have. Bump alongside
+    // the `graphql` dependency, whose major picks the edition: 16 was October2021.
+    tag: "September2025",
   },
   {
     name: "bang",
@@ -326,18 +325,17 @@ const REFS: ReadonlyArray<Ref> = [
     // 404s. Hence a second ref rather than another arm on `graphql-docs`.
     crawl: {
       url: "https://www.graphql-js.org/docs/",
-      // `api-v16` only. The site publishes v16 and v17 reference side by side, and v17 is
-      // the unreleased line: its `execution` module documents incremental delivery and
-      // its `graphql` module a test harness, neither of which exists in the 16.x this
-      // project pins. Two references that disagree are worse than one, and grep cannot
-      // tell them apart. `upgrade-guides` is left out for the same reason.
+      // `api-v17` only. The site publishes v16 and v17 reference side by side; v16
+      // documents a runtime this project no longer pins. Two references that disagree are
+      // worse than one, and grep cannot tell them apart. `upgrade-guides` is left out for
+      // the same reason -- it describes the move, not the runtime.
       //
       // Bump this arm and `version` below together with the `graphql` dependency.
-      include: String.raw`^https://www\.graphql-js\.org/(docs|api-v16)(/|$)`,
-      // Matches the major of the `graphql` pin, so moving that dependency to 17 marks
-      // this copy stale. A crawl's version is a literal -- `resolve` never reads a
-      // package.json for one -- so this is a hand-kept mirror of that pin, not a read of it.
-      version: "16",
+      include: String.raw`^https://www\.graphql-js\.org/(docs|api-v17)(/|$)`,
+      // Matches the major of the `graphql` pin, so moving that dependency marks this copy
+      // stale. A crawl's version is a literal -- `resolve` never reads a package.json for
+      // one -- so this is a hand-kept mirror of that pin, not a read of it.
+      version: "17",
       // Same Nextra shell as graphql.org, minus the marketing pages: no `<header>` on any
       // page here, so the list is the site furniture and nothing else. No `browser`
       // either -- this site's code blocks are static `<pre>`, not the client-rendered

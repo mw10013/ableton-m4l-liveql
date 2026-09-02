@@ -51,8 +51,8 @@ Implementation, in `$N4M/source/lib/nsNPMCommand.js`:
 - `this._cwd = options.path` (line 38) — the script's own folder, i.e. **this repo's root**.
 - `this._args.push("--scripts-prepend-node-path=true")` (line 69).
 - Spawns `NPM_CMD_PATH` with `cwd: this.cwd` and a `PATH` prefixed with the bundled npm/npx/node
-  (lines 146-165). That is the **bundled npm 9.8.1 on the bundled Node 20.6.1**, not the pnpm on your
-  `PATH`.
+  (lines 146-165). That is the **bundled npm on the bundled Node** — 10.9.3 on v22.18.0 as of
+  2026-09-01, 9.8.1 on v20.6.1 when the runs below were captured — not the pnpm on your `PATH`.
 - Writes stderr to `npm-debug-<uniqID>.log` **inside the cwd** (line 42), and deletes it only on a
   zero exit (`await this._removeNPMDebug()`, line 268).
 
@@ -91,7 +91,7 @@ verbose unfinished npm timer idealTree:node_modules/.pnpm/pure-rand@8.4.2/node_m
 
 **Cause:** npm's arborist walks the existing `node_modules` to build the ideal tree, descends into pnpm's
 virtual store `node_modules/.pnpm/**`, and hits a peer-resolution edge it has no node for. pnpm's layout
-is a symlink farm plus a `.pnpm` store; npm 9.8.1 has no concept of it. This is not fixable by ordering or
+is a symlink farm plus a `.pnpm` store; the bundled npm has no concept of it. This is not fixable by ordering or
 flags — the two package managers disagree about what `node_modules` *is*.
 
 So on this machine the button has never done anything except leave a log file behind.
@@ -121,7 +121,7 @@ npm WARN EBADENGINE   current: { node: 'v20.6.1', npm: '9.8.1' }
 ```
 
 `undici` arrives via `@effect/platform-node`, a devDependency, and wants a Node newer than the one Live 12
-Suite ships. A user clicking this button gets warnings about a package the device never loads.
+Suite ships — still true on the v22.18.0 binary, which misses `>=22.19.0` by a patch. A user clicking this button gets warnings about a package the device never loads.
 
 **In `dist/` it silently undoes the build.** `pnpm build:dist` produces a prod-only, flat (hoisted) tree:
 9.2 MB, 13 top-level entries. Running the same command there:
@@ -254,9 +254,9 @@ mkdir clean && cp package.json clean/ && cd clean
 cp -Rc dist distrepro && cd distrepro
 "$N4M/source/bin/osx/npm/npm" install --dry-run --scripts-prepend-node-path=true   # added 49 packages
 
-# Versions in play
-"$N4M/source/bin/osx/node/node" --version   # v20.6.1
-"$N4M/source/bin/osx/npm/npm"   --version   # 9.8.1
+# Versions in play (2026-09-01; v20.6.1 / 9.8.1 when the runs above were captured)
+"$N4M/source/bin/osx/node/node" --version   # v22.18.0
+"$N4M/source/bin/osx/npm/npm"   --version   # 10.9.3
 ```
 
 | Claim | Source |

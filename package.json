@@ -4,7 +4,10 @@
   "description": "",
   "main": "liveql-n4m.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "//test": "The globs are expanded by the shell into file paths: Node 22's test runner treats a bare directory argument as a file to run, and discovering a directory named test would also pick up test/helpers/*.js as test files. test:n4m runs the same suite under the Node binary the device actually uses; the path is the Live 12 Suite one, other Live editions differ. test:live mutates the open Live Set.",
+    "test": "node --test test/*.test.js",
+    "test:n4m": "\"/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Max/Max.app/Contents/Resources/C74/packages/Node for Max/source/bin/osx/node/node\" --test test/*.test.js",
+    "test:live": "LIVEQL_E2E=1 node --test test/live/*.test.js",
     "refs": "node scripts/refs.ts",
     "refs:all": "node scripts/refs.ts fetch --all",
     "refs:check": "node scripts/refs.ts check",
@@ -14,7 +17,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "graphql": "16.14.2",
+    "graphql": "17.0.2",
     "graphql-yoga": "5.22.0"
   },
   "devDependencies": {
@@ -23,9 +26,9 @@
     "effect": "4.0.0-rc.112",
     "typescript": "7.0.2"
   },
-  "//engines": "liveql-n4m.js runs under Node for Max's bundled Node (v20.6.1 in Live 12 Suite, v22.18.0 in the Live 12 Beta), not the Node on your PATH -- this floor describes that runtime. Separately, `node scripts/refs.ts` needs Node >=22.18 for native TypeScript type stripping.",
+  "//engines": "Node for Max bundles v22.18.0 -- `\"$N4M/source/bin/osx/node/node\" --version`, not the Node on your PATH; the Node for Max README claiming v20.6.1 is stale, the binary is what runs. That is also the floor `node scripts/refs.ts` needs for native TypeScript type stripping, so one number covers both.",
   "engines": {
-    "node": ">=20.6.0"
+    "node": ">=22.18.0"
   },
   "packageManager": "pnpm@10.17.1"
 }
