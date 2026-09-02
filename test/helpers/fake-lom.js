@@ -352,6 +352,18 @@ function createLom() {
       case "remove_notes_by_id":
         notes[o.id] = notesOf(o.id).filter((n) => !args.includes(n.note_id));
         return null;
+      /**
+       * Selects the same half-open pitch/onset window `get_notes_extended`
+       * does, and removes what it selects: `clip_replace_notes` derives its
+       * deletion window from a snapshot on the assumption those two agree.
+       */
+      case "remove_notes_extended": {
+        const [fromPitch, pitchSpan, fromTime, timeSpan] = args;
+        notes[o.id] = notesOf(o.id).filter((n) => !(
+          n.pitch >= fromPitch && n.pitch < fromPitch + pitchSpan &&
+          n.start_time >= fromTime && n.start_time < fromTime + timeSpan));
+        return null;
+      }
       default: return null;
     }
   };

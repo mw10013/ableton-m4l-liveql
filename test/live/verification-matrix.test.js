@@ -315,10 +315,95 @@ describe("live", { skip: SKIP }, () => {
     record("clip_write_notes step failure", message);
     assert.match(
       message,
-      /clip_write_notes step apply_note_modifications failed after add_new_notes \(ids \d+\): liveql: apply_note_modifications on \d+: ignored because these note_ids are not in the clip: 999999$/
+      /clip_write_notes step apply_note_modifications failed after add_new_notes \(ids \d+\): apply_note_modifications on \d+: ignored because these note_ids are not in the clip: 999999$/
     );
     const added = message.match(/ids ([\d,]+)/)[1];
     await data(`mutation { clip_remove_notes_by_id(id: ${clip}, note_ids: [${added}]) { id } }`);
+  });
+
+  /**
+   * `clip_replace_notes` derives its deletion window from a snapshot on the
+   * assumption `remove_notes_extended` selects by onset over a half-open
+   * window, the way `get_notes_extended` does. Only Live can confirm that the
+   * derived window really reaches the extremes: pitch 0 and 127, an onset
+   * behind the start marker, and one past the loop.
+   */
+  describe("clip_replace_notes", () => {
+    const REGION = { looping: true, start_marker: 0, end_marker: 8, loop_start: 0, loop_end: 8 };
+    const FULL = { pitch: 61, start_time: 1.5, duration: 0.75, velocity: 93, mute: true, probability: 0.5, velocity_deviation: -7, release_velocity: 33 };
+    const replace = (notes) =>
+      gql(`mutation ($n: [ReplacementNoteInput!]!) { clip_replace_notes(id: ${clip}, notes: $n) { ${CLIP_STATE} } }`, { n: notes });
+    const allNotes = async () =>
+      (await data(`{ clip(id: ${clip}) { get_all_notes_extended { notes { ${NOTE} } } } }`)).clip.get_all_notes_extended.notes;
+
+    async function seed(notes) {
+      const stale = (await allNotes()).map((n) => n.note_id);
+      if (stale.length > 0) await data(`mutation { clip_remove_notes_by_id(id: ${clip}, note_ids: [${stale}]) { id } }`);
+      await data(`mutation ($p: ClipPropertiesInput!) { clip_set_properties(id: ${clip}, properties: $p) { id } }`, { p: REGION });
+      if (notes.length > 0) {
+        await data(`mutation ($n: [NoteInput!]!) { clip_add_new_notes(id: ${clip}, notes: $n) { note_ids } }`, {
+          n: notes.map((n) => ({ velocity: 100, duration: 0.25, ...n })),
+        });
+      }
+      return allNotes();
+    }
+
+    it("empties a clip given an empty list", async () => {
+      await seed([{ pitch: 60, start_time: 0 }, { pitch: 64, start_time: 1 }]);
+      const response = await replace([]);
+      assert.equal(response.errors, undefined, JSON.stringify(response.errors));
+      assert.deepEqual(await allNotes(), []);
+    });
+
+    it("deletes the extremes of the snapshot window and adds the new list fresh", async () => {
+      const seeded = await seed([
+        { pitch: 0, start_time: 0 },
+        { pitch: 127, start_time: 7.75 },
+        { pitch: 60, start_time: 3 },
+      ]);
+      record("seeded onsets", seeded.map((n) => `${n.pitch}@${n.start_time}`).join(" "));
+      const response = await replace([{ ...FULL, start_time: 2 }]);
+      assert.equal(response.errors, undefined, JSON.stringify(response.errors));
+      const after = await allNotes();
+      assert.equal(after.length, 1, `expected only the replacement, got ${after.length}`);
+      assert.equal(after[0].pitch, 61);
+      assert.ok(
+        !seeded.some((n) => n.note_id === after[0].note_id),
+        "a replacement kept an old note_id"
+      );
+    });
+
+    it("round-trips every modeled field", async () => {
+      await seed([]);
+      await replace([FULL]);
+      const [{ note_id: _id, ...note }] = await allNotes();
+      assert.deepEqual(note, FULL);
+    });
+
+    /**
+     * Whether a note can sit behind the start marker at all is Live's call, not
+     * LiveQL's, so this records what the seed produced before asserting the
+     * replacement cleared whatever landed.
+     */
+    it("covers an onset behind the start marker", async () => {
+      const seeded = await seed([{ pitch: 60, start_time: -2 }]);
+      record("note seeded at start_time -2 landed at", seeded.map((n) => n.start_time).join(", ") || "(nothing)");
+      await replace([{ ...FULL, start_time: 0 }]);
+      const after = await allNotes();
+      assert.equal(after.length, 1, `expected only the replacement, got ${after.length}`);
+      assert.equal(after[0].start_time, 0);
+    });
+
+    it("rejects an audio clip before changing it", async (t) => {
+      const audio = (await data(`{ live_set { tracks { clip_slots { clip { id is_midi_clip } } } } }`))
+        .live_set.tracks.flatMap((tr) => tr.clip_slots.map((s) => s.clip)).find((c) => c && !c.is_midi_clip);
+      if (!audio) return t.skip("no audio clip in the Set");
+      const response = await gql(
+        `mutation ($n: [ReplacementNoteInput!]!) { clip_replace_notes(id: ${audio.id}, notes: $n) { id } }`,
+        { n: [FULL] }
+      );
+      assert.match(response.errors[0].message, /clip_replace_notes step preflight failed: clip \d+ is not a MIDI clip$/);
+    });
   });
 
   /**

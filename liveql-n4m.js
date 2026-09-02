@@ -67,6 +67,15 @@ async function exec(params) {
   });
 }
 
+/**
+ * Strips the `liveql: ` that `exec` already put on a bridge failure. The
+ * composite mutations re-wrap that error with the step that produced it, and
+ * without this the message carries the prefix twice.
+ */
+function unprefix(message) {
+  return message.replace(/^liveql: /, "");
+}
+
 Max.addHandler("result", async (json) => {
   const result = JSON.parse(json);
   const handler = actionResultHandlers.get(result.actionId);
@@ -429,6 +438,22 @@ const typeDefs = /* GraphQL */ `
     remove_notes_by_id: [Int!]
   }
 
+  """
+  Every member of a note, none optional and no note_id: a replacement note is
+  not an edit of an existing one, so there is nothing to carry over and nothing
+  to default.
+  """
+  input ReplacementNoteInput {
+    pitch: Int!
+    start_time: Float!
+    duration: Float!
+    velocity: Float!
+    mute: Boolean!
+    probability: Float!
+    velocity_deviation: Float!
+    release_velocity: Float!
+  }
+
   type Query {
     live_set: Song!
     live_app: Application!
@@ -532,6 +557,14 @@ const typeDefs = /* GraphQL */ `
     with clip(id) rather than retrying the same payload.
     """
     clip_write_notes(id: Int!, input: ClipWriteNotesInput!): ClipNotesPayload
+    """
+    Destructively replaces every note in the clip with the given list: the
+    existing notes are read, deleted wholesale, and the list added fresh, so
+    every note comes back with a new note_id. Not atomic: a failure after the
+    delete leaves the clip empty or partly rewritten, and the error names the
+    step. Rejects a non-MIDI clip before changing anything.
+    """
+    clip_replace_notes(id: Int!, notes: [ReplacementNoteInput!]!): Clip
     clip_fire(id: Int!): Clip
     clip_stop(id: Int!): Clip
     clip_select_all_notes(id: Int!): Clip
@@ -1277,7 +1310,7 @@ const resolvers = {
         } catch (err) {
           const after =
             added.length > 0 ? ` after add_new_notes (ids ${added.join(",")})` : "";
-          throw new Error(`liveql: clip_write_notes step ${name} failed${after}: ${err.message}`);
+          throw new Error(`liveql: clip_write_notes step ${name} failed${after}: ${unprefix(err.message)}`);
         }
       };
       if (input.properties) {
@@ -1299,6 +1332,50 @@ const resolvers = {
         );
       }
       return { clip: await getClip(id), note_ids: added };
+    },
+    /**
+     * The second mutation with no LOM counterpart: one request for a whole-clip
+     * rewrite. `remove_notes_extended` needs a finite window rather than a
+     * global one, so the window is derived from the snapshot taken immediately
+     * before it — pitches 0-127, and onsets from the earliest through one beat
+     * past the latest, which puts every observed note strictly inside the
+     * half-open window the function selects by. Confirmed in Live that the
+     * window reaches the extremes: pitch 0 and 127, an onset past the end
+     * marker, and a note at start_time -2 (Live keeps one there) are all
+     * deleted. Notes added in Live between the snapshot and the delete may
+     * survive; concurrent editing is unsupported.
+     * The returned ids of `add_new_notes` are dropped: the caller re-reads the
+     * clip rather than reconciling identities that no longer mean anything.
+     */
+    clip_replace_notes: async (parent, args) => {
+      const { id, notes } = args;
+      const step = async (name, fn) => {
+        try {
+          return await fn();
+        } catch (err) {
+          throw new Error(`liveql: clip_replace_notes step ${name} failed: ${unprefix(err.message)}`);
+        }
+      };
+      await step("preflight", async () => {
+        if (!(await getClip(id)).is_midi_clip) {
+          throw new Error(`clip ${id} is not a MIDI clip`);
+        }
+      });
+      const existing = await step(
+        "snapshot",
+        async () => sortJsonNotesDictionary(await call(id, "get_all_notes_extended")).notes
+      );
+      if (existing.length > 0) {
+        const starts = existing.map((n) => n.start_time);
+        const fromTime = Math.min(...starts);
+        await step("remove_notes_extended", () =>
+          call(id, "remove_notes_extended", 0, 128, fromTime, Math.max(...starts) + 1 - fromTime)
+        );
+      }
+      if (notes.length > 0) {
+        await step("add_new_notes", () => addNewNotes(id, notes));
+      }
+      return step("readback", () => getClip(id));
     },
     clip_fire: async (parent, args) => {
       await call(args.id, "fire");

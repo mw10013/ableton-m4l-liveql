@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const { describe, it, beforeEach } = require("node:test");
 const { createServer, errorMessage } = require("./helpers/server");
+const { DEFAULT_NOTE } = require("./helpers/fake-lom");
 
 const ADD = `mutation ($n: [NoteInput!]!) { clip_add_new_notes(id: 40, notes: $n) { note_ids clip { id } } }`;
 const TWO_NOTES = [
@@ -152,7 +153,7 @@ describe("notes", () => {
     assert.equal(
       errorMessage(response),
       "liveql: clip_write_notes step apply_note_modifications failed after add_new_notes (ids 100,101): " +
-        "liveql: apply_note_modifications on 40: ignored because these note_ids are not in the clip: 999"
+        "apply_note_modifications on 40: ignored because these note_ids are not in the clip: 999"
     );
   });
 
@@ -162,5 +163,111 @@ describe("notes", () => {
     );
     assert.equal(errors, undefined);
     assert.deepEqual(lom.log, []);
+  });
+
+  describe("replace", () => {
+    const REPLACE = `mutation ($n: [ReplacementNoteInput!]!) { clip_replace_notes(id: 40, notes: $n) { id } }`;
+    const replacement = (note) => ({
+      pitch: 60, start_time: 0, duration: 1, velocity: 100,
+      mute: false, probability: 1, velocity_deviation: 0, release_velocity: 64,
+      ...note,
+    });
+    const stored = (note) => ({ note_id: 1, ...DEFAULT_NOTE, ...note });
+    const fns = () => lom.log.map(([, , fn]) => fn);
+    const ALL_NOTES = `{ clip(id: 40) { get_all_notes_extended { notes { note_id pitch start_time duration velocity mute probability velocity_deviation release_velocity } } } }`;
+
+    it("neither deletes nor adds for an empty clip and an empty list", async () => {
+      lom.notes[40] = [];
+      const { errors } = await gql(REPLACE, { n: [] });
+      assert.equal(errors, undefined);
+      assert.deepEqual(fns(), ["get_all_notes_extended"]);
+    });
+
+    it("empties a clip given an empty list", async () => {
+      const { errors } = await gql(REPLACE, { n: [] });
+      assert.equal(errors, undefined);
+      assert.deepEqual(fns(), ["get_all_notes_extended", "remove_notes_extended"]);
+      assert.deepEqual(lom.notes[40], []);
+    });
+
+    it("adds without deleting when the clip is empty", async () => {
+      lom.notes[40] = [];
+      const { errors } = await gql(REPLACE, { n: [replacement({ pitch: 64 })] });
+      assert.equal(errors, undefined);
+      assert.deepEqual(fns(), ["get_all_notes_extended", "add_new_notes"]);
+      assert.deepEqual(lom.notes[40].map((n) => [n.note_id, n.pitch]), [[100, 64]]);
+    });
+
+    it("derives a deletion window covering every pitch and onset in the snapshot", async () => {
+      lom.notes[40] = [
+        stored({ note_id: 1, pitch: 0, start_time: -2 }),
+        stored({ note_id: 2, pitch: 127, start_time: 9.5 }),
+      ];
+      const { errors } = await gql(REPLACE, { n: [replacement({ start_time: 4 })] });
+      assert.equal(errors, undefined);
+      assert.deepEqual(
+        lom.log.find(([, , fn]) => fn === "remove_notes_extended").slice(3),
+        [0, 128, -2, 12.5]
+      );
+      assert.deepEqual(lom.notes[40].map((n) => n.note_id), [100]);
+    });
+
+    it("round-trips every modeled field", async () => {
+      const note = replacement({
+        pitch: 61, start_time: 1.5, duration: 0.75, velocity: 93,
+        mute: true, probability: 0.5, velocity_deviation: -7, release_velocity: 33,
+      });
+      await gql(REPLACE, { n: [note] });
+      const { data } = await gql(ALL_NOTES);
+      assert.deepEqual(data.clip.get_all_notes_extended.notes, [{ note_id: 100, ...note }]);
+    });
+
+    it("changes nothing when the snapshot fails", async () => {
+      lom.calls.get_all_notes_extended = () => { throw "boom"; };
+      const response = await gql(REPLACE, { n: [replacement({})] });
+      assert.equal(response.data.clip_replace_notes, null);
+      assert.equal(errorMessage(response), "liveql: clip_replace_notes step snapshot failed: call get_all_notes_extended on 40: boom");
+      assert.deepEqual(fns(), ["get_all_notes_extended"]);
+    });
+
+    it("does not add when the delete fails", async () => {
+      lom.calls.remove_notes_extended = () => { throw "boom"; };
+      const response = await gql(REPLACE, { n: [replacement({})] });
+      assert.equal(response.data.clip_replace_notes, null);
+      assert.equal(errorMessage(response), "liveql: clip_replace_notes step remove_notes_extended failed: call remove_notes_extended on 40: boom");
+      assert.deepEqual(fns(), ["get_all_notes_extended", "remove_notes_extended"]);
+      assert.deepEqual(lom.notes[40].map((n) => n.note_id), [1]);
+    });
+
+    it("names the add step and leaves the clip emptied", async () => {
+      lom.calls.add_new_notes = () => { throw "boom"; };
+      const response = await gql(REPLACE, { n: [replacement({})] });
+      assert.equal(response.data.clip_replace_notes, null);
+      assert.equal(errorMessage(response), "liveql: clip_replace_notes step add_new_notes failed: call add_new_notes on 40: boom");
+      assert.deepEqual(lom.notes[40], []);
+    });
+
+    it("names the readback step after the notes are already written", async () => {
+      lom.calls.add_new_notes = (args, o) => {
+        delete lom.objects[o.id];
+        return ["id", 100];
+      };
+      const response = await gql(REPLACE, { n: [replacement({})] });
+      assert.equal(response.data.clip_replace_notes, null);
+      assert.match(errorMessage(response), /^liveql: clip_replace_notes step readback failed: /);
+    });
+
+    it("rejects an audio clip before changing it", async () => {
+      const response = await gql(
+        `mutation ($n: [ReplacementNoteInput!]!) { clip_replace_notes(id: 50, notes: $n) { id } }`,
+        { n: [replacement({})] }
+      );
+      assert.equal(response.data.clip_replace_notes, null);
+      assert.equal(
+        errorMessage(response),
+        "liveql: clip_replace_notes step preflight failed: clip 50 is not a MIDI clip"
+      );
+      assert.deepEqual(lom.log, []);
+    });
   });
 });

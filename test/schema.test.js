@@ -18,7 +18,7 @@ const MUTATION_PREFIX = {
 };
 const INVENTED_FIELDS = ["id", "properties", "input"];
 const INVENTED_ARGS = ["id", "properties", "input"];
-const INVENTED_MUTATIONS = ["write_notes"];
+const INVENTED_MUTATIONS = ["write_notes", "replace_notes"];
 
 /**
  * The LOM vocabulary as the reference docs spell it: `### name` headings cover
