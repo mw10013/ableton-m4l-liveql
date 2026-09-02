@@ -18,15 +18,55 @@ describe("song", () => {
     assert.deepEqual(data.live_set.scale_intervals, [0, 2, 4, 5, 7, 9, 11]);
   });
 
+  /**
+   * Live answers 1 for a member a track does not have rather than reporting it
+   * missing, so every one of these would read as a confident lie - arm true on
+   * a track that cannot be armed - if the resolver trusted the value instead of
+   * the capability flags.
+   */
   it("resolves the members Live omits on the master track as null", async () => {
-    const { data } = await gql("{ live_set { master_track { name can_be_armed arm solo mute fold_state } } }");
+    const { data } = await gql(
+      "{ live_set { master_track { name can_be_armed arm mute solo fold_state playing_slot_index fired_slot_index clip_slots { id } } } }"
+    );
     assert.deepEqual(data.live_set.master_track, {
       name: "Master",
       can_be_armed: false,
       arm: null,
+      mute: null,
       solo: null,
-      mute: false,
       fold_state: null,
+      playing_slot_index: null,
+      fired_slot_index: null,
+      clip_slots: [],
+    });
+  });
+
+  it("keeps mute and solo on a return track, which has them", async () => {
+    const { data } = await gql(
+      "{ live_set { return_tracks { name arm mute solo fold_state playing_slot_index clip_slots { id } } } }"
+    );
+    assert.deepEqual(data.live_set.return_tracks, [{
+      name: "A Return",
+      arm: null,
+      mute: false,
+      solo: false,
+      fold_state: null,
+      playing_slot_index: null,
+      clip_slots: [],
+    }]);
+  });
+
+  it("keeps every one of those members on a regular track", async () => {
+    const { data } = await gql(
+      "{ live_set { tracks { name arm mute solo playing_slot_index fired_slot_index } } }"
+    );
+    assert.deepEqual(data.live_set.tracks[0], {
+      name: "MIDI",
+      arm: false,
+      mute: false,
+      solo: false,
+      playing_slot_index: -1,
+      fired_slot_index: -1,
     });
   });
 

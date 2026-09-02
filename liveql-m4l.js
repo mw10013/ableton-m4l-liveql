@@ -45,9 +45,25 @@ outletFailedResult.local = 1; // prevent Max from exposing as a message handler
  * recorded only when `LiveAPI.get` yields exactly one value, so a member Live
  * omits on this object reads as an empty list and drops out of the result; a
  * child is the id at index 1, where `id 0` means none; a child list is the ids
- * with the `id` tokens stripped. `test/helpers/fake-lom.js` mirrors these four
+ * with the `id` tokens stripped. Every one of those reads is coerced because
+ * `LiveAPI.get` does not always answer with an array: a return track's
+ * `clip_slots` came back as something whose `.filter` is not a function, which
+ * took out the whole object read. A non-array child list is treated as no
+ * children, and a missing single child as none. `test/helpers/fake-lom.js` mirrors these four
  * loops, so a change to what this function outlets means a change there.
  */
+/**
+ * A child id in a `LiveAPI.get` result, as opposed to the `id` tokens that
+ * separate them or the junk Live pads an empty child list with. A track with no
+ * clip slots (a return or master track) answers `clip_slots` with the empty
+ * symbol rather than an empty list, and `id 0` is the LOM's way of saying no
+ * child, so neither is an id to resolve.
+ */
+function isChildId(v) {
+  return v !== "id" && v !== 0 && v !== "" && v !== undefined && v !== null;
+}
+isChildId.local = 1;
+
 function get(json) {
   let actionId = null;
   try {
@@ -62,23 +78,27 @@ function get(json) {
     };
 
     for (const k of params.propertyKeysSingle || []) {
-      const propertyArr = live.get(k);
+      const raw = live.get(k);
+      const propertyArr = Array.isArray(raw) ? raw : raw === undefined || raw === null ? [] : [raw];
       if (propertyArr.length === 1) {
         o[k] = propertyArr[0];
       }
     }
 
     for (const k of params.propertyKeysMultiple || []) {
-      o[k] = live.get(k);
+      const raw = live.get(k);
+      o[k] = Array.isArray(raw) ? raw : raw === undefined || raw === null ? [] : [raw];
     }
 
     for (const k of params.childKeysSingle || []) {
-      const id = live.get(k)[1];
-      o[k] = id === 0 ? null : id;
+      const raw = live.get(k);
+      const id = Array.isArray(raw) ? raw[1] : undefined;
+      o[k] = isChildId(id) ? id : null;
     }
 
     for (const k of params.childKeysMultiple || []) {
-      o[k] = live.get(k).filter((v) => v !== "id");
+      const raw = live.get(k);
+      o[k] = Array.isArray(raw) ? raw.filter(isChildId) : [];
     }
 
     outletSuccessfulResult(actionId, o);

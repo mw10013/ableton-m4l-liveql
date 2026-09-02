@@ -33,7 +33,7 @@ Every name in the schema is a Live Object Model (LOM) name, taken from `refs/m4l
 | Before | After | Notes |
 | --- | --- | --- |
 | `Clip.notes: [Note!]` | `Clip.get_all_notes_extended: NotesDictionary` | Select `{ notes { ... } }`. In the LOM `notes` is an observer bang, not a list, so the old name collided |
-| `clip_add_new_notes(id, notes_dictionary: { notes: [...] })` returns `Clip` | `clip_add_new_notes(id, notes: [NoteInput!]!)` returns `ClipNotesPayload { clip, note_ids }` | `note_ids` are the ids Live assigned, in input order (order unverified in Live, see below) |
+| `clip_add_new_notes(id, notes_dictionary: { notes: [...] })` returns `Clip` | `clip_add_new_notes(id, notes: [NoteInput!]!)` returns `ClipNotesPayload { clip, note_ids }` | `note_ids` are the ids Live assigned, in input order (confirmed in Live) |
 | `clip_apply_note_modifications(id, notes_dictionary: { notes })` | `clip_apply_note_modifications(id, notes: [NoteInput!]!)` | Now fails with an error naming missing `note_id`s instead of silently doing nothing |
 | `clip_remove_notes_by_id(id, ids)` | `clip_remove_notes_by_id(id, note_ids)` | |
 | `clip_get_all_notes_extended`, `clip_get_notes_extended`, `clip_get_selected_notes_extended` mutations | `Clip.get_all_notes_extended`, `Clip.get_notes_extended(...)`, `Clip.get_selected_notes_extended` fields | Removed as mutations |
@@ -304,18 +304,138 @@ Every failure is a GraphQL error whose message names the LOM operation:
 that with the step name. Prelive can match on the `liveql:` prefix and the step name; do not match on
 Live's text.
 
-## Not Yet Verified In Live
+## Verified In Live
 
-Behaviour that the LOM documents but the implementer could not confirm without a Live session. Each is
-marked in a resolver JSDoc in `liveql-n4m.js`. Prelive should not depend on these until checked:
+`pnpm test:live` (`test/live/verification-matrix.test.js`) passes against a running Set — 15 cases,
+all assertions, no manual steps except the one noted below. Prelive can depend on all of this:
 
-1. The shape `LiveAPI.call("add_new_notes", ...)` returns under `v8`, and that `note_ids` come back in
-   input order. The resolver normalizes any list-like shape to its integers.
-2. Whether `LiveAPI.set("detail_clip", "id 12")` accepts the string form. If not, the fix is one helper
-   (`idArg`) in `liveql-n4m.js`.
-3. Whether `loop_start`/`loop_end` alias `start_marker`/`end_marker` on unlooped clips.
-4. The int mapping of `quantization_grid` for `clip_quantize` and `ClipView.grid_quantization`.
-5. Whether empty symbols (`Song.name` on an unsaved Set) come back as an empty list; the resolvers
-   default such fields to `""` either way.
+1. `clip_add_new_notes` returns exactly one id per input note, in input order.
+2. Child setters accept the target's id (`song_view_set_detail_clip`) — the `id N` atom form works
+   for `set`, not only for construction.
+3. Marker batches that grow and that shrink the region both read back exactly as requested, so the
+   ordering rule holds.
+4. A `start_marker` set behind the end marker is **silently dropped** — no error, the old value
+   stays. So always compare the returned clip with what you asked for.
+5. On an unlooped clip `loop_start`/`loop_end` **do** alias `start_marker`/`end_marker`, and
+   `end_time` follows `end_marker` unlooped, `loop_end` looped. The effective-range rule
+   (`looping ? [loop_start, loop_end] : [start_marker, end_marker]`) is therefore safe either way.
+6. `Song.name` and `file_path` on an unsaved Set come back as `""`, not a dropped field.
+7. `clip(id)` with a track id, and `track(id)` with an unknown id, return `null` with no `errors`.
+8. `Clip.get_notes_by_id` with an id that is not in the clip returns `notes: []`.
+9. The composite failure message is literally `liveql: clip_write_notes step <step> failed after
+   add_new_notes (ids <n>): liveql: apply_note_modifications on <id>: ignored because these note_ids
+   are not in the clip: <ids>`, so matching on the step name is safe.
 
-The full ten-item verification matrix is in `docs/liveql-note-editing-enhancement-research.md`.
+### `clip_duplicate_notes_by_id` default placement
+
+Omitting `destination_time` shifts every copy by **the span of the selection** — its last note end
+minus its first note start. Measured in Live:
+
+| Selection | Shift |
+| --- | --- |
+| one sixteenth at 0 | 0.25 |
+| one note at 0.3, duration 0.25 | 0.25 (float, *not* snapped to the grid) |
+| chord at 0, durations 0.5 / 1 / 2 | 2 (the longest note) |
+| notes at 0 and 2, duration 0.25 | 2.25 |
+| note at 7.5, duration 2 (ends past `loop_end` 8) | 2 |
+
+Copies keep their durations and their relative offsets, nothing snaps to `view.grid_quantization`,
+and copies landing beyond `loop_end` **do not** extend the clip's region — Prelive extends it itself
+if it wants the copies inside the loop.
+
+### `clip_quantize` grid mapping
+
+`quantization_grid` is Live's Quantize dialog in menu order, measured by quantizing notes off every
+grid and reading where they land. One beat is a quarter note.
+
+| `quantization_grid` | Grid | Step in beats |
+| --- | --- | --- |
+| 0 | no quantization (no-op) | — |
+| 1 | 1/4 | 1 |
+| 2 | 1/8 | 0.5 |
+| 3 | 1/8T | 1/3 |
+| 4 | 1/8 + 1/8T | 0.5 and 1/3 |
+| 5 | 1/16 | 0.25 |
+| 6 | 1/16T | 1/6 |
+| 7 | 1/16 + 1/16T | 0.25 and 1/6 |
+| 8 | 1/32 | 0.125 |
+| 9 and up | silently ignored — no error, nothing moves | — |
+
+Quantizing takes `Song.swing_amount` into account, so zero it first for an exact grid.
+
+**This is not the `ClipView.grid_quantization` enum.** That one is Off plus Live's nine Fixed Grid
+entries, coarse to fine, and takes a different int for the same musical grid — a 1/16 grid is `5`
+for `clip_quantize` and `8` for the view. Prelive must not reuse one value for the other.
+
+### `ClipView.grid_quantization` mapping
+
+`0`, `5` and `9` were read directly off the grid label in the top right of Live's note editor; the
+rest follow from the count (ten values, nine Fixed Grid entries plus Off) and the menu's order.
+
+| `grid_quantization` | Grid |
+| --- | --- |
+| 0 | Off — the editor's Snap to Grid is unchecked |
+| 1 | 8 Bars |
+| 2 | 4 Bars |
+| 3 | 2 Bars |
+| 4 | 1 Bar |
+| 5 | 1/2 |
+| 6 | 1/4 |
+| 7 | 1/8 |
+| 8 | 1/16 |
+| 9 | 1/32 |
+
+Anything outside `0`-`9` is ignored and leaves the current value — no error. The menu's Adaptive
+Grid entries (Widest … Narrowest) are **not** reachable through this property, and Triplet Grid is
+the separate `grid_is_triplet` bool.
+
+## Absent Members Read As `1`, Not As Missing
+
+The last open question has a worse answer than either option it offered. A LOM member an object does
+not have neither throws nor reads back empty: **`LiveAPI.get` answers `1`**. Unguarded, that surfaces
+as a confident lie — `arm: true` on a track whose `can_be_armed` is `false`, `mute: true` and
+`solo: true` on the master track, `fold_state: 1` on every track that does not fold, and
+`playing_slot_index: 1` on return and master tracks where a regular track correctly says `-1`.
+
+The capability flags themselves read correctly, so nullability is now derived from them rather than
+from the value:
+
+| Field | Null when |
+| --- | --- |
+| `arm` | `can_be_armed` is false |
+| `mute`, `solo` | the track is the master track (by `path`) |
+| `fold_state` | `is_foldable` is false |
+| `playing_slot_index`, `fired_slot_index` | the track has no clip slots |
+
+Return tracks keep real `mute` and `solo` — they have both in Live — so the guard is not simply
+"return or master". `pnpm test` covers each case against a fake that now returns Live's `1`, and
+`pnpm test:live` asserts both the nulls and that a regular track keeps every one of these values.
+
+**For Prelive:** treat `null` as "this kind of track does not have it", and do not infer a track's
+kind from a member being present.
+
+## Fixed While Verifying
+
+1. `get_notes_by_id` crashed with `data.notes is not iterable` for **any** id not in the clip: Live
+   answers with a dictionary that has no `notes` key at all, not `{"notes": []}`, and the resolver
+   spread it unguarded. This took out `clip_apply_note_modifications`' stale-id pre-check, so a
+   composite write with a stale id raised a raw TypeError instead of naming the ids.
+2. Reading **any** return or master track failed with
+   `TypeError: live.get(...).filter is not a function`. A track with no clip slots answers
+   `clip_slots` with the empty symbol instead of an empty list, which threw inside `liveql-m4l.js`
+   and took the whole object read with it — even `{ id name }` failed. All four read loops in the
+   bridge now coerce, and the empty symbol and `id 0` are filtered out as non-ids.
+3. The junk described above: `arm`, `mute`, `solo`, `fold_state` and the slot indexes were returning
+   `1` on tracks that do not have them.
+
+`test/helpers/fake-lom.js` mirrors all three shapes now, so `pnpm test` covers them without Live.
+
+## Findings Are In The Schema
+
+The behaviour Prelive has to know is carried as GraphQL descriptions on the fields and arguments
+themselves, not only in this document. `printSchema` emits them, so `pnpm liveql:schema` pulls them
+into `refs/liveql-schema.graphql`, and they show in the GraphiQL docs panel. Described: both grid
+enums (each stating it is not the other), the `destination_time` placement rule, the marker ordering
+and silent clamping on `clip_set_properties`, the `clip_write_notes` step order and non-atomicity,
+the positional-argument rule on `clip_slot_fire` and `scene_fire`, why each nullable field is null,
+and that `Query.clip` returns `null` rather than raising.

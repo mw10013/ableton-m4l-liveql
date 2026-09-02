@@ -59,6 +59,18 @@ function songProps() {
   };
 }
 
+/**
+ * Live does not always answer with a list: a track with no clip slots gives the
+ * empty symbol for `clip_slots`, so anything that is not a list is read as one.
+ */
+const asList = (v) => (Array.isArray(v) ? v : v === undefined || v === null ? [] : [v]);
+
+/**
+ * The `id` tokens separating child ids, `id 0` for no child, and the empty
+ * symbol Live pads an empty child list with are none of them ids to resolve.
+ */
+const isChildId = (v) => v !== "id" && v !== 0 && v !== "" && v !== undefined && v !== null;
+
 function trackProps(overrides) {
   return {
     name: ["Track"],
@@ -170,15 +182,31 @@ function defaultObjects() {
       has_audio_input: [1],
       arrangement_clips: ["id", 50],
     }) },
+    /**
+     * Live does not report a member the master track lacks as missing: it
+     * answers 1, which is why these read as the junk they do in the Set. The
+     * resolvers null them from can_be_armed and the path instead.
+     */
     12: { id: 12, path: "live_set master_track", type: "Track", props: trackProps({
       name: ["Master"],
       can_be_armed: [0],
-      // absent on the master track: the bridge drops a member that reads empty
-      arm: [],
-      solo: [],
-      fold_state: [],
+      arm: [1],
+      mute: [1],
+      solo: [1],
+      fold_state: [1],
+      playing_slot_index: [1],
+      fired_slot_index: [1],
+      clip_slots: "",
     }) },
-    13: { id: 13, path: "live_set return_tracks 0", type: "Track", props: trackProps({ name: ["A Return"] }) },
+    13: { id: 13, path: "live_set return_tracks 0", type: "Track", props: trackProps({
+      name: ["A Return"],
+      can_be_armed: [0],
+      arm: [1],
+      fold_state: [1],
+      playing_slot_index: [1],
+      fired_slot_index: [1],
+      clip_slots: "",
+    }) },
     20: { id: 20, path: "live_set tracks 0 clip_slots 0", type: "ClipSlot", props: clipSlotProps({
       has_clip: [1],
       clip: ["id", 40],
@@ -254,15 +282,15 @@ function createLom() {
     const o = resolve(params.idOrPath);
     const out = { id: o.id, path: o.path, type: o.type };
     for (const k of params.propertyKeysSingle || []) {
-      const arr = read(o, k);
+      const arr = asList(read(o, k));
       if (arr.length === 1) out[k] = arr[0];
     }
-    for (const k of params.propertyKeysMultiple || []) out[k] = read(o, k);
+    for (const k of params.propertyKeysMultiple || []) out[k] = asList(read(o, k));
     for (const k of params.childKeysSingle || []) {
-      const id = read(o, k)[1];
-      out[k] = id === 0 ? null : id;
+      const id = asList(read(o, k))[1];
+      out[k] = isChildId(id) ? id : null;
     }
-    for (const k of params.childKeysMultiple || []) out[k] = read(o, k).filter((v) => v !== "id");
+    for (const k of params.childKeysMultiple || []) out[k] = asList(read(o, k)).filter(isChildId);
     return out;
   };
 
@@ -294,8 +322,15 @@ function createLom() {
           n.pitch >= fromPitch && n.pitch < fromPitch + pitchSpan &&
           n.start_time >= fromTime && n.start_time < fromTime + timeSpan));
       }
-      case "get_notes_by_id":
-        return dict(notesOf(o.id).filter((n) => args.includes(n.note_id)));
+      /**
+       * Live returns a dictionary with no `notes` key when none of the ids are
+       * in the clip, so the fake does too — the shape that used to crash the
+       * stale-id pre-check.
+       */
+      case "get_notes_by_id": {
+        const found = notesOf(o.id).filter((n) => args.includes(n.note_id));
+        return found.length === 0 ? JSON.stringify({}) : dict(found);
+      }
       case "add_new_notes":
         return ["id", ...args[0].notes.map((n) => {
           const note_id = nextNoteId++;

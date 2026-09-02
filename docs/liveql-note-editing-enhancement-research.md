@@ -610,9 +610,10 @@ Everything else is additive. Regenerate `refs/liveql-schema.graphql` in Prelive 
 
 ## Verification Matrix
 
-No automated tests exist in LiveQL; the device is exercised by hand through GraphiQL at
-`http://localhost:4000/graphql`. Run these against a disposable Live Set and record results in
-resolver JSDocs where they resolve an open question.
+Superseded: every item below except 6 is now an assertion in `test/live/verification-matrix.test.js`
+and passes against a running Set. The answers are recorded in the resolver JSDocs and summarized in
+`docs/liveql-schema-pass-handoff.md`. Item 6 still needs a human comparing grid ints against Live's
+editor.
 
 1. `add_new_notes` return shape, and that `note_ids` order matches input order.
 2. `duplicate_notes_by_id` return value, and its default placement for: one grid-aligned sixteenth, one

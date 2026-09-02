@@ -119,7 +119,9 @@ const typeDefs = /* GraphQL */ `
     id: Int!
     path: String!
     type: String!
+    """Empty string for a Set that has never been saved."""
     name: String!
+    """Empty string for a Set that has never been saved."""
     file_path: String!
     is_playing: Boolean!
     tempo: Float!
@@ -207,8 +209,11 @@ const typeDefs = /* GraphQL */ `
     has_audio_output: Boolean!
     has_midi_output: Boolean!
     can_be_armed: Boolean!
+    """Null on tracks the LOM does not give it to, such as return and master tracks."""
     arm: Boolean
+    """Null on tracks the LOM does not give it to, such as the master track."""
     mute: Boolean
+    """Null on tracks the LOM does not give it to, such as the master track."""
     solo: Boolean
     muted_via_solo: Boolean!
     color: Int!
@@ -217,9 +222,13 @@ const typeDefs = /* GraphQL */ `
     is_grouped: Boolean!
     is_visible: Boolean!
     is_frozen: Boolean!
+    """Null unless is_foldable: only Group Tracks have a fold state."""
     fold_state: Int
+    """Null on tracks with no clip slots, such as return and master tracks."""
     playing_slot_index: Int
+    """Null on tracks with no clip slots, such as return and master tracks."""
     fired_slot_index: Int
+    """Null when the track is not inside a Group Track."""
     group_track: Track
     clip_slot(index: Int!): ClipSlot
     clip_slots: [ClipSlot!]!
@@ -250,6 +259,7 @@ const typeDefs = /* GraphQL */ `
     playing_status: Int!
     is_group_slot: Boolean!
     will_record_on_start: Boolean!
+    """Null outside Group Track slots, which are the only slots the LOM colors."""
     color: Int
   }
 
@@ -318,7 +328,16 @@ const typeDefs = /* GraphQL */ `
     has_groove: Boolean!
     will_record_on_start: Boolean!
     view: ClipView!
+    """
+    Every note in the clip, sorted by start_time then pitch. Null on an audio
+    clip, as are the other three note fields.
+    """
     get_all_notes_extended: NotesDictionary
+    """
+    The notes with these ids. Ids that are not in the clip are simply absent
+    from the result rather than an error, so a shorter list than you asked for
+    means some ids are stale.
+    """
     get_notes_by_id(note_ids: [Int!]!): NotesDictionary
     get_notes_extended(
       from_pitch: Int!
@@ -352,7 +371,16 @@ const typeDefs = /* GraphQL */ `
     id: Int!
     path: String!
     type: String!
+    """
+    The editor's grid, as Off plus Live's nine Fixed Grid entries, coarse to
+    fine: 0 = Off (Snap to Grid unchecked), 1 = 8 Bars, 2 = 4 Bars, 3 = 2 Bars,
+    4 = 1 Bar, 5 = 1/2, 6 = 1/4, 7 = 1/8, 8 = 1/16, 9 = 1/32. Anything outside
+    0-9 is ignored and leaves the current value, with no error. The menu's
+    Adaptive Grid entries are not reachable here. This is NOT the enum
+    clip_quantize takes: a 1/16 grid is 8 here and 5 there.
+    """
     grid_quantization: Int!
+    """Live's Triplet Grid toggle, which the grid_quantization enum has no values for."""
     grid_is_triplet: Boolean!
   }
 
@@ -404,6 +432,10 @@ const typeDefs = /* GraphQL */ `
   type Query {
     live_set: Song!
     live_app: Application!
+    """
+    The clip with this LOM id, or null if no object has it or the object is not
+    a Clip. The by-id queries never raise for a bad id.
+    """
     clip(id: Int!): Clip
     clip_slot(id: Int!): ClipSlot
     track(id: Int!): Track
@@ -448,6 +480,10 @@ const typeDefs = /* GraphQL */ `
     ): Track
     track_jump_in_running_session_clip(id: Int!, beats: Float!): Track
 
+    """
+    The LOM takes these optional arguments positionally, so launch_quantization
+    without record_length is rejected with an error naming the missing one.
+    """
     clip_slot_fire(
       id: Int!
       record_length: Float
@@ -459,6 +495,11 @@ const typeDefs = /* GraphQL */ `
     clip_slot_duplicate_clip_to(id: Int!, target_clip_slot: Int!): ClipSlot
     clip_slot_set_has_stop_button(id: Int!, has_stop_button: Boolean!): ClipSlot
 
+    """
+    The LOM takes these optional arguments positionally, so
+    can_select_scene_on_launch without force_legato is rejected with an error
+    naming the missing one.
+    """
     scene_fire(
       id: Int!
       force_legato: Boolean
@@ -466,9 +507,30 @@ const typeDefs = /* GraphQL */ `
     ): Scene
     scene_set_properties(id: Int!, properties: ScenePropertiesInput!): Scene
 
+    """
+    Writes several Clip properties in one call, ordered so no intermediate
+    state violates Live's marker constraints: scalars, then ends that grow,
+    then starts, then ends that shrink, then position. Live clamps or ignores
+    an invalid value without raising - a start_marker behind the end marker is
+    dropped silently - so compare the returned clip with what you asked for.
+    """
     clip_set_properties(id: Int!, properties: ClipPropertiesInput!): Clip
+    """
+    Adds notes and returns the ids Live assigned, in the order the notes were
+    given.
+    """
     clip_add_new_notes(id: Int!, notes: [NoteInput!]!): ClipNotesPayload
+    """
+    Live ignores the whole list when any note_id is not in the clip, so the ids
+    are checked first and a stale one fails the mutation naming the missing ids.
+    """
     clip_apply_note_modifications(id: Int!, notes: [NoteInput!]!): Clip
+    """
+    Runs properties, add_new_notes, apply_note_modifications, remove_notes_by_id
+    in that order. Not atomic: on failure the error names the step and the ids
+    already added, and the clip keeps whatever earlier steps did, so refetch
+    with clip(id) rather than retrying the same payload.
+    """
     clip_write_notes(id: Int!, input: ClipWriteNotesInput!): ClipNotesPayload
     clip_fire(id: Int!): Clip
     clip_stop(id: Int!): Clip
@@ -483,6 +545,12 @@ const typeDefs = /* GraphQL */ `
       from_time: Float!
       time_span: Float!
     ): Clip
+    """
+    Omit destination_time to place the copies the way the GUI's Duplicate does:
+    every copy is shifted by the span of the selection, its last note end minus
+    its first note start. The shift is not snapped to the editor grid, and
+    copies landing past loop_end do not extend the clip's region.
+    """
     clip_duplicate_notes_by_id(
       id: Int!
       note_ids: [Int!]!
@@ -499,7 +567,21 @@ const typeDefs = /* GraphQL */ `
     ): Clip
     clip_duplicate_loop(id: Int!): Clip
     clip_crop(id: Int!): Clip
+    """
+    Live's Quantize dialog in menu order: 0 = no quantization, 1 = 1/4,
+    2 = 1/8, 3 = 1/8T, 4 = 1/8 + 1/8T, 5 = 1/16, 6 = 1/16T, 7 = 1/16 + 1/16T,
+    8 = 1/32. Anything from 9 up is silently ignored, so an out-of-range grid
+    gives no error and an unquantized clip. Not the ClipView.grid_quantization
+    enum. Quantizing takes Song.swing_amount into account.
+    """
     clip_quantize(id: Int!, quantization_grid: Int!, amount: Float!): Clip
+    """
+    Live's Quantize dialog in menu order: 0 = no quantization, 1 = 1/4,
+    2 = 1/8, 3 = 1/8T, 4 = 1/8 + 1/8T, 5 = 1/16, 6 = 1/16T, 7 = 1/16 + 1/16T,
+    8 = 1/32. Anything from 9 up is silently ignored, so an out-of-range grid
+    gives no error and an unquantized clip. Not the ClipView.grid_quantization
+    enum. Quantizing takes Song.swing_amount into account.
+    """
     clip_quantize_pitch(
       id: Int!
       pitch: Int!
@@ -605,7 +687,31 @@ function getTrack(id) {
     null,
     ["group_track"],
     ["clip_slots", "arrangement_clips"]
-  ).then((o) => withStringDefaults(o, ["name"]));
+  ).then((o) => withoutAbsentTrackMembers(withStringDefaults(o, ["name"])));
+}
+
+/**
+ * Nulls the members the LOM does not give this kind of track. Live does not
+ * report an absent member as missing or as an error: `LiveAPI.get` answers 1,
+ * which arrives as `arm: true` on a track that cannot be armed and
+ * `fold_state: 1` on one that does not fold. The capability flags read
+ * correctly, so nullability is derived from them and from the track's path
+ * rather than from the value itself. The master track is the one with no
+ * mute or solo; neither it nor a return track has clip slots, so their slot
+ * indexes are meaningless too.
+ */
+function withoutAbsentTrackMembers(o) {
+  const isMaster = o.path?.endsWith("master_track") ?? false;
+  const hasSlots = o.clip_slots?.length > 0;
+  return {
+    ...o,
+    arm: o.can_be_armed ? o.arm : null,
+    mute: isMaster ? null : o.mute,
+    solo: isMaster ? null : o.solo,
+    fold_state: o.is_foldable ? o.fold_state : null,
+    playing_slot_index: hasSlots ? o.playing_slot_index : null,
+    fired_slot_index: hasSlots ? o.fired_slot_index : null,
+  };
 }
 
 function getClipSlot(id) {
@@ -724,9 +830,9 @@ function toLiveValue(value) {
  * `id N`, the form `live.object` and `live.path` exchange. The v8 `LiveAPI`
  * accepts a single string for that pair when constructing (`new LiveAPI("id 12")`,
  * which `liveql-m4l.js` already relies on), so the same string form is used for
- * arguments. Unverified in Live for `set`; if a child setter is rejected, the
- * alternative to try is the two-atom form `["id", id]`, and this is the only
- * place to change.
+ * arguments. Confirmed in Live for `set` (`song_view_set_detail_clip`); if a
+ * child setter is ever rejected, the alternative to try is the two-atom form
+ * `["id", id]`, and this is the only place to change.
  */
 function idArg(id) {
   return `id ${id}`;
@@ -744,9 +850,10 @@ function parseMaybeJson(data) {
 /**
  * Normalizes whatever the v8 bridge forwards from `LiveAPI.call` for functions
  * documented as returning a list of note IDs (`add_new_notes`). The exact shape
- * under v8 is unverified: it may be a flat int array, a Max list with a leading
- * symbol, a JSON string like the note dictionaries, or a single int. Every
- * shape reduces to the integers it contains, in order.
+ * under v8 is not pinned down: it may be a flat int array, a Max list with a
+ * leading symbol, a JSON string like the note dictionaries, or a single int.
+ * Every shape reduces to the integers it contains, in order. Confirmed in Live
+ * that what comes out is one id per input note, in input order.
  */
 function toIntList(data) {
   const v = parseMaybeJson(data);
@@ -800,7 +907,11 @@ const CLIP_SCALAR_KEYS = [
  * Setting looping before the markers is safe because the LOM states the markers
  * are independent of the loop state. Live may clamp or ignore an invalid value
  * without raising, so callers must compare the returned clip with what they
- * asked for.
+ * asked for: confirmed in Live, a `start_marker` set behind the end marker is
+ * dropped silently, leaving the old value and raising nothing. Also confirmed,
+ * an unlooped clip reads `loop_start`/`loop_end` as its `start_marker`/
+ * `end_marker`, and `end_time` follows `end_marker` unlooped and `loop_end`
+ * looped.
  */
 function clipPropertyOrder(current, p) {
   const given = (k) => p[k] !== undefined;
@@ -842,9 +953,17 @@ function compareNotes(a, b) {
   return a.pitch - b.pitch;
 }
 
+/**
+ * Live answers a notes function with a dictionary that has no `notes` key at
+ * all, rather than `{"notes": []}`, when nothing matches — confirmed in Live for
+ * `get_notes_by_id` with an id that is not in the clip. Reading the absent key
+ * as an empty list keeps that an ordinary empty result, which is what
+ * `applyNoteModifications` needs in order to name the stale ids; spreading it
+ * unguarded made the pre-check die with a TypeError instead.
+ */
 function sortJsonNotesDictionary(json) {
   const data = JSON.parse(json);
-  return { notes: [...data.notes].sort(compareNotes) };
+  return { notes: [...(data?.notes ?? [])].sort(compareNotes) };
 }
 
 async function getNotesExtended(parent, args) {
@@ -1223,6 +1342,15 @@ const resolvers = {
      * GUI. Only supplied keys go in the dictionary so an absent key keeps that
      * default.
      */
+    /**
+     * Omitting `destination_time` is what the LOM calls placing the copies
+     * "after the last selected note". Confirmed in Live, that means a uniform
+     * shift by the span of the selection — its last note end minus its first
+     * note start — so a lone sixteenth moves by 0.25, a chord by its longest
+     * note, and two notes two beats apart by 2.25. The shift is not snapped to
+     * the editor grid (an off-grid source keeps its offset), and copies landing
+     * past `loop_end` do not extend the clip's region.
+     */
     clip_duplicate_notes_by_id: async (parent, args) => {
       const { id, note_ids, destination_time, transposition_amount } = args;
       await call(id, "duplicate_notes_by_id", {
@@ -1253,10 +1381,13 @@ const resolvers = {
       return getClip(args.id);
     },
     /**
-     * The int mapping of `quantization_grid` is not documented in the LOM page
-     * for `quantize`. Expected to follow Live's grid enum order (no grid, 1/32,
-     * 1/16, 1/8, 1/4, 1/2, bar, 2 bars, 4 bars, 8 bars) and to share the
-     * mapping with Clip.View.grid_quantization; unverified in Live.
+     * The LOM documents no int mapping for `quantization_grid`. Measured in
+     * Live by quantizing notes off every grid and reading where they land, it
+     * is Live's Quantize dialog in menu order: 0 no quantization, 1 = 1/4,
+     * 2 = 1/8, 3 = 1/8T, 4 = 1/8 + 1/8T, 5 = 1/16, 6 = 1/16T,
+     * 7 = 1/16 + 1/16T, 8 = 1/32. Anything from 9 up is silently ignored, so a
+     * caller gets no error for an out-of-range grid, just an unquantized clip.
+     * This is NOT the Clip.View.grid_quantization enum, which takes 0-9.
      */
     clip_quantize: async (parent, args) => {
       await call(args.id, "quantize", args.quantization_grid, args.amount);
@@ -1289,6 +1420,19 @@ const resolvers = {
       return getClip(args.id);
     },
 
+    /**
+     * The LOM says only "Get/set the grid quantization" for
+     * Clip.View.grid_quantization. It is Off plus the nine Fixed Grid entries,
+     * coarse to fine: 0 = Off (the
+     * editor's Snap to Grid unchecked), 1 = 8 Bars, 2 = 4 Bars, 3 = 2 Bars,
+     * 4 = 1 Bar, 5 = 1/2, 6 = 1/4, 7 = 1/8, 8 = 1/16, 9 = 1/32. Anything
+     * outside 0-9 is ignored and leaves the current value. 0, 5 and 9 were read
+     * directly off the grid label in Live's note editor; the rest follow from
+     * the count and the order of the menu. The menu's Adaptive
+     * Grid entries are not reachable through this property, and Triplet Grid is
+     * the separate grid_is_triplet bool. This enum is not the one
+     * `clip_quantize` takes.
+     */
     clip_view_set_properties: async (parent, args) => {
       await setProperties(args.id, args.properties, [
         "grid_quantization",

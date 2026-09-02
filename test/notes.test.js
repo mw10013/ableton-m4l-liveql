@@ -84,6 +84,23 @@ describe("notes", () => {
     assert.deepEqual(lom.log.map(([, , fn]) => fn), ["get_notes_by_id"]);
   });
 
+  it("names the stale ids when none of them are in the clip", async () => {
+    const response = await gql(
+      "mutation { clip_apply_note_modifications(id: 40, notes: [{ note_id: 998, pitch: 62 }, { note_id: 999, pitch: 63 }]) { id } }"
+    );
+    assert.equal(response.data.clip_apply_note_modifications, null);
+    assert.equal(
+      errorMessage(response),
+      "liveql: apply_note_modifications on 40: ignored because these note_ids are not in the clip: 998, 999"
+    );
+  });
+
+  it("reads a dictionary with no notes key as no notes", async () => {
+    const { data, errors } = await gql("{ clip(id: 40) { get_notes_by_id(note_ids: [999]) { notes { note_id } } } }");
+    assert.equal(errors, undefined);
+    assert.deepEqual(data.clip.get_notes_by_id.notes, []);
+  });
+
   it("applies a modification whose ids are all in the clip", async () => {
     const { errors } = await gql(
       "mutation { clip_apply_note_modifications(id: 40, notes: [{ note_id: 1, pitch: 62, mute: true }]) { id } }"

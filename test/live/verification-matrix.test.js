@@ -155,18 +155,80 @@ describe("live", { skip: SKIP }, () => {
     record("looped end_time vs loop_end", `${looped.end_time} vs ${looped.loop_end}`);
   });
 
-  it("round-trips every grid_quantization int", async () => {
-    const view_id = (await data(`{ clip(id: ${clip}) { view { id } } }`)).clip.view.id;
-    for (const grid_quantization of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) {
-      const response = await gql(
+  it("takes 0-9 for ClipView.grid_quantization and ignores anything outside", async () => {
+    const { id: view_id, grid_quantization: originalGrid } =
+      (await data(`{ clip(id: ${clip}) { view { id grid_quantization } } }`)).clip.view;
+    const set = async (grid_quantization) =>
+      (await data(
         `mutation { clip_view_set_properties(id: ${view_id}, properties: { grid_quantization: ${grid_quantization} }) { grid_quantization } }`
-      );
-      record(
-        `grid_quantization ${grid_quantization}`,
-        response.errors ? `error: ${response.errors[0].message}` : `reads back ${response.data.clip_view_set_properties.grid_quantization}`
-      );
+      )).clip_view_set_properties.grid_quantization;
+    for (const grid of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]) assert.equal(await set(grid), grid);
+    for (const out of [10, -1]) assert.equal(await set(out), 9, `${out} was not ignored`);
+    await set(originalGrid);
+    console.log("0 = Off, 1-4 = 8/4/2/1 Bars, 5-9 = 1/2 1/4 1/8 1/16 1/32 (read off Live's grid label)");
+  });
+
+  /**
+   * Measures the `quantize` enum instead of trusting it: 64 notes on distinct
+   * pitches at 0.0413-beat spacing land on no musical grid, so after a full
+   * quantize the spacing of the distinct start times is the grid itself. The
+   * spacing has to be irregular against the grid — a probe at 0.257 aliases
+   * 1/16 and 1/32 into the same answer.
+   */
+  describe("quantize grid mapping", () => {
+    const GRIDS = [
+      { grid: 0, name: "no quantization", steps: [] },
+      { grid: 1, name: "1/4", steps: [1] },
+      { grid: 2, name: "1/8", steps: [1 / 2] },
+      { grid: 3, name: "1/8T", steps: [1 / 3] },
+      { grid: 4, name: "1/8 + 1/8T", steps: [1 / 2, 1 / 3] },
+      { grid: 5, name: "1/16", steps: [1 / 4] },
+      { grid: 6, name: "1/16T", steps: [1 / 6] },
+      { grid: 7, name: "1/16 + 1/16T", steps: [1 / 4, 1 / 6] },
+      { grid: 8, name: "1/32", steps: [1 / 8] },
+      { grid: 9, name: "out of range, ignored", steps: [] },
+    ];
+    const PROBE = Array.from({ length: 64 }, (_, i) => ({
+      pitch: 24 + i,
+      start_time: Number((i * 0.0413).toFixed(6)),
+      duration: 0.05,
+      velocity: 100,
+    }));
+    const onAnyGrid = (time, steps) => steps.some((step) => Math.abs(time / step - Math.round(time / step)) < 1e-4);
+
+    let swing;
+
+    before(async () => {
+      swing = (await data("{ live_set { id swing_amount } }")).live_set;
+      await data(`mutation { song_set_properties(id: ${swing.id}, properties: { swing_amount: 0 }) { id } }`);
+    });
+
+    after(async () => {
+      await gql(`mutation { song_set_properties(id: ${swing.id}, properties: { swing_amount: ${swing.swing_amount} }) { id } }`);
+    });
+
+    for (const { grid, name, steps } of GRIDS) {
+      it(`quantizes ${grid} to ${name}`, async () => {
+        const stale = (await data(`{ clip(id: ${clip}) { get_all_notes_extended { notes { note_id } } } }`))
+          .clip.get_all_notes_extended.notes.map((n) => n.note_id);
+        if (stale.length > 0) await data(`mutation { clip_remove_notes_by_id(id: ${clip}, note_ids: [${stale}]) { id } }`);
+        await data(
+          `mutation { clip_set_properties(id: ${clip}, properties: { looping: true, start_marker: 0, end_marker: 20, loop_start: 0, loop_end: 20 }) { id } }`
+        );
+        await data(`mutation ($n: [NoteInput!]!) { clip_add_new_notes(id: ${clip}, notes: $n) { note_ids } }`, { n: PROBE });
+        await data(`mutation { clip_quantize(id: ${clip}, quantization_grid: ${grid}, amount: 1.0) { id } }`);
+        const after = (await data(`{ clip(id: ${clip}) { get_all_notes_extended { notes { pitch start_time } } } }`))
+          .clip.get_all_notes_extended.notes;
+        const moved = after.filter((n) => Math.abs(n.start_time - PROBE.find((p) => p.pitch === n.pitch).start_time) > 1e-6);
+        if (steps.length === 0) {
+          assert.equal(moved.length, 0, `grid ${grid} moved ${moved.length} notes; it is not a no-op`);
+          return;
+        }
+        assert.equal(moved.length, PROBE.length - 1, "the note already at 0 is the only one that should not move");
+        const offGrid = after.filter((n) => !onAnyGrid(n.start_time, steps)).map((n) => n.start_time);
+        assert.deepEqual(offGrid, [], `grid ${grid} is not ${name}: these landed off it: ${offGrid.slice(0, 5)}`);
+      });
     }
-    console.log("MANUAL: compare the RECORD lines above with the grid Live's editor shows for each value");
   });
 
   it("returns an empty string for the members of an unsaved Set", async (t) => {
@@ -187,6 +249,54 @@ describe("live", { skip: SKIP }, () => {
     assert.equal(song_view_set_detail_clip.detail_clip.id, clip);
   });
 
+  /**
+   * Return and master tracks are where the LOM's absent members show up. The
+   * bridge used to die on them: a track with no clip slots answers clip_slots
+   * with the empty symbol, not an empty list, and the whole object read threw.
+   */
+  it("resolves return and master tracks, with their absent members as null", async () => {
+    const TRACK = `id name type mute solo arm playing_slot_index fired_slot_index fold_state
+      group_track { id } clip_slots { id } arrangement_clips { id }`;
+    const { live_set } = await data(`{ live_set { return_tracks { ${TRACK} } master_track { ${TRACK} } } }`);
+    assert.ok(live_set.return_tracks.length > 0, "open a Set with at least one return track");
+    for (const track of [...live_set.return_tracks, live_set.master_track]) {
+      assert.deepEqual(track.clip_slots, [], `${track.name} reported clip slots`);
+      assert.deepEqual(track.arrangement_clips, [], `${track.name} reported arrangement clips`);
+      assert.equal(track.group_track, null, `${track.name} reported a group track`);
+      assert.equal(track.arm, null, `${track.name} reported arm; it cannot be armed`);
+      assert.equal(track.fold_state, null, `${track.name} reported a fold state; it does not fold`);
+      assert.equal(track.playing_slot_index, null, `${track.name} reported a playing slot`);
+      assert.equal(track.fired_slot_index, null, `${track.name} reported a fired slot`);
+    }
+    const master = live_set.master_track;
+    assert.equal(master.mute, null, "the master track reported mute");
+    assert.equal(master.solo, null, "the master track reported solo");
+    for (const track of live_set.return_tracks) {
+      assert.equal(typeof track.mute, "boolean", "a return track lost its mute");
+      assert.equal(typeof track.solo, "boolean", "a return track lost its solo");
+    }
+  });
+
+  /**
+   * The regular tracks are the control: the same members that must be null on
+   * return and master tracks have to survive here, or the guard is too broad.
+   */
+  it("keeps those members on a regular track", async () => {
+    const { live_set } = await data(
+      "{ live_set { tracks { name can_be_armed is_foldable arm mute solo playing_slot_index fired_slot_index fold_state } } }"
+    );
+    const regular = live_set.tracks.filter((t) => t.can_be_armed);
+    assert.ok(regular.length > 0, "open a Set with at least one regular track");
+    for (const track of regular) {
+      assert.equal(typeof track.arm, "boolean", `${track.name} lost arm`);
+      assert.equal(typeof track.mute, "boolean", `${track.name} lost mute`);
+      assert.equal(typeof track.solo, "boolean", `${track.name} lost solo`);
+      assert.equal(typeof track.playing_slot_index, "number", `${track.name} lost playing_slot_index`);
+      assert.equal(typeof track.fired_slot_index, "number", `${track.name} lost fired_slot_index`);
+      assert.equal(track.fold_state, track.is_foldable ? track.fold_state : null, `${track.name} fold_state`);
+    }
+  });
+
   it("returns null, not an error, for an id of the wrong type", async () => {
     const response = await gql(`{ a: clip(id: ${track.id}) { id } b: track(id: 999999) { id } }`);
     assert.equal(response.errors, undefined);
@@ -203,8 +313,76 @@ describe("live", { skip: SKIP }, () => {
     assert.ok(response.errors, "expected the stale note_id to fail the write");
     const message = response.errors[0].message;
     record("clip_write_notes step failure", message);
-    assert.match(message, /clip_write_notes step apply_note_modifications failed after add_new_notes \(ids \d+\)/);
+    assert.match(
+      message,
+      /clip_write_notes step apply_note_modifications failed after add_new_notes \(ids \d+\): liveql: apply_note_modifications on \d+: ignored because these note_ids are not in the clip: 999999$/
+    );
     const added = message.match(/ids ([\d,]+)/)[1];
     await data(`mutation { clip_remove_notes_by_id(id: ${clip}, note_ids: [${added}]) { id } }`);
+  });
+
+  /**
+   * The LOM says an omitted `destination_time` places the copies "after the last
+   * selected note" without saying what that means for a chord, a gap, or notes
+   * running past the loop. Each case asserts the shape of the answer — one copy
+   * per source note, all moved by a single uniform delta — and records the delta
+   * itself, which is the number Prelive needs to predict a Duplicate.
+   */
+  describe("duplicate_notes_by_id default placement", () => {
+    const REGION = { looping: true, start_marker: 0, end_marker: 8, loop_start: 0, loop_end: 8 };
+    const CASES = [
+      { name: "one grid-aligned sixteenth", notes: [{ pitch: 60, start_time: 0, duration: 0.25 }] },
+      { name: "one off-grid note", notes: [{ pitch: 60, start_time: 0.3, duration: 0.25 }] },
+      {
+        name: "a chord with mixed durations",
+        notes: [
+          { pitch: 60, start_time: 0, duration: 1 },
+          { pitch: 64, start_time: 0, duration: 0.5 },
+          { pitch: 67, start_time: 0, duration: 2 },
+        ],
+      },
+      {
+        name: "two notes with a gap",
+        notes: [
+          { pitch: 60, start_time: 0, duration: 0.25 },
+          { pitch: 62, start_time: 2, duration: 0.25 },
+        ],
+      },
+      { name: "notes ending beyond loop_end", notes: [{ pitch: 60, start_time: 7.5, duration: 2 }] },
+    ];
+
+    async function allNotes() {
+      return (await data(`{ clip(id: ${clip}) { get_all_notes_extended { notes { ${NOTE} } } } }`))
+        .clip.get_all_notes_extended.notes;
+    }
+
+    async function seed(notes) {
+      const stale = (await allNotes()).map((n) => n.note_id);
+      if (stale.length > 0) await data(`mutation { clip_remove_notes_by_id(id: ${clip}, note_ids: [${stale}]) { id } }`);
+      await data(`mutation ($p: ClipPropertiesInput!) { clip_set_properties(id: ${clip}, properties: $p) { id } }`, { p: REGION });
+      return (await data(`mutation ($n: [NoteInput!]!) { clip_add_new_notes(id: ${clip}, notes: $n) { note_ids } }`, {
+        n: notes.map((n) => ({ velocity: 100, ...n })),
+      })).clip_add_new_notes.note_ids;
+    }
+
+    for (const { name, notes } of CASES) {
+      it(`places the copies of ${name}`, async () => {
+        const note_ids = await seed(notes);
+        const { clip_duplicate_notes_by_id: after } = await data(
+          `mutation { clip_duplicate_notes_by_id(id: ${clip}, note_ids: [${note_ids}]) { ${CLIP_STATE} } }`
+        );
+        const copies = (await allNotes()).filter((n) => !note_ids.includes(n.note_id));
+        assert.equal(copies.length, notes.length, `expected one copy per source note, got ${copies.length}`);
+        const deltas = copies.map((copy) => {
+          const source = notes.find((n) => n.pitch === copy.pitch);
+          assert.ok(source, `copy at pitch ${copy.pitch} matches no source note`);
+          assert.equal(copy.duration, source.duration, "a copy changed duration");
+          return copy.start_time - source.start_time;
+        });
+        record(`${name} moved by`, `${[...new Set(deltas)].join(", ")} (region now ${after.loop_start}..${after.loop_end}, end_marker ${after.end_marker})`);
+        assert.equal(new Set(deltas).size, 1, `copies were not shifted uniformly: ${deltas}`);
+        assert.ok(deltas[0] > 0, `copies landed at or before the source (delta ${deltas[0]})`);
+      });
+    }
   });
 });
