@@ -1,6 +1,6 @@
 # AGENTS.md
 
-- Prefer JSDoc for comments for complex and subtle behavior the code cannot show. A JSDoc must carry its reasoning inline and must never reference files under `docs/` — research docs go stale and get deleted. External URLs and `refs/` paths are acceptable.
+- Prefer JSDoc for comments for complex and subtle behavior the code cannot show. A JSDoc must carry its reasoning inline and must cite neither `docs/` nor `refs/` — research docs go stale and get deleted, and refs are gitignored and refetched at another version. The code is the truth, the JSDoc next; a stable external URL is the only acceptable citation.
 - Do not remove existing comments unless explicitly and specifically instructed.
 - Do not git commit unless you are explicitly instructed.
 - Your answers and explanations should be concise and scannable so the user can scan quickly and easily understand. Sacrifice grammar for the sake of concision.

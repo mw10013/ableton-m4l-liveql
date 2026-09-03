@@ -248,9 +248,10 @@ function defaultObjects() {
  * Live rejects a marker that would cross its partner with these messages
  * (`refs/m4l-docs/apiref/lom/clip/index.md`: start_marker "Cannot be set behind
  * the end marker", end_marker "Cannot be set before the start marker"). The
- * same is assumed for loop_start / loop_end, which is exactly the assumption
- * `clipPropertyOrder` is written against and clip.test.js "batch that shrinks
- * the loop" exercises. Live may instead clamp silently; test/live answers that.
+ * same is assumed for loop_start / loop_end, which is the assumption a caller
+ * ordering markers one per mutation is written against and clip.test.js
+ * "surfaces a marker Live rejects" exercises. Live may instead clamp silently;
+ * test/live answers that.
  */
 function guardMarkers(props, property, value) {
   const at = (k) => props[k]?.[0];
@@ -354,8 +355,9 @@ function createLom() {
         return null;
       /**
        * Selects the same half-open pitch/onset window `get_notes_extended`
-       * does, and removes what it selects: `clip_replace_notes` derives its
-       * deletion window from a snapshot on the assumption those two agree.
+       * does, and removes what it selects: a client rewriting a whole clip
+       * derives its deletion window from a snapshot on the assumption those
+       * two agree.
        */
       case "remove_notes_extended": {
         const [fromPitch, pitchSpan, fromTime, timeSpan] = args;

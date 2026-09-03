@@ -67,15 +67,6 @@ async function exec(params) {
   });
 }
 
-/**
- * Strips the `liveql: ` that `exec` already put on a bridge failure. The
- * composite mutations re-wrap that error with the step that produced it, and
- * without this the message carries the prefix twice.
- */
-function unprefix(message) {
-  return message.replace(/^liveql: /, "");
-}
-
 Max.addHandler("result", async (json) => {
   const result = JSON.parse(json);
   const handler = actionResultHandlers.get(result.actionId);
@@ -431,29 +422,6 @@ const typeDefs = /* GraphQL */ `
     note_ids: [Int!]!
   }
 
-  input ClipWriteNotesInput {
-    properties: ClipPropertiesInput
-    add_new_notes: [NoteInput!]
-    apply_note_modifications: [NoteInput!]
-    remove_notes_by_id: [Int!]
-  }
-
-  """
-  Every member of a note, none optional and no note_id: a replacement note is
-  not an edit of an existing one, so there is nothing to carry over and nothing
-  to default.
-  """
-  input ReplacementNoteInput {
-    pitch: Int!
-    start_time: Float!
-    duration: Float!
-    velocity: Float!
-    mute: Boolean!
-    probability: Float!
-    velocity_deviation: Float!
-    release_velocity: Float!
-  }
-
   type Query {
     live_set: Song!
     live_app: Application!
@@ -533,11 +501,13 @@ const typeDefs = /* GraphQL */ `
     scene_set_properties(id: Int!, properties: ScenePropertiesInput!): Scene
 
     """
-    Writes several Clip properties in one call, ordered so no intermediate
-    state violates Live's marker constraints: scalars, then ends that grow,
-    then starts, then ends that shrink, then position. Live clamps or ignores
-    an invalid value without raising - a start_marker behind the end marker is
-    dropped silently - so compare the returned clip with what you asked for.
+    Writes several Clip properties in one call as a plain sequence of set, in
+    a fixed key order: scalars, then loop_start, loop_end, start_marker,
+    end_marker, position. Nothing is read first and nothing is reordered. Live
+    drops a start set past the current end, and an end set before the current
+    start, without raising; write markers one per mutation in the order that
+    keeps start <= end, and compare the returned clip with what you asked for.
+    Sending both markers in one batch gets whatever the fixed order gives.
     """
     clip_set_properties(id: Int!, properties: ClipPropertiesInput!): Clip
     """
@@ -546,25 +516,12 @@ const typeDefs = /* GraphQL */ `
     """
     clip_add_new_notes(id: Int!, notes: [NoteInput!]!): ClipNotesPayload
     """
-    Live ignores the whole list when any note_id is not in the clip, so the ids
-    are checked first and a stale one fails the mutation naming the missing ids.
+    Live silently ignores the entire list when any note_id in it is not in the
+    clip: no error, nothing changes, and the returned clip is unchanged. Check the
+    ids first with clip(id) { get_notes_by_id(note_ids: [...]) } if that matters,
+    and compare the returned notes with what you asked for.
     """
     clip_apply_note_modifications(id: Int!, notes: [NoteInput!]!): Clip
-    """
-    Runs properties, add_new_notes, apply_note_modifications, remove_notes_by_id
-    in that order. Not atomic: on failure the error names the step and the ids
-    already added, and the clip keeps whatever earlier steps did, so refetch
-    with clip(id) rather than retrying the same payload.
-    """
-    clip_write_notes(id: Int!, input: ClipWriteNotesInput!): ClipNotesPayload
-    """
-    Destructively replaces every note in the clip with the given list: the
-    existing notes are read, deleted wholesale, and the list added fresh, so
-    every note comes back with a new note_id. Not atomic: a failure after the
-    delete leaves the clip empty or partly rewritten, and the error names the
-    step. Rejects a non-MIDI clip before changing anything.
-    """
-    clip_replace_notes(id: Int!, notes: [ReplacementNoteInput!]!): Clip
     clip_fire(id: Int!): Clip
     clip_stop(id: Int!): Clip
     clip_select_all_notes(id: Int!): Clip
@@ -930,40 +887,15 @@ const CLIP_SCALAR_KEYS = [
   "velocity_amount",
 ];
 
-/**
- * Orders a Clip property batch so no intermediate state violates Live's marker
- * constraints: start_marker "Cannot be set behind the end marker" and end_marker
- * "Cannot be set before the start marker"; the same is assumed for
- * loop_start/loop_end. Ends that grow go first, then starts in either direction
- * (the ends are already at their final or a larger value), then ends that
- * shrink, then position, which moves the loop while preserving its length.
- * Setting looping before the markers is safe because the LOM states the markers
- * are independent of the loop state. Live may clamp or ignore an invalid value
- * without raising, so callers must compare the returned clip with what they
- * asked for: confirmed in Live, a `start_marker` set behind the end marker is
- * dropped silently, leaving the old value and raising nothing. Also confirmed,
- * an unlooped clip reads `loop_start`/`loop_end` as its `start_marker`/
- * `end_marker`, and `end_time` follows `end_marker` unlooped and `loop_end`
- * looped.
- */
-function clipPropertyOrder(current, p) {
-  const given = (k) => p[k] !== undefined;
-  const grows = (k) => given(k) && p[k] > current[k];
-  const shrinks = (k) => given(k) && !(p[k] > current[k]);
-  const ends = ["end_marker", "loop_end"];
-  return [
-    ...CLIP_SCALAR_KEYS.filter(given),
-    ...ends.filter(grows),
-    ...["start_marker", "loop_start"].filter(given),
-    ...ends.filter(shrinks),
-    ...["position"].filter(given),
-  ];
-}
+const CLIP_PROPERTY_KEYS = [
+  ...CLIP_SCALAR_KEYS,
+  "loop_start",
+  "loop_end",
+  "start_marker",
+  "end_marker",
+  "position",
+];
 
-async function setClipProperties(id, properties) {
-  const current = await getClip(id);
-  await setProperties(id, properties, clipPropertyOrder(current, properties));
-}
 
 function normalizeNoteInput(note) {
   if (note.mute === undefined) {
@@ -990,9 +922,9 @@ function compareNotes(a, b) {
  * Live answers a notes function with a dictionary that has no `notes` key at
  * all, rather than `{"notes": []}`, when nothing matches — confirmed in Live for
  * `get_notes_by_id` with an id that is not in the clip. Reading the absent key
- * as an empty list keeps that an ordinary empty result, which is what
- * `applyNoteModifications` needs in order to name the stale ids; spreading it
- * unguarded made the pre-check die with a TypeError instead.
+ * as an empty list keeps that an ordinary empty result, which is what the
+ * `Clip.get_notes_by_id` query field returns for a stale id; spreading it
+ * unguarded died with a TypeError instead.
  */
 function sortJsonNotesDictionary(json) {
   const data = JSON.parse(json);
@@ -1023,24 +955,6 @@ async function addNewNotes(id, notes) {
   return toIntList(
     await call(id, "add_new_notes", normalizeNotesDictionaryInput({ notes }))
   );
-}
-
-/**
- * `apply_note_modifications` silently ignores the entire list when it contains
- * any note not present in the clip. The ids are checked with `get_notes_by_id`
- * first so a stale id surfaces as an error naming the missing ids instead of a
- * write that appears to succeed and changes nothing.
- */
-async function applyNoteModifications(id, notes) {
-  const ids = notes.map((n) => n.note_id);
-  const found = new Set((await getNotesById(id, ids.filter(Number.isInteger))).map((n) => n.note_id));
-  const missing = ids.filter((i) => !found.has(i));
-  if (missing.length > 0) {
-    throw new Error(
-      `liveql: apply_note_modifications on ${id}: ignored because these note_ids are not in the clip: ${missing.join(", ")}`
-    );
-  }
-  await call(id, "apply_note_modifications", normalizeNotesDictionaryInput({ notes }));
 }
 
 function midiOnly(fn) {
@@ -1280,7 +1194,7 @@ const resolvers = {
     },
 
     clip_set_properties: async (parent, args) => {
-      await setClipProperties(args.id, args.properties);
+      await setProperties(args.id, args.properties, CLIP_PROPERTY_KEYS);
       return getClip(args.id);
     },
     clip_add_new_notes: async (parent, args) => {
@@ -1288,94 +1202,8 @@ const resolvers = {
       return { clip: await getClip(args.id), note_ids };
     },
     clip_apply_note_modifications: async (parent, args) => {
-      await applyNoteModifications(args.id, args.notes);
+      await call(args.id, "apply_note_modifications", normalizeNotesDictionaryInput({ notes: args.notes }));
       return getClip(args.id);
-    },
-    /**
-     * The one mutation with no LOM counterpart: one request for a full
-     * note-editor write. Runs `set` for properties, then `add_new_notes`,
-     * `apply_note_modifications` and `remove_notes_by_id`, each input key named
-     * after the LOM function it drives, in that order. Not atomic; nothing over
-     * the LOM is. Markers go first so a boundary that grows before notes land leaves a
-     * clip that is longer than needed but hides nothing if a later step fails.
-     * A failure names the step and lists the ids already added so the client
-     * can refetch rather than retry the same payload.
-     */
-    clip_write_notes: async (parent, args) => {
-      const { id, input } = args;
-      const added = [];
-      const step = async (name, fn) => {
-        try {
-          return await fn();
-        } catch (err) {
-          const after =
-            added.length > 0 ? ` after add_new_notes (ids ${added.join(",")})` : "";
-          throw new Error(`liveql: clip_write_notes step ${name} failed${after}: ${unprefix(err.message)}`);
-        }
-      };
-      if (input.properties) {
-        await step("properties", () => setClipProperties(id, input.properties));
-      }
-      if (input.add_new_notes?.length > 0) {
-        added.push(
-          ...(await step("add_new_notes", () => addNewNotes(id, input.add_new_notes)))
-        );
-      }
-      if (input.apply_note_modifications?.length > 0) {
-        await step("apply_note_modifications", () =>
-          applyNoteModifications(id, input.apply_note_modifications)
-        );
-      }
-      if (input.remove_notes_by_id?.length > 0) {
-        await step("remove_notes_by_id", () =>
-          call(id, "remove_notes_by_id", ...input.remove_notes_by_id)
-        );
-      }
-      return { clip: await getClip(id), note_ids: added };
-    },
-    /**
-     * The second mutation with no LOM counterpart: one request for a whole-clip
-     * rewrite. `remove_notes_extended` needs a finite window rather than a
-     * global one, so the window is derived from the snapshot taken immediately
-     * before it — pitches 0-127, and onsets from the earliest through one beat
-     * past the latest, which puts every observed note strictly inside the
-     * half-open window the function selects by. Confirmed in Live that the
-     * window reaches the extremes: pitch 0 and 127, an onset past the end
-     * marker, and a note at start_time -2 (Live keeps one there) are all
-     * deleted. Notes added in Live between the snapshot and the delete may
-     * survive; concurrent editing is unsupported.
-     * The returned ids of `add_new_notes` are dropped: the caller re-reads the
-     * clip rather than reconciling identities that no longer mean anything.
-     */
-    clip_replace_notes: async (parent, args) => {
-      const { id, notes } = args;
-      const step = async (name, fn) => {
-        try {
-          return await fn();
-        } catch (err) {
-          throw new Error(`liveql: clip_replace_notes step ${name} failed: ${unprefix(err.message)}`);
-        }
-      };
-      await step("preflight", async () => {
-        if (!(await getClip(id)).is_midi_clip) {
-          throw new Error(`clip ${id} is not a MIDI clip`);
-        }
-      });
-      const existing = await step(
-        "snapshot",
-        async () => sortJsonNotesDictionary(await call(id, "get_all_notes_extended")).notes
-      );
-      if (existing.length > 0) {
-        const starts = existing.map((n) => n.start_time);
-        const fromTime = Math.min(...starts);
-        await step("remove_notes_extended", () =>
-          call(id, "remove_notes_extended", 0, 128, fromTime, Math.max(...starts) + 1 - fromTime)
-        );
-      }
-      if (notes.length > 0) {
-        await step("add_new_notes", () => addNewNotes(id, notes));
-      }
-      return step("readback", () => getClip(id));
     },
     clip_fire: async (parent, args) => {
       await call(args.id, "fire");

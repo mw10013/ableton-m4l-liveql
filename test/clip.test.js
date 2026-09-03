@@ -14,18 +14,19 @@ describe("clip", () => {
     ({ gql, lom } = createServer());
   });
 
-  it("grows the ends before moving the starts", async () => {
+  it("sets every given key once, in the fixed key order, without reading first", async () => {
     const { data, errors } = await gql(SET_PROPERTIES, {
-      p: { name: "x", looping: false, position: 2, start_marker: 1, loop_start: 1, end_marker: 8, loop_end: 8 },
+      p: { position: 2, end_marker: 8, start_marker: 1, loop_end: 8, loop_start: 1, looping: false, name: "x" },
     });
     assert.equal(errors, undefined);
+    assert.deepEqual(lom.log.map(([action]) => action).filter((a) => a !== "set"), []);
     assert.deepEqual(lom.setOrder(), [
       "name",
       "looping",
-      "end_marker",
+      "loop_start",
       "loop_end",
       "start_marker",
-      "loop_start",
+      "end_marker",
       "position",
     ]);
     assert.deepEqual(data.clip_set_properties, {
@@ -36,31 +37,6 @@ describe("clip", () => {
       end_marker: 8,
       position: 2,
     });
-  });
-
-  it("moves the starts before shrinking the ends", async () => {
-    const { data, errors } = await gql(SET_PROPERTIES, {
-      p: { end_marker: 2, loop_end: 2, start_marker: 1, loop_start: 1 },
-    });
-    assert.equal(errors, undefined);
-    assert.deepEqual(lom.setOrder(), ["start_marker", "loop_start", "end_marker", "loop_end"]);
-    assert.deepEqual(data.clip_set_properties, {
-      looping: true,
-      loop_start: 1,
-      loop_end: 2,
-      start_marker: 1,
-      end_marker: 2,
-      position: 0,
-    });
-  });
-
-  it("moves a whole region past its old end without crossing a marker", async () => {
-    // in input order this sets start_marker 6 while end_marker is still 4
-    const { errors } = await gql(SET_PROPERTIES, {
-      p: { start_marker: 6, loop_start: 6, end_marker: 8, loop_end: 8 },
-    });
-    assert.equal(errors, undefined);
-    assert.deepEqual(lom.setOrder(), ["end_marker", "loop_end", "start_marker", "loop_start"]);
   });
 
   it("surfaces a marker Live rejects with the property that was refused", async () => {

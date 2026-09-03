@@ -17,7 +17,7 @@ const MUTATION_PREFIX = {
   ClipNotesPayload: "clip",
 };
 const INVENTED_FIELDS = ["id", "properties", "input"];
-const INVENTED_ARGS = ["id", "properties", "input"];
+const INVENTED_ARGS = ["id", "properties"];
 const INVENTED_MUTATIONS = ["write_notes", "replace_notes"];
 
 /**
@@ -113,9 +113,6 @@ describe("schema", () => {
           );
         }
       }
-    }
-    for (const arg of schema.getMutationType().getFields().clip_write_notes.args) {
-      assert.ok(known(arg.name) || INVENTED_ARGS.includes(arg.name), `clip_write_notes(${arg.name})`);
     }
   });
 });

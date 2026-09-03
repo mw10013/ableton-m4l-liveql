@@ -9,7 +9,7 @@ LiveQL runs as a Max for Live device with two components:
 - A **Max JS script** that talks directly to the LOM via LiveAPI
 - A **Node.js server** (via Node for Max) that serves a GraphQL API on `http://localhost:4000/graphql`
 
-External clients send GraphQL queries and mutations over HTTP. The Node server translates these into LOM operations, executes them through the Max layer, and returns the results as JSON.
+External clients send GraphQL queries and mutations over HTTP. The Node server translates these into LOM operations, executes them through the Max layer, and returns the results as JSON. Every mutation is exactly one LOM operation, a `set` or a `call`, followed by the readback its selection set needs; orchestration is the client's job. Several mutations can be sent in one document as aliased fields, and they run serially in order.
 
 ## Setup
 
@@ -89,11 +89,11 @@ with `node_modules` in a folder registered in the project's search path with **E
 
 **Playback** — Start, continue, and stop the song; stop all clips; jump; undo and redo; capture MIDI; create MIDI tracks and scenes; fire and stop clip slots, scenes and clips.
 
-**Properties** — `song_set_properties`, `track_set_properties`, `scene_set_properties`, `clip_set_properties`, `clip_view_set_properties` and `song_view_set_properties` batch property writes. The clip batch applies markers in an order that never violates Live's start/end constraints. Song view setters push a clip into Live's Detail View or select a track, scene or slot.
+**Properties** — `song_set_properties`, `track_set_properties`, `scene_set_properties`, `clip_set_properties`, `clip_view_set_properties` and `song_view_set_properties` batch property writes. Keys are written in a fixed order with no read first; Live drops a marker that would cross its partner without raising, so write markers one per mutation in the order that keeps start before end and compare the returned clip with what you asked for. Song view setters push a clip into Live's Detail View or select a track, scene or slot.
 
 **Clips** — Create an empty MIDI clip in a slot or the arrangement, delete, duplicate to a slot or the arrangement, crop, duplicate loop, scrub.
 
-**MIDI notes** — `clip_add_new_notes` returns the note ids Live assigned. Modify (stale ids fail loudly instead of being ignored), select, remove by id or region, duplicate by id or region, quantize. `clip_write_notes`, the one mutation without a LOM counterpart, runs `set`, `add_new_notes`, `apply_note_modifications` and `remove_notes_by_id` in one request and returns the refreshed clip with the added ids.
+**MIDI notes** — `clip_add_new_notes` returns the note ids Live assigned. Modify (Live silently ignores the whole list when any note id is stale; check with `get_notes_by_id` first if that matters), select, remove by id or region, duplicate by id or region, quantize.
 
 Names mirror the LOM verbatim: fields and mutation suffixes are LOM properties and functions, and arguments are the LOM parameter or dictionary-key names.
 

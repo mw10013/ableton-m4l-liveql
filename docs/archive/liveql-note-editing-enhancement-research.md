@@ -1,3 +1,5 @@
+> Archived 2026-09-03: describes the composite mutations that were removed; see `docs/lom-mirror-cleanup-handoff.md`.
+
 # LiveQL Note Editing Enhancement Research
 
 Date: 2026-09-01
