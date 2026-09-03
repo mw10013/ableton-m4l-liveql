@@ -9,6 +9,7 @@
 ## Project
 
 - `LiveQL` is a GraphQL API for Ableton Live: a Max for Live device exposing a subset of the Live Object Model (LOM) over `http://localhost:4000/graphql`.
+- LiveQL's whole job, for now, is to mirror the LOM as faithfully as possible: a bare, raw view of what Live exposes, with nothing built on top. Every mutation is exactly one LOM operation, a `set` or a `call`, followed by the readback the selection set needs. No mutation reads before it writes, reorders writes, validates against Live state, or chains several LOM calls. Orchestration belongs to the client, which can send several mutations as aliased fields of one document and rely on them running serially in order. Composite or convenience operations may come later; do not add one now.
 - `liveql.amxd` — the Max for Live device. Hosts the `v8` object running the Max JS script and the `node.script` object running the Node for Max server.
 - `liveql-m4l.js` — Max JS (`v8` object). Talks to the LOM through `LiveAPI`, receives actions on its inlet, returns results on its outlet.
 - `liveql-n4m.js` — Node for Max script. Serves the GraphQL schema and resolvers with graphql-yoga; resolvers dispatch actions to the Max layer over `max-api` and await the matching result by `actionId`.
@@ -74,6 +75,7 @@ pnpm build:dist         # build the self-contained dist/ device (see README)
 - The schema is an SDL template literal in `liveql-n4m.js`. Field and type names mirror LOM names verbatim (`live_set`, `is_playing`, `has_midi_input`, `clip_slot`) — snake_case, not camelCase.
 - Mutations are named `<object>_<action>` after the LOM operation they perform (`clip_set_looping`, `song_continue_playing`).
 - Ground new fields in `refs/m4l-docs/apiref/lom/` — the LOM is the source of truth for what a property is called and whether it is readable, writable or a child.
+- One LOM operation per mutation. If a feature needs a read before a write, a specific write order, or a sequence of calls, that logic goes in the client, not here. Live's quirks (a silently dropped marker, a silently ignored note list) are documented in the field's schema docstring as a warning to callers, never worked around in a resolver.
 
 ## Do Not Edit
 
