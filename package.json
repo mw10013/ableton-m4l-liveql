@@ -8,11 +8,10 @@
     "test": "node --test test/*.test.js",
     "test:n4m": "\"/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Max/Max.app/Contents/Resources/C74/packages/Node for Max/source/bin/osx/node/node\" --test test/*.test.js",
     "test:live": "LIVEQL_E2E=1 node --test test/live/*.test.js",
-    "refs": "node scripts/refs.ts",
-    "refs:all": "node scripts/refs.ts fetch --all",
-    "refs:check": "node scripts/refs.ts check",
-    "typecheck:scripts": "tsc -p scripts --noEmit",
-    "build:dist": "rm -rf dist && mkdir -p dist && cp liveql.amxd liveql-m4l.js liveql-n4m.js package.json pnpm-lock.yaml dist/ && pnpm install --dir dist --prod --config.node-linker=hoisted --ignore-scripts"
+    "refs": "vpx scripts/refs.ts",
+    "refs:all": "vpx scripts/refs.ts fetch --all",
+    "refs:check": "vpx scripts/refs.ts check",
+    "build:dist": "rm -rf dist && mkdir -p dist && cp liveql.amxd liveql-m4l.js liveql-n4m.js package.json pnpm-lock.yaml pnpm-workspace.yaml dist/ && pnpm install --dir dist --prod --config.node-linker=hoisted --ignore-scripts"
   },
   "author": "",
   "license": "ISC",
@@ -24,7 +23,10 @@
     "@effect/platform-node": "4.0.0-rc.112",
     "@types/node": "26.4.0",
     "effect": "4.0.0-rc.112",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   },
   "//engines": "Node for Max bundles v22.18.0 -- `\"$N4M/source/bin/osx/node/node\" --version`, not the Node on your PATH; the Node for Max README claiming v20.6.1 is stale, the binary is what runs. That is also the floor `node scripts/refs.ts` needs for native TypeScript type stripping, so one number covers both.",
   "engines": {

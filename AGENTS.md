@@ -22,7 +22,7 @@
 
 - `liveql-n4m.js` runs under **Node for Max's bundled Node**, not the Node on your PATH. That binary is **v22.18.0** — ask it, not the Node for Max README, which still claims v20.6.1 and is stale. It is CommonJS: `require`, no ESM, no bundler, no TypeScript.
 - `liveql-m4l.js` runs under Max's **`v8` object**, not Node. No `require`, no Node globals. Top-level `inlets`/`outlets` must be bare globals — `let`/`const` breaks Max's attribute binding. Mark helpers `fn.local = 1` so Max does not expose them as message handlers.
-- `node scripts/refs.ts` runs under the Node on your PATH and needs **>=22.18** for native TypeScript type stripping — the same floor the bundled Node sets, so `engines` carries one number.
+- `scripts/refs.ts` runs through `vpx`, which uses the Node on your PATH and does not type-check. `engines` carries **>=22.18**, the bundled Node's version.
 
 ## Refs
 
@@ -41,19 +41,19 @@ Downloaded reference sources are in `refs/`, pinned to the versions this workspa
 ## Commands
 
 ```bash
-pnpm test               # node:test suite for the schema and resolvers, no Live needed
-pnpm test:n4m           # the same suite under Node for Max's bundled Node
-pnpm test:live          # opt-in end-to-end suite; needs Live and mutates the open Set
-pnpm refs:check         # report refs that drifted from their pins (exit 1 if any)
-pnpm refs fetch <name>  # re-fetch one ref; `pnpm refs:all` for every non-opt-in ref
-pnpm typecheck:scripts  # typecheck scripts/ (the only TypeScript in the repo)
-pnpm build:dist         # build the self-contained dist/ device (see README)
+vp check                  # format, lint and type-check every file; `vp check --fix` after edits
+vp run test               # node:test suite for the schema and resolvers, no Live needed
+vp run test:n4m           # the same suite under Node for Max's bundled Node
+vp run test:live          # opt-in end-to-end suite; needs Live and mutates the open Set
+vp run refs:check         # report refs that drifted from their pins (exit 1 if any)
+vp run refs fetch <name>  # re-fetch one ref; `vp run refs:all` for every non-opt-in ref
+vp run build:dist         # build the self-contained dist/ device (see README)
 ```
 
-- There is no lint step. `pnpm test` fakes `max-api` and drives the real schema through yoga, so it covers everything up to the `v8` boundary; run it, and `pnpm test:n4m`, after touching `liveql-n4m.js`.
+- Lint is Oxlint through Vite+, configured in `vite.config.ts`. `liveql-m4l.js` has its own override declaring Max's `v8` globals and message handlers.
+- `vp run test` fakes `max-api` and drives the real schema through yoga, so it covers everything up to the `v8` boundary; run it, and `vp run test:n4m`, after touching `liveql-n4m.js`.
 - `liveql-m4l.js` has no unit tests: a `LiveAPI` shim's fidelity is the very thing in question. `test/helpers/fake-lom.js` mirrors its wire contract instead, so a change to the bridge's output shape means a change there.
-- Run `pnpm typecheck:scripts` after editing `scripts/refs.ts`. Not necessary if just research.
-- The device itself is exercised by hand in Live: drop `liveql.amxd` on a track, click start, query `http://localhost:4000/graphql`. `curl` examples are in the README. `pnpm test:live` is that session written as assertions.
+- The device itself is exercised by hand in Live: drop `liveql.amxd` on a track, click start, query `http://localhost:4000/graphql`. `curl` examples are in the README. `vp run test:live` is that session written as assertions.
 
 ## JavaScript Guidelines
 
