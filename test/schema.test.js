@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { createServer } = require("./helpers/server");
 
-const LOM_DIR = path.join(__dirname, "..", "refs", "m4l-docs", "apiref", "lom");
+const LOM_DIR = path.join(__dirname, "..", "..", "m4l-docs", "apiref", "lom");
 const LOM_OBJECT_TYPES = [
   "Application",
   "Song",
@@ -32,16 +32,16 @@ const INVENTED_MUTATIONS = ["write_notes", "replace_notes"];
 /**
  * The LOM vocabulary as the reference docs spell it: `### name` headings cover
  * properties, children and functions, and inline code spans cover function
- * parameters (`` `record_length (optional)` ``). `refs/` is gitignored, so the
- * tests that consume this skip themselves when it has not been fetched.
+ * parameters (`` `record_length (optional)` ``). The docs are a shared reference
+ * beside this checkout, so the tests that consume this skip themselves when it
+ * has not been fetched.
  */
 function lomNames() {
   const names = new Set();
   if (!fs.existsSync(LOM_DIR)) return names;
   for (const entry of fs.readdirSync(LOM_DIR)) {
-    const file = path.join(LOM_DIR, entry, "index.md");
-    if (!fs.existsSync(file)) continue;
-    const text = fs.readFileSync(file, "utf8");
+    if (!entry.endsWith(".md")) continue;
+    const text = fs.readFileSync(path.join(LOM_DIR, entry), "utf8");
     for (const [, name] of text.matchAll(/^#{2,4} ([a-z][a-z0-9_]*)/gm))
       names.add(name);
     for (const [, name] of text.matchAll(
@@ -132,7 +132,7 @@ describe("schema", () => {
 
   it(
     "names every field and argument after the LOM",
-    { skip: !fs.existsSync(LOM_DIR) && "refs/m4l-docs not fetched" },
+    { skip: !fs.existsSync(LOM_DIR) && "m4l-docs not fetched" },
     () => {
       const names = lomNames();
       assert.ok(

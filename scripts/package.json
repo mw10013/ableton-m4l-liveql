@@ -1,4 +1,0 @@
-{
-  "type": "module",
-  "//": "Marks scripts/ as ESM so `node scripts/refs.ts` resolves as a module. The root stays CommonJS because liveql-n4m.js is `require`-based and Max loads it by name."
-}
