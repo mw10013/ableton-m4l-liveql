@@ -43,7 +43,7 @@ function record(question, answer) {
 }
 
 describe("live", { skip: SKIP }, () => {
-  let clip, track, view, original, originalNotes;
+  let clip, original, originalNotes, track, view;
 
   before(async () => {
     const { live_set } = await data(`{
@@ -68,7 +68,7 @@ describe("live", { skip: SKIP }, () => {
       )
     ).clip.get_all_notes_extended.notes;
     console.log(
-      `live: using clip ${clip} on track ${track.id} of "${live_set.name || "(unsaved Set)"}"`,
+      `live: using clip ${clip} on track ${track.id} of "${live_set.name === "" ? "(unsaved Set)" : live_set.name}"`,
     );
   });
 

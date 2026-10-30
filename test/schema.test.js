@@ -25,9 +25,9 @@ const MUTATION_PREFIX = {
   ClipView: "clip_view",
   ClipNotesPayload: "clip",
 };
-const INVENTED_FIELDS = ["id", "properties", "input"];
-const INVENTED_ARGS = ["id", "properties"];
-const INVENTED_MUTATIONS = ["write_notes", "replace_notes"];
+const INVENTED_FIELDS = new Set(["id", "properties", "input"]);
+const INVENTED_ARGS = new Set(["id", "properties"]);
+const INVENTED_MUTATIONS = new Set(["write_notes", "replace_notes"]);
 
 /**
  * The LOM vocabulary as the reference docs spell it: `### name` headings cover
@@ -42,12 +42,14 @@ function lomNames() {
   for (const entry of fs.readdirSync(LOM_DIR)) {
     if (!entry.endsWith(".md")) continue;
     const text = fs.readFileSync(path.join(LOM_DIR, entry), "utf8");
-    for (const [, name] of text.matchAll(/^#{2,4} ([a-z][a-z0-9_]*)/gm))
-      names.add(name);
-    for (const [, name] of text.matchAll(
-      /`([a-z][a-z0-9_]*)(?: \(optional\))?`/g,
+    for (const { groups } of text.matchAll(
+      /^#{2,4} (?<name>[a-z][a-z0-9_]*)/gmu,
     ))
-      names.add(name);
+      names.add(groups.name);
+    for (const { groups } of text.matchAll(
+      /`(?<name>[a-z][a-z0-9_]*)(?: \(optional\))?`/gu,
+    ))
+      names.add(groups.name);
   }
   return names;
 }
@@ -88,13 +90,13 @@ describe("schema", () => {
       for (const [fieldName, field] of Object.entries(type.getFields())) {
         assert.match(
           fieldName,
-          /^[a-z][a-z0-9_]*$/,
+          /^[a-z][a-z0-9_]*$/u,
           `${typeName}.${fieldName}`,
         );
         for (const arg of field.args ?? []) {
           assert.match(
             arg.name,
-            /^[a-z][a-z0-9_]*$/,
+            /^[a-z][a-z0-9_]*$/u,
             `${typeName}.${fieldName}(${arg.name})`,
           );
         }
@@ -107,7 +109,7 @@ describe("schema", () => {
     for (const [name, field] of Object.entries(
       schema.getMutationType().getFields(),
     )) {
-      const returnType = String(field.type).replace(/[![\]]/g, "");
+      const returnType = String(field.type).replaceAll(/[![\]]/gu, "");
       const prefix = MUTATION_PREFIX[returnType];
       assert.ok(
         prefix,
@@ -122,7 +124,7 @@ describe("schema", () => {
       assert.ok(
         names.size === 0 ||
           operation === "set_properties" ||
-          INVENTED_MUTATIONS.includes(operation) ||
+          INVENTED_MUTATIONS.has(operation) ||
           names.has(operation) ||
           names.has(property),
         `${name}: ${operation} is not a LOM function or settable property`,
@@ -145,12 +147,12 @@ describe("schema", () => {
         if (typeName === "Mutation") continue;
         for (const [fieldName, field] of Object.entries(type.getFields())) {
           assert.ok(
-            known(fieldName) || INVENTED_FIELDS.includes(fieldName),
+            known(fieldName) || INVENTED_FIELDS.has(fieldName),
             `${typeName}.${fieldName} is not a LOM name`,
           );
           for (const arg of field.args ?? []) {
             assert.ok(
-              known(arg.name) || INVENTED_ARGS.includes(arg.name),
+              known(arg.name) || INVENTED_ARGS.has(arg.name),
               `${typeName}.${fieldName}(${arg.name}) is not a LOM name`,
             );
           }

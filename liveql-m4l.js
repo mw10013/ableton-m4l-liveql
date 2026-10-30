@@ -8,6 +8,7 @@ function getLive(idOrPath) {
     typeof idOrPath === "string" ? idOrPath : `id ${idOrPath}`,
   );
   if (live.path === "") {
+    // oxlint-disable-next-line no-throw-literal, typescript/only-throw-error -- `outletFailedResult` reports `message.toString()`, and an Error would prefix "Error: " to the message GraphQL clients see
     throw `Invalid live id or path: ${idOrPath}`;
   }
   return live;
@@ -72,12 +73,12 @@ function get(json) {
     const live = getLive(params.idOrPath);
 
     const o = {
-      id: parseInt(live.id), // LOM says this should be number instead of string
+      id: Number(live.id), // LOM says this should be number instead of string
       path: live.unquotedpath,
       type: live.type,
     };
 
-    for (const k of params.propertyKeysSingle || []) {
+    for (const k of params.propertyKeysSingle ?? []) {
       const raw = live.get(k);
       const propertyArr = Array.isArray(raw)
         ? raw
@@ -89,7 +90,7 @@ function get(json) {
       }
     }
 
-    for (const k of params.propertyKeysMultiple || []) {
+    for (const k of params.propertyKeysMultiple ?? []) {
       const raw = live.get(k);
       o[k] = Array.isArray(raw)
         ? raw
@@ -98,13 +99,13 @@ function get(json) {
           : [raw];
     }
 
-    for (const k of params.childKeysSingle || []) {
+    for (const k of params.childKeysSingle ?? []) {
       const raw = live.get(k);
       const id = Array.isArray(raw) ? raw[1] : undefined;
       o[k] = isChildId(id) ? id : null;
     }
 
-    for (const k of params.childKeysMultiple || []) {
+    for (const k of params.childKeysMultiple ?? []) {
       const raw = live.get(k);
       o[k] = Array.isArray(raw) ? raw.filter(isChildId) : [];
     }

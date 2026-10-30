@@ -95,7 +95,7 @@ describe("clip", () => {
     const { data } = await gql(
       "{ a: clip_slot(id: 20) { color } b: clip_slot(id: 21) { color clip { id } } }",
     );
-    assert.equal(data.a.color, 16711680);
+    assert.equal(data.a.color, 16_711_680);
     assert.deepEqual(data.b, { color: null, clip: null });
   });
 

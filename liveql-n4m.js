@@ -41,7 +41,7 @@ async function call(id, ...args) {
 }
 
 let actionId = 0;
-let actionResultHandlers = new Map();
+const actionResultHandlers = new Map();
 
 /**
  * Failures from the v8 bridge arrive as a bare message with no record of which
@@ -73,7 +73,7 @@ Max.addHandler("result", async (json) => {
   actionResultHandlers.delete(result.actionId);
   if (!handler) return;
   if (result.status !== "succeeded") {
-    await Max.post("liveql: failed result: " + json);
+    await Max.post(`liveql: failed result: ${json}`);
     handler.reject(new Error(result.message));
     return;
   }
@@ -621,7 +621,7 @@ const typeDefs = /* GraphQL */ `
  * whole query. Defaulting here keeps the field non-null.
  */
 function withStringDefaults(o, keys) {
-  return keys.reduce((acc, k) => ({ ...acc, [k]: acc[k] ?? "" }), o);
+  return { ...o, ...Object.fromEntries(keys.map((k) => [k, o[k] ?? ""])) };
 }
 
 function getSong() {
@@ -854,7 +854,7 @@ function parseMaybeJson(data) {
   if (typeof data !== "string") return data;
   try {
     return JSON.parse(data);
-  } catch (_err) {
+  } catch {
     return data;
   }
 }
@@ -871,7 +871,7 @@ function toIntList(data) {
   const v = parseMaybeJson(data);
   if (Array.isArray(v)) return v.flatMap(toIntList);
   if (Number.isInteger(v)) return [v];
-  if (typeof v === "string" && /^-?\d+$/.test(v)) return [Number(v)];
+  if (typeof v === "string" && /^-?\d+$/u.test(v)) return [Number(v)];
   if (v && typeof v === "object")
     return toIntList(v.note_ids ?? Object.values(v));
   return [];
@@ -950,7 +950,7 @@ function compareNotes(a, b) {
  */
 function sortJsonNotesDictionary(json) {
   const data = JSON.parse(json);
-  return { notes: [...(data?.notes ?? [])].sort(compareNotes) };
+  return { notes: (data?.notes ?? []).toSorted(compareNotes) };
 }
 
 async function getNotesExtended(parent, args) {
@@ -1000,9 +1000,12 @@ function byId(expectedType, fetch) {
  * missing argument instead of letting Live read the wrong value.
  */
 function optionalPositional(name, values, argNames) {
-  const given = values.slice(0, values.findLastIndex((v) => v != null) + 1);
-  const gap = given.findIndex((v) => v == null);
-  if (gap >= 0) {
+  const given = values.slice(
+    0,
+    values.findLastIndex((v) => v !== undefined && v !== null) + 1,
+  );
+  const gap = given.findIndex((v) => v === undefined || v === null);
+  if (gap !== -1) {
     throw new Error(
       `liveql: ${name}: ${argNames[gap]} is required when a later optional argument is given`,
     );
@@ -1289,8 +1292,12 @@ const resolvers = {
       const { id, note_ids, destination_time, transposition_amount } = args;
       await call(id, "duplicate_notes_by_id", {
         note_ids,
-        ...(destination_time == null ? {} : { destination_time }),
-        ...(transposition_amount == null ? {} : { transposition_amount }),
+        ...(destination_time === undefined || destination_time === null
+          ? {}
+          : { destination_time }),
+        ...(transposition_amount === undefined || transposition_amount === null
+          ? {}
+          : { transposition_amount }),
       });
       return getClip(id);
     },
@@ -1452,8 +1459,9 @@ const yoga = createYoga({
   maskedErrors: false,
 });
 
-const port = parseInt(process.argv[2]) || 4000;
+const port = Number(process.argv[2]) || 4000;
 
+// oxlint-disable-next-line typescript/no-misused-promises -- yoga is built to be a Node request listener and settles its own errors
 const server = http.createServer(yoga);
 server.listen(port, () => {
   Max.post(

@@ -16,22 +16,27 @@ const N4M = require.resolve("../../liveql-n4m.js");
 function createServer() {
   const lom = createLom();
   const max = createMax(lom);
+  // oxlint-disable-next-line no-underscore-dangle -- Node's module loader hook
   const loadOrig = Module._load;
   const createServerOrig = http.createServer;
   let yoga = null;
+  // oxlint-disable-next-line no-underscore-dangle -- Node's module loader hook
   Module._load = function (request, ...rest) {
     return request === "max-api" ? max : loadOrig.call(this, request, ...rest);
   };
   http.createServer = (handler) => {
     yoga = handler;
-    return { listen: () => {} };
+    return { listen: () => undefined };
   };
   try {
+    // oxlint-disable-next-line typescript/no-dynamic-delete -- evicting a module is how Node's require cache is cleared
     delete require.cache[N4M];
     require(N4M);
   } finally {
+    // oxlint-disable-next-line no-underscore-dangle -- Node's module loader hook
     Module._load = loadOrig;
     http.createServer = createServerOrig;
+    // oxlint-disable-next-line typescript/no-dynamic-delete -- evicting a module is how Node's require cache is cleared
     delete require.cache[N4M];
   }
 

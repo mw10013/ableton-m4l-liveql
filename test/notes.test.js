@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const { describe, it, beforeEach } = require("node:test");
-const { createServer, errorMessage } = require("./helpers/server");
+const { createServer } = require("./helpers/server");
 
 const ADD = `mutation ($n: [NoteInput!]!) { clip_add_new_notes(id: 40, notes: $n) { note_ids clip { id } } }`;
 const TWO_NOTES = [
@@ -29,7 +29,7 @@ describe("notes", () => {
 
   it("converts a boolean note member to Live's 0 and 1", async () => {
     await gql(ADD, { n: TWO_NOTES });
-    const [, , , dictionary] = lom.log[0];
+    const dictionary = lom.log[0][3];
     assert.equal(dictionary.notes[0].mute, 1);
     assert.equal(dictionary.notes[1].mute, undefined);
   });
@@ -39,11 +39,11 @@ describe("notes", () => {
    * why `toIntList` accepts several. Each shape here is one the bridge could
    * plausibly forward, not a claim that Live produces it.
    */
-  for (const [name, returned] of [
-    ["a Max list with a leading symbol", ["id", 100, 101]],
-    ["a flat list of ints", [100, 101]],
-    ["a JSON string", "[100, 101]"],
-    ["a dictionary keyed note_ids", { note_ids: [100, 101] }],
+  for (const { name, returned } of [
+    { name: "a Max list with a leading symbol", returned: ["id", 100, 101] },
+    { name: "a flat list of ints", returned: [100, 101] },
+    { name: "a JSON string", returned: "[100, 101]" },
+    { name: "a dictionary keyed note_ids", returned: { note_ids: [100, 101] } },
   ]) {
     it(`reduces ${name} to the note ids`, async () => {
       lom.calls.add_new_notes = () => returned;
@@ -140,7 +140,7 @@ describe("notes", () => {
     );
     assert.equal(errors, undefined);
     assert.deepEqual(
-      lom.log.map(([, , fn]) => fn),
+      lom.log.map((entry) => entry[2]),
       ["apply_note_modifications"],
     );
     assert.equal(lom.notes[40][0].pitch, 62);

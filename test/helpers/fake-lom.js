@@ -85,7 +85,7 @@ function trackProps(overrides) {
     mute: [0],
     solo: [0],
     muted_via_solo: [0],
-    color: [16711680],
+    color: [16_711_680],
     color_index: [1],
     is_foldable: [0],
     is_grouped: [0],
@@ -111,7 +111,7 @@ function clipSlotProps(overrides) {
     playing_status: [0],
     is_group_slot: [0],
     will_record_on_start: [0],
-    color: [16711680],
+    color: [16_711_680],
     clip: ["id", 0],
     ...overrides,
   };
@@ -120,7 +120,7 @@ function clipSlotProps(overrides) {
 function clipProps(overrides) {
   return {
     name: [],
-    color: [16711680],
+    color: [16_711_680],
     color_index: [1],
     is_arrangement_clip: [0],
     is_session_clip: [1],
@@ -255,7 +255,7 @@ function defaultObjects() {
       type: "Scene",
       props: {
         name: [],
-        color: [16711680],
+        color: [16_711_680],
         color_index: [1],
         is_empty: [0],
         is_triggered: [0],
@@ -318,12 +318,16 @@ function defaultObjects() {
 function guardMarkers(props, property, value) {
   const at = (k) => props[k]?.[0];
   if (property === "start_marker" && value > at("end_marker"))
+    // oxlint-disable-next-line no-throw-literal, typescript/only-throw-error -- mirrors the string `liveql-m4l.js` throws
     throw "Cannot be set behind the end marker";
   if (property === "end_marker" && value < at("start_marker"))
+    // oxlint-disable-next-line no-throw-literal, typescript/only-throw-error -- mirrors the string `liveql-m4l.js` throws
     throw "Cannot be set before the start marker";
   if (property === "loop_start" && value > at("loop_end"))
+    // oxlint-disable-next-line no-throw-literal, typescript/only-throw-error -- mirrors the string `liveql-m4l.js` throws
     throw "Cannot be set behind the loop end";
   if (property === "loop_end" && value < at("loop_start"))
+    // oxlint-disable-next-line no-throw-literal, typescript/only-throw-error -- mirrors the string `liveql-m4l.js` throws
     throw "Cannot be set before the loop start";
 }
 
@@ -339,7 +343,9 @@ function createLom() {
 
   const resolve = (idOrPath) => {
     const o = objects[idOrPath];
-    if (!o) throw `Invalid live id or path: ${idOrPath}`;
+    if (!o)
+      // oxlint-disable-next-line no-throw-literal, typescript/only-throw-error -- mirrors the string `liveql-m4l.js` throws
+      throw `Invalid live id or path: ${idOrPath}`;
     return o;
   };
   const read = (o, k) => o.props[k] ?? [];
@@ -348,17 +354,17 @@ function createLom() {
   const get = (params) => {
     const o = resolve(params.idOrPath);
     const out = { id: o.id, path: o.path, type: o.type };
-    for (const k of params.propertyKeysSingle || []) {
+    for (const k of params.propertyKeysSingle ?? []) {
       const arr = asList(read(o, k));
       if (arr.length === 1) out[k] = arr[0];
     }
-    for (const k of params.propertyKeysMultiple || [])
+    for (const k of params.propertyKeysMultiple ?? [])
       out[k] = asList(read(o, k));
-    for (const k of params.childKeysSingle || []) {
+    for (const k of params.childKeysSingle ?? []) {
       const id = asList(read(o, k))[1];
       out[k] = isChildId(id) ? id : null;
     }
-    for (const k of params.childKeysMultiple || [])
+    for (const k of params.childKeysMultiple ?? [])
       out[k] = asList(read(o, k)).filter(isChildId);
     return out;
   };
@@ -378,17 +384,22 @@ function createLom() {
     if (calls[fn]) return calls[fn](args, o);
     const dict = (list) => JSON.stringify({ notes: list });
     switch (fn) {
-      case "get_major_version":
+      case "get_major_version": {
         return [12];
-      case "get_minor_version":
+      }
+      case "get_minor_version": {
         return [3];
-      case "get_bugfix_version":
+      }
+      case "get_bugfix_version": {
         return [5];
-      case "get_version_string":
+      }
+      case "get_version_string": {
         return ["12.3.5"];
+      }
       case "get_all_notes_extended":
-      case "get_selected_notes_extended":
+      case "get_selected_notes_extended": {
         return dict(notesOf(o.id));
+      }
       case "get_notes_extended": {
         const [fromPitch, pitchSpan, fromTime, timeSpan] = args;
         return dict(
@@ -410,7 +421,7 @@ function createLom() {
         const found = notesOf(o.id).filter((n) => args.includes(n.note_id));
         return found.length === 0 ? JSON.stringify({}) : dict(found);
       }
-      case "add_new_notes":
+      case "add_new_notes": {
         return [
           "id",
           ...args[0].notes.map((n) => {
@@ -419,6 +430,7 @@ function createLom() {
             return note_id;
           }),
         ];
+      }
       /**
        * Live ignores the whole list when any note_id is not in the clip; the
        * guard in `applyNoteModifications` exists for that, and notes.test.js
@@ -436,9 +448,10 @@ function createLom() {
           );
         return null;
       }
-      case "remove_notes_by_id":
+      case "remove_notes_by_id": {
         notes[o.id] = notesOf(o.id).filter((n) => !args.includes(n.note_id));
         return null;
+      }
       /**
        * Selects the same half-open pitch/onset window `get_notes_extended`
        * does, and removes what it selects: a client rewriting a whole clip
@@ -458,8 +471,9 @@ function createLom() {
         );
         return null;
       }
-      default:
+      default: {
         return null;
+      }
     }
   };
 
@@ -469,11 +483,9 @@ function createLom() {
     notes,
     calls,
     setsOf: (property) =>
-      log.filter(([action, , p]) => action === "set" && p === property),
+      log.filter((entry) => entry[0] === "set" && entry[2] === property),
     setOrder: () =>
-      log
-        .filter(([action]) => action === "set")
-        .map(([, , property]) => property),
+      log.filter(([action]) => action === "set").map((entry) => entry[2]),
     exec: (params) =>
       (params.action === "get" ? get : params.action === "set" ? set : call)(
         params,

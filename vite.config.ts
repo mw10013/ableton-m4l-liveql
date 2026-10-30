@@ -8,6 +8,7 @@ const anyTypedRules = [
   "no-unsafe-return",
   "restrict-plus-operands",
   "restrict-template-expressions",
+  "use-unknown-in-catch-callback-variable",
 ].map((rule) => `@typescript-eslint/${rule}`);
 
 export default defineConfig({
@@ -148,17 +149,20 @@ export default defineConfig({
     overrides: [
       {
         // Untyped JavaScript: parameters are `any` and `require` yields `error` types, so these
-        // rules flag every use rather than a real mistake.
+        // rules flag every use rather than a real mistake, or ask for an annotation JavaScript
+        // cannot write.
         files: ["**/*.js"],
         rules: Object.fromEntries(
           anyTypedRules.map((rule) => [rule, "off" as const]),
         ),
       },
       {
-        // `node:test` registers a test by calling `test(...)`; its promise is not awaited.
+        // `node:test` registers a test by calling `test(...)`; its promise is not awaited. A test
+        // registered in a loop reads state its hooks assign, after the loop has finished.
         files: ["test/**"],
         rules: {
           "@typescript-eslint/no-floating-promises": "off",
+          "no-loop-func": "off",
         },
       },
       {
