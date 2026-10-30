@@ -63,13 +63,15 @@ function songProps() {
  * Live does not always answer with a list: a track with no clip slots gives the
  * empty symbol for `clip_slots`, so anything that is not a list is read as one.
  */
-const asList = (v) => (Array.isArray(v) ? v : v === undefined || v === null ? [] : [v]);
+const asList = (v) =>
+  Array.isArray(v) ? v : v === undefined || v === null ? [] : [v];
 
 /**
  * The `id` tokens separating child ids, `id 0` for no child, and the empty
  * symbol Live pads an empty child list with are none of them ids to resolve.
  */
-const isChildId = (v) => v !== "id" && v !== 0 && v !== "" && v !== undefined && v !== null;
+const isChildId = (v) =>
+  v !== "id" && v !== 0 && v !== "" && v !== undefined && v !== null;
 
 function trackProps(overrides) {
   return {
@@ -164,83 +166,143 @@ function defaultObjects() {
   return {
     live_set: { id: 1, path: "live_set", type: "Song", props: songProps() },
     live_app: { id: 3, path: "live_app", type: "Application", props: {} },
-    2: { id: 2, path: "live_set view", type: "Song.View", props: {
-      draw_mode: [0],
-      follow_song: [1],
-      detail_clip: ["id", 40],
-      selected_track: ["id", 10],
-      highlighted_clip_slot: ["id", 0],
-      selected_scene: ["id", 30],
-    } },
-    10: { id: 10, path: "live_set tracks 0", type: "Track", props: trackProps({
-      name: ["MIDI"],
-      clip_slots: ["id", 20, "id", 21],
-    }) },
-    11: { id: 11, path: "live_set tracks 1", type: "Track", props: trackProps({
-      name: ["Audio"],
-      has_midi_input: [0],
-      has_audio_input: [1],
-      arrangement_clips: ["id", 50],
-    }) },
+    2: {
+      id: 2,
+      path: "live_set view",
+      type: "Song.View",
+      props: {
+        draw_mode: [0],
+        follow_song: [1],
+        detail_clip: ["id", 40],
+        selected_track: ["id", 10],
+        highlighted_clip_slot: ["id", 0],
+        selected_scene: ["id", 30],
+      },
+    },
+    10: {
+      id: 10,
+      path: "live_set tracks 0",
+      type: "Track",
+      props: trackProps({
+        name: ["MIDI"],
+        clip_slots: ["id", 20, "id", 21],
+      }),
+    },
+    11: {
+      id: 11,
+      path: "live_set tracks 1",
+      type: "Track",
+      props: trackProps({
+        name: ["Audio"],
+        has_midi_input: [0],
+        has_audio_input: [1],
+        arrangement_clips: ["id", 50],
+      }),
+    },
     /**
      * Live does not report a member the master track lacks as missing: it
      * answers 1, which is why these read as the junk they do in the Set. The
      * resolvers null them from can_be_armed and the path instead.
      */
-    12: { id: 12, path: "live_set master_track", type: "Track", props: trackProps({
-      name: ["Master"],
-      can_be_armed: [0],
-      arm: [1],
-      mute: [1],
-      solo: [1],
-      fold_state: [1],
-      playing_slot_index: [1],
-      fired_slot_index: [1],
-      clip_slots: "",
-    }) },
-    13: { id: 13, path: "live_set return_tracks 0", type: "Track", props: trackProps({
-      name: ["A Return"],
-      can_be_armed: [0],
-      arm: [1],
-      fold_state: [1],
-      playing_slot_index: [1],
-      fired_slot_index: [1],
-      clip_slots: "",
-    }) },
-    20: { id: 20, path: "live_set tracks 0 clip_slots 0", type: "ClipSlot", props: clipSlotProps({
-      has_clip: [1],
-      clip: ["id", 40],
-    }) },
-    21: { id: 21, path: "live_set tracks 0 clip_slots 1", type: "ClipSlot", props: clipSlotProps({ color: [] }) },
-    30: { id: 30, path: "live_set scenes 0", type: "Scene", props: {
-      name: [],
-      color: [16711680],
-      color_index: [1],
-      is_empty: [0],
-      is_triggered: [0],
-      tempo: [120],
-      tempo_enabled: [0],
-      time_signature_numerator: [4],
-      time_signature_denominator: [4],
-      time_signature_enabled: [0],
-      clip_slots: ["id", 20, "id", 21],
-    } },
-    40: { id: 40, path: "live_set tracks 0 clip_slots 0 clip", type: "Clip", props: clipProps() },
-    41: { id: 41, path: "live_set tracks 0 clip_slots 0 clip view", type: "Clip.View", props: {
-      grid_quantization: [4],
-      grid_is_triplet: [0],
-    } },
-    50: { id: 50, path: "live_set tracks 1 arrangement_clips 0", type: "Clip", props: clipProps({
-      is_arrangement_clip: [1],
-      is_session_clip: [0],
-      is_audio_clip: [1],
-      is_midi_clip: [0],
-      view: ["id", 51],
-    }) },
-    51: { id: 51, path: "live_set tracks 1 arrangement_clips 0 view", type: "Clip.View", props: {
-      grid_quantization: [4],
-      grid_is_triplet: [0],
-    } },
+    12: {
+      id: 12,
+      path: "live_set master_track",
+      type: "Track",
+      props: trackProps({
+        name: ["Master"],
+        can_be_armed: [0],
+        arm: [1],
+        mute: [1],
+        solo: [1],
+        fold_state: [1],
+        playing_slot_index: [1],
+        fired_slot_index: [1],
+        clip_slots: "",
+      }),
+    },
+    13: {
+      id: 13,
+      path: "live_set return_tracks 0",
+      type: "Track",
+      props: trackProps({
+        name: ["A Return"],
+        can_be_armed: [0],
+        arm: [1],
+        fold_state: [1],
+        playing_slot_index: [1],
+        fired_slot_index: [1],
+        clip_slots: "",
+      }),
+    },
+    20: {
+      id: 20,
+      path: "live_set tracks 0 clip_slots 0",
+      type: "ClipSlot",
+      props: clipSlotProps({
+        has_clip: [1],
+        clip: ["id", 40],
+      }),
+    },
+    21: {
+      id: 21,
+      path: "live_set tracks 0 clip_slots 1",
+      type: "ClipSlot",
+      props: clipSlotProps({ color: [] }),
+    },
+    30: {
+      id: 30,
+      path: "live_set scenes 0",
+      type: "Scene",
+      props: {
+        name: [],
+        color: [16711680],
+        color_index: [1],
+        is_empty: [0],
+        is_triggered: [0],
+        tempo: [120],
+        tempo_enabled: [0],
+        time_signature_numerator: [4],
+        time_signature_denominator: [4],
+        time_signature_enabled: [0],
+        clip_slots: ["id", 20, "id", 21],
+      },
+    },
+    40: {
+      id: 40,
+      path: "live_set tracks 0 clip_slots 0 clip",
+      type: "Clip",
+      props: clipProps(),
+    },
+    41: {
+      id: 41,
+      path: "live_set tracks 0 clip_slots 0 clip view",
+      type: "Clip.View",
+      props: {
+        grid_quantization: [4],
+        grid_is_triplet: [0],
+      },
+    },
+    50: {
+      id: 50,
+      path: "live_set tracks 1 arrangement_clips 0",
+      type: "Clip",
+      props: clipProps({
+        is_arrangement_clip: [1],
+        is_session_clip: [0],
+        is_audio_clip: [1],
+        is_midi_clip: [0],
+        view: ["id", 51],
+      }),
+    },
+    51: {
+      id: 51,
+      path: "live_set tracks 1 arrangement_clips 0 view",
+      type: "Clip.View",
+      props: {
+        grid_quantization: [4],
+        grid_is_triplet: [0],
+      },
+    },
   };
 }
 
@@ -255,10 +317,14 @@ function defaultObjects() {
  */
 function guardMarkers(props, property, value) {
   const at = (k) => props[k]?.[0];
-  if (property === "start_marker" && value > at("end_marker")) throw "Cannot be set behind the end marker";
-  if (property === "end_marker" && value < at("start_marker")) throw "Cannot be set before the start marker";
-  if (property === "loop_start" && value > at("loop_end")) throw "Cannot be set behind the loop end";
-  if (property === "loop_end" && value < at("loop_start")) throw "Cannot be set before the loop start";
+  if (property === "start_marker" && value > at("end_marker"))
+    throw "Cannot be set behind the end marker";
+  if (property === "end_marker" && value < at("start_marker"))
+    throw "Cannot be set before the start marker";
+  if (property === "loop_start" && value > at("loop_end"))
+    throw "Cannot be set behind the loop end";
+  if (property === "loop_end" && value < at("loop_start"))
+    throw "Cannot be set before the loop start";
 }
 
 function createLom() {
@@ -286,12 +352,14 @@ function createLom() {
       const arr = asList(read(o, k));
       if (arr.length === 1) out[k] = arr[0];
     }
-    for (const k of params.propertyKeysMultiple || []) out[k] = asList(read(o, k));
+    for (const k of params.propertyKeysMultiple || [])
+      out[k] = asList(read(o, k));
     for (const k of params.childKeysSingle || []) {
       const id = asList(read(o, k))[1];
       out[k] = isChildId(id) ? id : null;
     }
-    for (const k of params.childKeysMultiple || []) out[k] = asList(read(o, k)).filter(isChildId);
+    for (const k of params.childKeysMultiple || [])
+      out[k] = asList(read(o, k)).filter(isChildId);
     return out;
   };
 
@@ -310,18 +378,28 @@ function createLom() {
     if (calls[fn]) return calls[fn](args, o);
     const dict = (list) => JSON.stringify({ notes: list });
     switch (fn) {
-      case "get_major_version": return [12];
-      case "get_minor_version": return [3];
-      case "get_bugfix_version": return [5];
-      case "get_version_string": return ["12.3.5"];
+      case "get_major_version":
+        return [12];
+      case "get_minor_version":
+        return [3];
+      case "get_bugfix_version":
+        return [5];
+      case "get_version_string":
+        return ["12.3.5"];
       case "get_all_notes_extended":
       case "get_selected_notes_extended":
         return dict(notesOf(o.id));
       case "get_notes_extended": {
         const [fromPitch, pitchSpan, fromTime, timeSpan] = args;
-        return dict(notesOf(o.id).filter((n) =>
-          n.pitch >= fromPitch && n.pitch < fromPitch + pitchSpan &&
-          n.start_time >= fromTime && n.start_time < fromTime + timeSpan));
+        return dict(
+          notesOf(o.id).filter(
+            (n) =>
+              n.pitch >= fromPitch &&
+              n.pitch < fromPitch + pitchSpan &&
+              n.start_time >= fromTime &&
+              n.start_time < fromTime + timeSpan,
+          ),
+        );
       }
       /**
        * Live returns a dictionary with no `notes` key when none of the ids are
@@ -333,11 +411,14 @@ function createLom() {
         return found.length === 0 ? JSON.stringify({}) : dict(found);
       }
       case "add_new_notes":
-        return ["id", ...args[0].notes.map((n) => {
-          const note_id = nextNoteId++;
-          notesOf(o.id).push({ ...DEFAULT_NOTE, ...n, note_id });
-          return note_id;
-        })];
+        return [
+          "id",
+          ...args[0].notes.map((n) => {
+            const note_id = nextNoteId++;
+            notesOf(o.id).push({ ...DEFAULT_NOTE, ...n, note_id });
+            return note_id;
+          }),
+        ];
       /**
        * Live ignores the whole list when any note_id is not in the clip; the
        * guard in `applyNoteModifications` exists for that, and notes.test.js
@@ -346,8 +427,13 @@ function createLom() {
       case "apply_note_modifications": {
         const list = notesOf(o.id);
         const mods = args[0].notes;
-        if (mods.some((m) => !list.some((n) => n.note_id === m.note_id))) return null;
-        for (const m of mods) Object.assign(list.find((n) => n.note_id === m.note_id), m);
+        if (mods.some((m) => !list.some((n) => n.note_id === m.note_id)))
+          return null;
+        for (const m of mods)
+          Object.assign(
+            list.find((n) => n.note_id === m.note_id),
+            m,
+          );
         return null;
       }
       case "remove_notes_by_id":
@@ -361,12 +447,19 @@ function createLom() {
        */
       case "remove_notes_extended": {
         const [fromPitch, pitchSpan, fromTime, timeSpan] = args;
-        notes[o.id] = notesOf(o.id).filter((n) => !(
-          n.pitch >= fromPitch && n.pitch < fromPitch + pitchSpan &&
-          n.start_time >= fromTime && n.start_time < fromTime + timeSpan));
+        notes[o.id] = notesOf(o.id).filter(
+          (n) =>
+            !(
+              n.pitch >= fromPitch &&
+              n.pitch < fromPitch + pitchSpan &&
+              n.start_time >= fromTime &&
+              n.start_time < fromTime + timeSpan
+            ),
+        );
         return null;
       }
-      default: return null;
+      default:
+        return null;
     }
   };
 
@@ -375,9 +468,16 @@ function createLom() {
     log,
     notes,
     calls,
-    setsOf: (property) => log.filter(([action, , p]) => action === "set" && p === property),
-    setOrder: () => log.filter(([action]) => action === "set").map(([, , property]) => property),
-    exec: (params) => (params.action === "get" ? get : params.action === "set" ? set : call)(params),
+    setsOf: (property) =>
+      log.filter(([action, , p]) => action === "set" && p === property),
+    setOrder: () =>
+      log
+        .filter(([action]) => action === "set")
+        .map(([, , property]) => property),
+    exec: (params) =>
+      (params.action === "get" ? get : params.action === "set" ? set : call)(
+        params,
+      ),
   };
 }
 

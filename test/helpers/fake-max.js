@@ -14,7 +14,10 @@ function createMax(lom) {
     addHandler: (name, fn) => handlers.set(name, fn),
     outlet: async (action, json) => {
       const params = JSON.parse(json);
-      if (action !== params.action) throw new Error(`fake-max: outlet selector ${action} does not match action ${params.action}`);
+      if (action !== params.action)
+        throw new Error(
+          `fake-max: outlet selector ${action} does not match action ${params.action}`,
+        );
       const { actionId } = params;
       let result;
       try {

@@ -175,7 +175,10 @@ interface FluidTopics {
   /** Locale prefix, matched against each map's `ft:locale` metadata. */
   readonly locale: string;
   /** Maps to pull, by exact `title`, each into its own directory under the ref. */
-  readonly maps: ReadonlyArray<{ readonly title: string; readonly into: string }>;
+  readonly maps: ReadonlyArray<{
+    readonly title: string;
+    readonly into: string;
+  }>;
 }
 
 interface Ref {
@@ -456,7 +459,10 @@ const FtMaps = Schema.fromJsonString(
       id: Schema.String,
       title: Schema.String,
       metadata: Schema.Array(
-        Schema.Struct({ key: Schema.String, values: Schema.Array(Schema.String) }),
+        Schema.Struct({
+          key: Schema.String,
+          values: Schema.Array(Schema.String),
+        }),
       ),
     }),
   ),
@@ -490,7 +496,9 @@ const FtToc = Schema.fromJsonString(Schema.Array(TocNode));
 const Manifest = Schema.fromJsonString(
   Schema.Struct({
     dependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
-    devDependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+    devDependencies: Schema.optional(
+      Schema.Record(Schema.String, Schema.String),
+    ),
     pnpm: Schema.optional(
       Schema.Struct({
         overrides: Schema.optional(Schema.Record(Schema.String, Schema.String)),
@@ -509,7 +517,11 @@ const readManifest = Effect.fn(function* (manifestPath: string) {
   const fs = yield* FileSystem.FileSystem;
   const text = yield* fs
     .readFileString(manifestPath)
-    .pipe(Effect.mapError(() => new RefsError({ reason: `no package.json at ${manifestPath}` })));
+    .pipe(
+      Effect.mapError(
+        () => new RefsError({ reason: `no package.json at ${manifestPath}` }),
+      ),
+    );
   return yield* Schema.decodeEffect(Manifest)(text);
 });
 
@@ -539,13 +551,21 @@ const resolveVersion = Effect.fn(function* (source: VersionSource) {
     const manifest = yield* readManifest(path.join(root, "package.json"));
     const version = manifest.pnpm?.overrides?.[source.dep];
     if (version === undefined)
-      return yield* new RefsError({ reason: `${source.dep} is not in root pnpm.overrides` });
+      return yield* new RefsError({
+        reason: `${source.dep} is not in root pnpm.overrides`,
+      });
     return yield* assertExact(version, source);
   }
-  const manifest = yield* readManifest(path.join(root, source.from, "package.json"));
-  const version = manifest.dependencies?.[source.dep] ?? manifest.devDependencies?.[source.dep];
+  const manifest = yield* readManifest(
+    path.join(root, source.from, "package.json"),
+  );
+  const version =
+    manifest.dependencies?.[source.dep] ??
+    manifest.devDependencies?.[source.dep];
   if (version === undefined)
-    return yield* new RefsError({ reason: `${source.dep} is not a dependency of ${source.from}` });
+    return yield* new RefsError({
+      reason: `${source.dep} is not a dependency of ${source.from}`,
+    });
   return yield* source.fromTarballName
     ? versionFromTarballName(version, source)
     : assertExact(version, source);
@@ -581,7 +601,9 @@ const resolve = Effect.fn(function* (ref: Ref) {
     });
   const version = yield* resolveVersion(ref.version).pipe(
     Effect.mapError((error) =>
-      error instanceof RefsError ? error : new RefsError({ reason: error.message }),
+      error instanceof RefsError
+        ? error
+        : new RefsError({ reason: error.message }),
     ),
   );
   return {
@@ -599,11 +621,18 @@ const readStamp = Effect.fn(function* (name: string) {
   const root = yield* repoRoot;
   const stampPath = path.join(root, "refs", name, ".ref.json");
   if (!(yield* fs.exists(stampPath))) return undefined;
-  return yield* Schema.decodeEffect(StampJson)(yield* fs.readFileString(stampPath));
+  return yield* Schema.decodeEffect(StampJson)(
+    yield* fs.readFileString(stampPath),
+  );
 });
 
 /** Download the ref's tarball from GitHub and extract it into staging. */
-const downloadInto = Effect.fn(function* (staging: string, ref: Ref, repo: string, target: string) {
+const downloadInto = Effect.fn(function* (
+  staging: string,
+  ref: Ref,
+  repo: string,
+  target: string,
+) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const tarball = ref.private
     ? ChildProcess.make("gh", ["api", `repos/${repo}/tarball/${target}`], {
@@ -626,10 +655,14 @@ const downloadInto = Effect.fn(function* (staging: string, ref: Ref, repo: strin
   yield* Effect.scoped(
     Effect.gen(function* () {
       const download = yield* spawner.spawn(tarball);
-      const extract = ChildProcess.make("tar", ["-xz", "-C", staging, "--strip-components=1"], {
-        stderr: "inherit",
-        stdin: download.stdout,
-      });
+      const extract = ChildProcess.make(
+        "tar",
+        ["-xz", "-C", staging, "--strip-components=1"],
+        {
+          stderr: "inherit",
+          stdin: download.stdout,
+        },
+      );
       const tarExit = yield* spawner.exitCode(extract);
       const downloadExit = yield* download.exitCode;
       if (downloadExit !== 0 || tarExit !== 0) {
@@ -647,7 +680,8 @@ const httpGet = Effect.fn(function* (url: string) {
   return yield* Effect.tryPromise({
     try: async () => {
       const response = await fetch(url);
-      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      if (!response.ok)
+        throw new Error(`${response.status} ${response.statusText}`);
       return await response.text();
     },
     catch: (error) =>
@@ -693,7 +727,9 @@ const allFiles = Effect.fn(function* (dir: string) {
   const pending = [dir];
   while (pending.length > 0) {
     const current = pending.pop() ?? "";
-    for (const entry of yield* fs.readDirectory(current).pipe(Effect.orElseSucceed(() => []))) {
+    for (const entry of yield* fs
+      .readDirectory(current)
+      .pipe(Effect.orElseSucceed(() => []))) {
       const full = path.join(current, entry);
       const type = yield* fs.stat(full).pipe(
         Effect.map((s) => s.type),
@@ -718,7 +754,10 @@ const repairHeading = (line: string) =>
     ? line
         .replaceAll(/\\\\(?<name>\w+)\\\\/gu, "__$<name>__")
         .replaceAll(String.raw`\\`, "[]")
-        .replaceAll(/\\(?<inner>[^\\|]*[ ,][^\\|]*)\\(?=[ \t]|$)/gu, "[$<inner>]")
+        .replaceAll(
+          /\\(?<inner>[^\\|]*[ ,][^\\|]*)\\(?=[ \t]|$)/gu,
+          "[$<inner>]",
+        )
         .replaceAll(/\\(?<word>\w+)\\(?=[ \t]|$)/gu, "[$<word>]")
         .replaceAll(/\\(?=[A-Za-z0-9])/gu, "_")
         .replaceAll(/\\(?=[ \t]|$)/gu, "_")
@@ -731,7 +770,9 @@ const repairHeading = (line: string) =>
 const repairCrawledMarkdown = Effect.fn(function* (staging: string) {
   const fs = yield* FileSystem.FileSystem;
   let repaired = 0;
-  for (const file of (yield* allFiles(staging)).filter((f) => f.endsWith(".md"))) {
+  for (const file of (yield* allFiles(staging)).filter((f) =>
+    f.endsWith(".md"),
+  )) {
     const before = yield* fs.readFileString(file);
     const after = before.split("\n").map(repairHeading).join("\n");
     if (after !== before) {
@@ -739,7 +780,8 @@ const repairCrawledMarkdown = Effect.fn(function* (staging: string) {
       repaired++;
     }
   }
-  if (repaired > 0) yield* Console.log(`  repaired headings in ${repaired} file(s)`);
+  if (repaired > 0)
+    yield* Console.log(`  repaired headings in ${repaired} file(s)`);
 });
 
 /** The crawler's converter, run over one HTML file already on disk. */
@@ -763,7 +805,9 @@ const htmlToMarkdown = Effect.fn(function* (
     ),
   );
   if (exit !== 0)
-    return yield* new RefsError({ reason: `converting ${from} failed (exit ${exit})` });
+    return yield* new RefsError({
+      reason: `converting ${from} failed (exit ${exit})`,
+    });
 });
 
 /**
@@ -773,7 +817,9 @@ const htmlToMarkdown = Effect.fn(function* (
 const convertAssetPages = Effect.fn(function* (staging: string, crawl: Crawl) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const patterns = (crawl.convertAssetPages ?? []).map((p) => new RegExp(p, "u"));
+  const patterns = (crawl.convertAssetPages ?? []).map(
+    (p) => new RegExp(p, "u"),
+  );
   if (patterns.length === 0) return;
   let converted = 0;
   for (const file of yield* allFiles(staging)) {
@@ -783,7 +829,8 @@ const convertAssetPages = Effect.fn(function* (staging: string, crawl: Crawl) {
     yield* fs.remove(file, { force: true });
     converted++;
   }
-  if (converted > 0) yield* Console.log(`  converted ${converted} asset page(s) to markdown`);
+  if (converted > 0)
+    yield* Console.log(`  converted ${converted} asset page(s) to markdown`);
 });
 
 /** Pull one `<svg>...</svg>` out of a page by matching its open tag. */
@@ -796,7 +843,11 @@ const extractSvg = (html: string, match: string) => {
 
 /** Where the crawler puts a page's markdown: `<path>/index.md` under the staging root. */
 const pageFile = (staging: string, page: string, path: Path.Path) =>
-  path.join(staging, new URL(page).pathname.replaceAll(/^\/|\/$/gu, ""), "index.md");
+  path.join(
+    staging,
+    new URL(page).pathname.replaceAll(/^\/|\/$/gu, ""),
+    "index.md",
+  );
 
 /**
  * Rescue the inline figure the converter dropped: write the SVG, rasterise it if asked and
@@ -836,13 +887,20 @@ const rescueInlineFigure = Effect.fn(function* (staging: string, crawl: Crawl) {
   const havePng =
     figure.png === true &&
     (yield* spawner.exitCode(
-      ChildProcess.make("which", ["magick"], { stdout: "ignore", stderr: "ignore" }),
-    )) === 0 &&
-    (yield* spawner.exitCode(
-      ChildProcess.make("magick", ["-background", "white", target, "-resize", "1600x", png], {
+      ChildProcess.make("which", ["magick"], {
         stdout: "ignore",
         stderr: "ignore",
       }),
+    )) === 0 &&
+    (yield* spawner.exitCode(
+      ChildProcess.make(
+        "magick",
+        ["-background", "white", target, "-resize", "1600x", png],
+        {
+          stdout: "ignore",
+          stderr: "ignore",
+        },
+      ),
     )) === 0;
   if (figure.png === true && !havePng)
     yield* Console.log("  magick unavailable -- wrote the SVG without a PNG");
@@ -856,7 +914,9 @@ const rescueInlineFigure = Effect.fn(function* (staging: string, crawl: Crawl) {
       havePng ? rel.replace(/\.svg$/u, ".png") : rel
     })\n${havePng ? `\nVector source: [${path.basename(target)}](${rel})\n` : ""}`,
   );
-  yield* Console.log(`  rescued inline figure -> ${figure.into}${havePng ? " (+ png)" : ""}`);
+  yield* Console.log(
+    `  rescued inline figure -> ${figure.into}${havePng ? " (+ png)" : ""}`,
+  );
 });
 
 /**
@@ -866,7 +926,10 @@ const rescueInlineFigure = Effect.fn(function* (staging: string, crawl: Crawl) {
 const assertCrawler = Effect.gen(function* () {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const found = yield* spawner.exitCode(
-    ChildProcess.make("which", [CRAWLER], { stdout: "ignore", stderr: "ignore" }),
+    ChildProcess.make("which", [CRAWLER], {
+      stdout: "ignore",
+      stderr: "ignore",
+    }),
   );
   if (found !== 0) {
     return yield* new RefsError({
@@ -887,7 +950,9 @@ const crawlInto = Effect.fn(function* (staging: string, crawl: Crawl) {
         `--include-regex=${crawl.include}`,
         // Without this the regex would also gate assets, dropping every image -- which is
         // exactly what `filterAssetsToo` wants, for a site whose page URLs read as filenames.
-        ...(crawl.filterAssetsToo === true ? [] : ["--regex-filtering-only-for-pages"]),
+        ...(crawl.filterAssetsToo === true
+          ? []
+          : ["--regex-filtering-only-for-pages"]),
         ...(crawl.removeQueryParams === true ? ["--remove-query-params"] : []),
         // Browser rendering plus a very tall viewport; see the Crawl JSDoc.
         ...(crawl.browser
@@ -901,9 +966,13 @@ const crawlInto = Effect.fn(function* (staging: string, crawl: Crawl) {
               "--browser-auto-download",
             ]
           : []),
-        ...(crawl.externalFileDomain ?? []).map((d) => `--allowed-domain-for-external-files=${d}`),
+        ...(crawl.externalFileDomain ?? []).map(
+          (d) => `--allowed-domain-for-external-files=${d}`,
+        ),
         ...(crawl.ignore ?? []).map((r) => `--ignore-regex=${r}`),
-        ...(crawl.excludeSelector ?? []).map((s) => `--markdown-exclude-selector=${s}`),
+        ...(crawl.excludeSelector ?? []).map(
+          (s) => `--markdown-exclude-selector=${s}`,
+        ),
         `--markdown-export-dir=${staging}`,
         // Both of these default low enough to bite a mid-sized docs site, and both
         // fail silently: the crawler drops what does not fit and still exits 0, with
@@ -933,7 +1002,9 @@ const crawlInto = Effect.fn(function* (staging: string, crawl: Crawl) {
     ),
   );
   if (exit !== 0)
-    return yield* new RefsError({ reason: `crawl of ${crawl.url} failed (exit ${exit})` });
+    return yield* new RefsError({
+      reason: `crawl of ${crawl.url} failed (exit ${exit})`,
+    });
   yield* flattenExternalAssets(staging);
   yield* convertAssetPages(staging, crawl);
   // After the asset pages, so their headings are repaired too.
@@ -1013,7 +1084,10 @@ const planMap = (toc: ReadonlyArray<TocNode>, into: string) => {
     const anchors = new Set<string>();
     const entries: Array<Chapter["entries"][number]> = [];
     const walk = (node: TocNode, level: number) => {
-      const anchor = uniqueName(topicAnchor(node.prettyUrl) || slugify(node.title), anchors);
+      const anchor = uniqueName(
+        topicAnchor(node.prettyUrl) || slugify(node.title),
+        anchors,
+      );
       entries.push({ node, anchor, level });
       slots.set(node.tocId, { into, file, anchor });
       // Markdown stops at h6, and this tree goes seven deep; past that, siblings share
@@ -1113,7 +1187,10 @@ const prepareTopic = Effect.fn(function* (
 
 /** First value of a map's metadata entry, e.g. `version` or `ft:locale`. */
 const ftMeta = (
-  metadata: ReadonlyArray<{ readonly key: string; readonly values: ReadonlyArray<string> }>,
+  metadata: ReadonlyArray<{
+    readonly key: string;
+    readonly values: ReadonlyArray<string>;
+  }>,
   key: string,
 ) => metadata.find((entry) => entry.key === key)?.values[0];
 
@@ -1138,7 +1215,9 @@ const fluidTopicsInto = Effect.fn(function* (staging: string, ft: FluidTopics) {
   // only be rewritten once the other map's slots exist.
   const slots = new Map<string, TopicSlot>();
   const planned: Array<
-    { readonly into: string; readonly mapId: string } & { chapters: ReadonlyArray<Chapter> }
+    { readonly into: string; readonly mapId: string } & {
+      chapters: ReadonlyArray<Chapter>;
+    }
   > = [];
   let resolvedVersion = ft.version;
   for (const wanted of ft.maps) {
@@ -1178,10 +1257,13 @@ const fluidTopicsInto = Effect.fn(function* (staging: string, ft: FluidTopics) {
   const mdPath = path.join(work, "topic.md");
 
   const total = planned.reduce(
-    (sum, map) => sum + map.chapters.reduce((n, chapter) => n + chapter.entries.length, 0),
+    (sum, map) =>
+      sum + map.chapters.reduce((n, chapter) => n + chapter.entries.length, 0),
     0,
   );
-  yield* Console.log(`  ${resolvedVersion}: ${total} topics in ${planned.length} map(s)`);
+  yield* Console.log(
+    `  ${resolvedVersion}: ${total} topics in ${planned.length} map(s)`,
+  );
 
   let done = 0;
   for (const map of planned) {
@@ -1199,7 +1281,10 @@ const fluidTopicsInto = Effect.fn(function* (staging: string, ft: FluidTopics) {
         const exit = yield* spawner.exitCode(
           ChildProcess.make(
             CRAWLER,
-            [`--html-to-markdown=${htmlPath}`, `--html-to-markdown-output=${mdPath}`],
+            [
+              `--html-to-markdown=${htmlPath}`,
+              `--html-to-markdown-output=${mdPath}`,
+            ],
             // Both silenced, which is not the usual "inherit so a long job is not
             // silent" call the crawl branch makes: this converter reports *success* on
             // stderr, so inheriting it prints a green "Markdown written to" line 2419
@@ -1220,7 +1305,8 @@ const fluidTopicsInto = Effect.fn(function* (staging: string, ft: FluidTopics) {
           `${"#".repeat(level)} ${node.title}\n<a id="${anchor}"></a>\n\n${shiftHeadings(markdown, level)}`,
         );
         done++;
-        if (done % FT_PROGRESS_EVERY === 0) yield* Console.log(`  ${done}/${total} topics`);
+        if (done % FT_PROGRESS_EVERY === 0)
+          yield* Console.log(`  ${done}/${total} topics`);
       }
       yield* fs.writeFileString(
         path.join(staging, map.into, chapter.file),
@@ -1229,12 +1315,18 @@ const fluidTopicsInto = Effect.fn(function* (staging: string, ft: FluidTopics) {
     }
   }
   yield* fs.remove(work, { recursive: true, force: true });
-  yield* Console.log(`  ${done}/${total} topics, ${ctxBase.assets.size} images`);
+  yield* Console.log(
+    `  ${done}/${total} topics, ${ctxBase.assets.size} images`,
+  );
   return resolvedVersion;
 });
 
 /** Fill staging with the ref's content: a copy for a local ref, a crawl or a download. */
-const fillStaging = Effect.fn(function* (staging: string, ref: Ref, target: string) {
+const fillStaging = Effect.fn(function* (
+  staging: string,
+  ref: Ref,
+  target: string,
+) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   if (ref.repo) return yield* downloadInto(staging, ref, ref.repo, target);
@@ -1263,12 +1355,19 @@ const sourceKind = (ref: Ref) => {
   return ref.branch ? "branch" : "tag";
 };
 
-const fetchRef = Effect.fn(function* ({ ref, source, target, version }: Resolved) {
+const fetchRef = Effect.fn(function* ({
+  ref,
+  source,
+  target,
+  version,
+}: Resolved) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const root = yield* repoRoot;
 
-  const label = source ? `${target}  (${source})` : `${target} (${sourceKind(ref)})`;
+  const label = source
+    ? `${target}  (${source})`
+    : `${target} (${sourceKind(ref)})`;
   yield* Console.log(`${ref.name}: ${label}`);
 
   // Fill a temp dir first so a failed fetch leaves the existing ref intact.
@@ -1296,7 +1395,9 @@ const fetchRef = Effect.fn(function* ({ ref, source, target, version }: Resolved
     yield* fs.rename(staging, refDir);
     yield* Console.log(`  -> refs/${ref.name}`);
   }).pipe(
-    Effect.onError(() => fs.remove(staging, { recursive: true, force: true }).pipe(Effect.ignore)),
+    Effect.onError(() =>
+      fs.remove(staging, { recursive: true, force: true }).pipe(Effect.ignore),
+    ),
   );
 });
 
@@ -1306,13 +1407,17 @@ const checkRefs = Effect.gen(function* () {
   for (const ref of REFS) {
     const resolved = yield* Effect.result(resolve(ref));
     if (Result.isFailure(resolved)) {
-      yield* Console.log(`${ref.name.padEnd(NAME_COL)} ERROR  ${resolved.failure.message}`);
+      yield* Console.log(
+        `${ref.name.padEnd(NAME_COL)} ERROR  ${resolved.failure.message}`,
+      );
       stale++;
       continue;
     }
     const stamp = yield* readStamp(ref.name);
     if (stamp === undefined) {
-      yield* Console.log(`${ref.name.padEnd(NAME_COL)} MISSING  want ${resolved.success.target}`);
+      yield* Console.log(
+        `${ref.name.padEnd(NAME_COL)} MISSING  want ${resolved.success.target}`,
+      );
       stale++;
     } else if (stamp.resolved !== resolved.success.target) {
       yield* Console.log(
@@ -1322,12 +1427,16 @@ const checkRefs = Effect.gen(function* () {
     } else if (resolved.success.version === undefined) {
       // No resolved version means a branch or crawl ref, whose target names itself
       // rather than a pin, so age is the only thing left to report.
-      const days = Math.floor((Date.now() - Date.parse(stamp.fetchedAt)) / 86_400_000);
+      const days = Math.floor(
+        (Date.now() - Date.parse(stamp.fetchedAt)) / 86_400_000,
+      );
       yield* Console.log(
         `${ref.name.padEnd(NAME_COL)} ${resolved.success.target}  fetched ${days === 0 ? "today" : `${days}d ago`}`,
       );
     } else {
-      yield* Console.log(`${ref.name.padEnd(NAME_COL)} ok  ${resolved.success.version}`);
+      yield* Console.log(
+        `${ref.name.padEnd(NAME_COL)} ok  ${resolved.success.version}`,
+      );
     }
   }
   return stale;
@@ -1382,10 +1491,15 @@ const fetchCommand = Command.make(
     }
   }),
 ).pipe(
-  Command.withDescription("Download refs into refs/, pinned to the workspace versions"),
+  Command.withDescription(
+    "Download refs into refs/, pinned to the workspace versions",
+  ),
   Command.withExamples([
     { command: "refs fetch tan-router", description: "Fetch one ref" },
-    { command: "refs fetch --all", description: "Fetch every ref except the opt-in ones" },
+    {
+      command: "refs fetch --all",
+      description: "Fetch every ref except the opt-in ones",
+    },
     {
       command: "refs fetch live-manual",
       description: "Crawl an opt-in ref (minutes, not seconds)",
@@ -1405,7 +1519,11 @@ const checkCommand = Command.make(
       });
     }
   }),
-).pipe(Command.withDescription("Report refs that drifted from the pins; exit 1 if any"));
+).pipe(
+  Command.withDescription(
+    "Report refs that drifted from the pins; exit 1 if any",
+  ),
+);
 
 const listCommand = Command.make(
   "list",
@@ -1421,5 +1539,8 @@ const refsCommand = Command.make("refs").pipe(
 );
 
 NodeRuntime.runMain(
-  refsCommand.pipe(Command.run({ version: "0.0.0" }), Effect.provide(NodeServices.layer)),
+  refsCommand.pipe(
+    Command.run({ version: "0.0.0" }),
+    Effect.provide(NodeServices.layer),
+  ),
 );

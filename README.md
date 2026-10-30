@@ -49,7 +49,7 @@ pnpm test:live   # open a disposable Set with a MIDI clip and the device started
 ## Productionizing the device
 
 `liveql.amxd` in the root only runs out of this repo. `dist/` is a throwaway, self-contained copy with
-production-only dependencies — freezing the device *there* bundles everything into a single file you can
+production-only dependencies — freezing the device _there_ bundles everything into a single file you can
 hand to someone else. Your dev tree and dev device are never touched.
 
 1. Build `dist/`:
@@ -145,5 +145,5 @@ curl -s http://localhost:4000/graphql \
 curl -s http://localhost:4000/graphql \
   -H 'Content-Type: application/json' \
   -d '{"query":"mutation { clip_add_new_notes(id: 39, notes: [{ pitch: 60, start_time: 0, duration: 1 }]) { note_ids clip { length } } }"}' | jq .
-  
+
 ```

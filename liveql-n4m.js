@@ -11,7 +11,7 @@ async function get(
   propertyKeysSingle = null,
   propertyKeysMultiple = null,
   childKeysSingle = null,
-  childKeysMultiple = null
+  childKeysMultiple = null,
 ) {
   return exec({
     action: "get",
@@ -119,9 +119,13 @@ const typeDefs = /* GraphQL */ `
     id: Int!
     path: String!
     type: String!
-    """Empty string for a Set that has never been saved."""
+    """
+    Empty string for a Set that has never been saved.
+    """
     name: String!
-    """Empty string for a Set that has never been saved."""
+    """
+    Empty string for a Set that has never been saved.
+    """
     file_path: String!
     is_playing: Boolean!
     tempo: Float!
@@ -209,11 +213,17 @@ const typeDefs = /* GraphQL */ `
     has_audio_output: Boolean!
     has_midi_output: Boolean!
     can_be_armed: Boolean!
-    """Null on tracks the LOM does not give it to, such as return and master tracks."""
+    """
+    Null on tracks the LOM does not give it to, such as return and master tracks.
+    """
     arm: Boolean
-    """Null on tracks the LOM does not give it to, such as the master track."""
+    """
+    Null on tracks the LOM does not give it to, such as the master track.
+    """
     mute: Boolean
-    """Null on tracks the LOM does not give it to, such as the master track."""
+    """
+    Null on tracks the LOM does not give it to, such as the master track.
+    """
     solo: Boolean
     muted_via_solo: Boolean!
     color: Int!
@@ -222,13 +232,21 @@ const typeDefs = /* GraphQL */ `
     is_grouped: Boolean!
     is_visible: Boolean!
     is_frozen: Boolean!
-    """Null unless is_foldable: only Group Tracks have a fold state."""
+    """
+    Null unless is_foldable: only Group Tracks have a fold state.
+    """
     fold_state: Int
-    """Null on tracks with no clip slots, such as return and master tracks."""
+    """
+    Null on tracks with no clip slots, such as return and master tracks.
+    """
     playing_slot_index: Int
-    """Null on tracks with no clip slots, such as return and master tracks."""
+    """
+    Null on tracks with no clip slots, such as return and master tracks.
+    """
     fired_slot_index: Int
-    """Null when the track is not inside a Group Track."""
+    """
+    Null when the track is not inside a Group Track.
+    """
     group_track: Track
     clip_slot(index: Int!): ClipSlot
     clip_slots: [ClipSlot!]!
@@ -259,7 +277,9 @@ const typeDefs = /* GraphQL */ `
     playing_status: Int!
     is_group_slot: Boolean!
     will_record_on_start: Boolean!
-    """Null outside Group Track slots, which are the only slots the LOM colors."""
+    """
+    Null outside Group Track slots, which are the only slots the LOM colors.
+    """
     color: Int
   }
 
@@ -380,7 +400,9 @@ const typeDefs = /* GraphQL */ `
     clip_quantize takes: a 1/16 grid is 8 here and 5 there.
     """
     grid_quantization: Int!
-    """Live's Triplet Grid toggle, which the grid_quantization enum has no values for."""
+    """
+    Live's Triplet Grid toggle, which the grid_quantization enum has no values for.
+    """
     grid_is_triplet: Boolean!
   }
 
@@ -637,17 +659,17 @@ function getSong() {
     ],
     ["scale_intervals"],
     ["view", "master_track"],
-    ["tracks", "return_tracks", "visible_tracks", "scenes"]
+    ["tracks", "return_tracks", "visible_tracks", "scenes"],
   ).then((o) => withStringDefaults(o, ["name", "file_path", "scale_name"]));
 }
 
 function getSongView(id) {
-  return get(
-    id,
-    ["draw_mode", "follow_song"],
-    null,
-    ["detail_clip", "selected_track", "highlighted_clip_slot", "selected_scene"]
-  );
+  return get(id, ["draw_mode", "follow_song"], null, [
+    "detail_clip",
+    "selected_track",
+    "highlighted_clip_slot",
+    "selected_scene",
+  ]);
 }
 
 function getTrack(id) {
@@ -676,7 +698,7 @@ function getTrack(id) {
     ],
     null,
     ["group_track"],
-    ["clip_slots", "arrangement_clips"]
+    ["clip_slots", "arrangement_clips"],
   ).then((o) => withoutAbsentTrackMembers(withStringDefaults(o, ["name"])));
 }
 
@@ -719,7 +741,7 @@ function getClipSlot(id) {
       "color",
     ],
     null,
-    ["clip"]
+    ["clip"],
   );
 }
 
@@ -740,7 +762,7 @@ function getScene(id) {
     ],
     null,
     null,
-    ["clip_slots"]
+    ["clip_slots"],
   ).then((o) => withStringDefaults(o, ["name"]));
 }
 
@@ -782,7 +804,7 @@ function getClip(id) {
       "will_record_on_start",
     ],
     null,
-    ["view"]
+    ["view"],
   ).then((o) => withStringDefaults(o, ["name"]));
 }
 
@@ -850,7 +872,8 @@ function toIntList(data) {
   if (Array.isArray(v)) return v.flatMap(toIntList);
   if (Number.isInteger(v)) return [v];
   if (typeof v === "string" && /^-?\d+$/.test(v)) return [Number(v)];
-  if (v && typeof v === "object") return toIntList(v.note_ids ?? Object.values(v));
+  if (v && typeof v === "object")
+    return toIntList(v.note_ids ?? Object.values(v));
   return [];
 }
 
@@ -896,7 +919,6 @@ const CLIP_PROPERTY_KEYS = [
   "position",
 ];
 
-
 function normalizeNoteInput(note) {
   if (note.mute === undefined) {
     return note;
@@ -939,7 +961,7 @@ async function getNotesExtended(parent, args) {
     args.from_pitch,
     args.pitch_span,
     args.from_time,
-    args.time_span
+    args.time_span,
   );
   return sortJsonNotesDictionary(json);
 }
@@ -953,7 +975,7 @@ async function getNotesById(id, noteIds) {
 
 async function addNewNotes(id, notes) {
   return toIntList(
-    await call(id, "add_new_notes", normalizeNotesDictionaryInput({ notes }))
+    await call(id, "add_new_notes", normalizeNotesDictionaryInput({ notes })),
   );
 }
 
@@ -982,7 +1004,7 @@ function optionalPositional(name, values, argNames) {
   const gap = given.findIndex((v) => v == null);
   if (gap >= 0) {
     throw new Error(
-      `liveql: ${name}: ${argNames[gap]} is required when a later optional argument is given`
+      `liveql: ${name}: ${argNames[gap]} is required when a later optional argument is given`,
     );
   }
   return given.map(toLiveValue);
@@ -1068,7 +1090,10 @@ const resolvers = {
     },
 
     song_view_set_properties: async (parent, args) => {
-      await setProperties(args.id, args.properties, ["draw_mode", "follow_song"]);
+      await setProperties(args.id, args.properties, [
+        "draw_mode",
+        "follow_song",
+      ]);
       return getSongView(args.id);
     },
     song_view_set_detail_clip: async (parent, args) => {
@@ -1083,7 +1108,7 @@ const resolvers = {
       await set(
         args.id,
         "highlighted_clip_slot",
-        idArg(args.highlighted_clip_slot)
+        idArg(args.highlighted_clip_slot),
       );
       return getSongView(args.id);
     },
@@ -1125,7 +1150,7 @@ const resolvers = {
         args.id,
         "duplicate_clip_to_arrangement",
         idArg(args.clip),
-        args.destination_time
+        args.destination_time,
       );
       return getTrack(args.id);
     },
@@ -1141,8 +1166,8 @@ const resolvers = {
         ...optionalPositional(
           "clip_slot_fire",
           [args.record_length, args.launch_quantization],
-          ["record_length", "launch_quantization"]
-        )
+          ["record_length", "launch_quantization"],
+        ),
       );
       return getClipSlot(args.id);
     },
@@ -1174,8 +1199,8 @@ const resolvers = {
         ...optionalPositional(
           "scene_fire",
           [args.force_legato, args.can_select_scene_on_launch],
-          ["force_legato", "can_select_scene_on_launch"]
-        )
+          ["force_legato", "can_select_scene_on_launch"],
+        ),
       );
       return getScene(args.id);
     },
@@ -1202,7 +1227,11 @@ const resolvers = {
       return { clip: await getClip(args.id), note_ids };
     },
     clip_apply_note_modifications: async (parent, args) => {
-      await call(args.id, "apply_note_modifications", normalizeNotesDictionaryInput({ notes: args.notes }));
+      await call(
+        args.id,
+        "apply_note_modifications",
+        normalizeNotesDictionaryInput({ notes: args.notes }),
+      );
       return getClip(args.id);
     },
     clip_fire: async (parent, args) => {
@@ -1236,7 +1265,7 @@ const resolvers = {
         args.from_pitch,
         args.pitch_span,
         args.from_time,
-        args.time_span
+        args.time_span,
       );
       return getClip(args.id);
     },
@@ -1273,7 +1302,7 @@ const resolvers = {
         args.region_length,
         args.destination_time,
         args.pitch,
-        args.transposition_amount
+        args.transposition_amount,
       );
       return getClip(args.id);
     },
@@ -1304,7 +1333,7 @@ const resolvers = {
         "quantize_pitch",
         args.pitch,
         args.quantization_grid,
-        args.amount
+        args.amount,
       );
       return getClip(args.id);
     },
@@ -1402,16 +1431,18 @@ const resolvers = {
   Clip: {
     view: (parent) => getClipView(parent.view),
     get_all_notes_extended: midiOnly(async (parent) =>
-      sortJsonNotesDictionary(await call(parent.id, "get_all_notes_extended"))
+      sortJsonNotesDictionary(await call(parent.id, "get_all_notes_extended")),
     ),
     get_notes_by_id: midiOnly(async (parent, args) => ({
       notes: await getNotesById(parent.id, args.note_ids),
     })),
     get_notes_extended: midiOnly((parent, args) =>
-      getNotesExtended(parent, { ...args, id: parent.id })
+      getNotesExtended(parent, { ...args, id: parent.id }),
     ),
     get_selected_notes_extended: midiOnly(async (parent) =>
-      sortJsonNotesDictionary(await call(parent.id, "get_selected_notes_extended"))
+      sortJsonNotesDictionary(
+        await call(parent.id, "get_selected_notes_extended"),
+      ),
     ),
   },
 };
@@ -1425,5 +1456,7 @@ const port = parseInt(process.argv[2]) || 4000;
 
 const server = http.createServer(yoga);
 server.listen(port, () => {
-  Max.post(`liveql: server ready at http://localhost:${port}${yoga.graphqlEndpoint}`);
+  Max.post(
+    `liveql: server ready at http://localhost:${port}${yoga.graphqlEndpoint}`,
+  );
 });

@@ -2,6 +2,8 @@
   "name": "liveql",
   "version": "0.0.1",
   "description": "",
+  "license": "ISC",
+  "author": "",
   "main": "liveql-n4m.js",
   "scripts": {
     "//test": "The globs are expanded by the shell into file paths: Node 22's test runner treats a bare directory argument as a file to run, and discovering a directory named test would also pick up test/helpers/*.js as test files. test:n4m runs the same suite under the Node binary the device actually uses; the path is the Live 12 Suite one, other Live editions differ. test:live mutates the open Live Set.",
@@ -13,8 +15,6 @@
     "refs:check": "vpx scripts/refs.ts check",
     "build:dist": "rm -rf dist && mkdir -p dist && cp liveql.amxd liveql-m4l.js liveql-n4m.js package.json pnpm-lock.yaml pnpm-workspace.yaml dist/ && pnpm install --dir dist --prod --config.node-linker=hoisted --ignore-scripts"
   },
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "graphql": "17.0.2",
     "graphql-yoga": "5.22.0"
@@ -28,9 +28,9 @@
     "vite-plus": "catalog:",
     "vitest": "catalog:"
   },
-  "//engines": "Node for Max bundles v22.18.0 -- `\"$N4M/source/bin/osx/node/node\" --version`, not the Node on your PATH; the Node for Max README claiming v20.6.1 is stale, the binary is what runs. That is also the floor `node scripts/refs.ts` needs for native TypeScript type stripping, so one number covers both.",
   "engines": {
     "node": ">=22.18.0"
   },
-  "packageManager": "pnpm@10.17.1"
+  "packageManager": "pnpm@10.17.1",
+  "//engines": "Node for Max bundles v22.18.0 -- `\"$N4M/source/bin/osx/node/node\" --version`, not the Node on your PATH; the Node for Max README claiming v20.6.1 is stale, the binary is what runs. That is also the floor `node scripts/refs.ts` needs for native TypeScript type stripping, so one number covers both."
 }

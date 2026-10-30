@@ -39,11 +39,13 @@ function createServer() {
     lom,
     max,
     gql: async (query, variables) =>
-      (await yoga.fetch("http://localhost/graphql", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ query, variables }),
-      })).json(),
+      (
+        await yoga.fetch("http://localhost/graphql", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ query, variables }),
+        })
+      ).json(),
     schema: yoga.getEnveloped().schema,
   };
 }
@@ -51,7 +53,9 @@ function createServer() {
 /** The single error message of a response expected to carry exactly one. */
 function errorMessage(response) {
   if (response.errors?.length !== 1) {
-    throw new Error(`expected one error, got ${JSON.stringify(response.errors ?? null)}`);
+    throw new Error(
+      `expected one error, got ${JSON.stringify(response.errors ?? null)}`,
+    );
   }
   return response.errors[0].message;
 }

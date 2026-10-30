@@ -79,7 +79,11 @@ function get(json) {
 
     for (const k of params.propertyKeysSingle || []) {
       const raw = live.get(k);
-      const propertyArr = Array.isArray(raw) ? raw : raw === undefined || raw === null ? [] : [raw];
+      const propertyArr = Array.isArray(raw)
+        ? raw
+        : raw === undefined || raw === null
+          ? []
+          : [raw];
       if (propertyArr.length === 1) {
         o[k] = propertyArr[0];
       }
@@ -87,7 +91,11 @@ function get(json) {
 
     for (const k of params.propertyKeysMultiple || []) {
       const raw = live.get(k);
-      o[k] = Array.isArray(raw) ? raw : raw === undefined || raw === null ? [] : [raw];
+      o[k] = Array.isArray(raw)
+        ? raw
+        : raw === undefined || raw === null
+          ? []
+          : [raw];
     }
 
     for (const k of params.childKeysSingle || []) {
