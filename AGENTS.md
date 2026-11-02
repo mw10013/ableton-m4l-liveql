@@ -8,7 +8,7 @@
 
 ## Project
 
-- `LiveQL` is a GraphQL API for Ableton Live: a Max for Live device exposing a subset of the Live Object Model (LOM) over `http://localhost:4000/graphql`.
+- `LiveQL` is a GraphQL API for Ableton Live: a Max for Live device exposing a subset of the Live Object Model (LOM) over `http://localhost:5100/graphql`.
 - LiveQL's whole job, for now, is to mirror the LOM as faithfully as possible: a bare, raw view of what Live exposes, with nothing built on top. Every mutation is exactly one LOM operation, a `set` or a `call`, followed by the readback the selection set needs. No mutation reads before it writes, reorders writes, validates against Live state, or chains several LOM calls. Orchestration belongs to the client, which can send several mutations as aliased fields of one document and rely on them running serially in order. Composite or convenience operations may come later; do not add one now.
 - `liveql.amxd` — the Max for Live device. Hosts the `v8` object running the Max JS script and the `node.script` object running the Node for Max server.
 - `liveql-m4l.js` — Max JS (`v8` object). Talks to the LOM through `LiveAPI`, receives actions on its inlet, returns results on its outlet.
@@ -44,7 +44,7 @@ vp run build:dist         # build the self-contained dist/ device (see README)
 - Lint is Oxlint through Vite+, configured in `vite.config.ts`. `liveql-m4l.js` has its own override declaring Max's `v8` globals and message handlers.
 - `vp run test` fakes `max-api` and drives the real schema through yoga, so it covers everything up to the `v8` boundary; run it, and `vp run test:n4m`, after touching `liveql-n4m.js`.
 - `liveql-m4l.js` has no unit tests: a `LiveAPI` shim's fidelity is the very thing in question. `test/helpers/fake-lom.js` mirrors its wire contract instead, so a change to the bridge's output shape means a change there.
-- The device itself is exercised by hand in Live: drop `liveql.amxd` on a track, click start, query `http://localhost:4000/graphql`. `curl` examples are in the README. `vp run test:live` is that session written as assertions.
+- The device itself is exercised by hand in Live: drop `liveql.amxd` on a track, click start, query `http://localhost:5100/graphql`. `curl` examples are in the README. `vp run test:live` is that session written as assertions.
 
 ## JavaScript Guidelines
 

@@ -1459,7 +1459,7 @@ const yoga = createYoga({
   maskedErrors: false,
 });
 
-const port = Number(process.argv[2]) || 4000;
+const port = Number(process.argv[2]) || 5100;
 
 // oxlint-disable-next-line typescript/no-misused-promises -- yoga is built to be a Node request listener and settles its own errors
 const server = http.createServer(yoga);
