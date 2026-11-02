@@ -13,7 +13,7 @@ const { describe, it, before, after } = require("node:test");
  * than asserting an outcome — the answer belongs in the JSDoc of the code that
  * assumes it, in `liveql-n4m.js`, after a human has seen it.
  */
-const URL = process.env.LIVEQL_URL ?? "http://localhost:4000/graphql";
+const URL = process.env.LIVEQL_URL ?? "http://localhost:5100/graphql";
 const SKIP =
   !process.env.LIVEQL_E2E &&
   "set LIVEQL_E2E=1 and open a disposable Set with the device running";

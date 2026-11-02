@@ -7,7 +7,7 @@ A GraphQL API for Ableton Live. LiveQL exposes a subset of Live's Object Model (
 LiveQL runs as a Max for Live device with two components:
 
 - A **Max JS script** that talks directly to the LOM via LiveAPI
-- A **Node.js server** (via Node for Max) that serves a GraphQL API on `http://localhost:4000/graphql`
+- A **Node.js server** (via Node for Max) that serves a GraphQL API on `http://localhost:5100/graphql`
 
 External clients send GraphQL queries and mutations over HTTP. The Node server translates these into LOM operations, executes them through the Max layer, and returns the results as JSON. Every mutation is exactly one LOM operation, a `set` or a `call`, followed by the readback its selection set needs; orchestration is the client's job. Several mutations can be sent in one document as aliased fields, and they run serially in order.
 
@@ -25,7 +25,7 @@ Development setup. To build a distributable device, see [Productionizing the dev
 
 3. Click the start button on the device to launch the server.
 
-4. The GraphQL API is now available at `http://localhost:4000/graphql`. The server also serves GraphiQL, an interactive query editor you can open in your browser at the same address.
+4. The GraphQL API is now available at `http://localhost:5100/graphql`. The server also serves GraphiQL, an interactive query editor you can open in your browser at the same address.
 
 ## Tests
 
@@ -101,32 +101,32 @@ Names mirror the LOM verbatim: fields and mutation suffixes are LOM properties a
 
 ```bash
 # get whether the song is playing
-curl -s http://localhost:4000/graphql \
+curl -s http://localhost:5100/graphql \
   -H 'Content-Type: application/json' \
   -d '{"query":"{ live_set { is_playing } }"}' | jq .
 
 # get the first track by index
-curl -s http://localhost:4000/graphql \
+curl -s http://localhost:5100/graphql \
   -H 'Content-Type: application/json' \
   -d '{"query":"{ live_set { track(index: 0) { id name has_midi_input } } }"}' | jq .
 
 # get the first clip slot from the first track by index
-curl -s http://localhost:4000/graphql \
+curl -s http://localhost:5100/graphql \
   -H 'Content-Type: application/json' \
   -d '{"query":"{ live_set { track(index: 0) { clip_slot(index: 0) { has_clip clip { id name looping } } } } }"}' | jq .
 
 # get all tracks and their names
-curl -s http://localhost:4000/graphql \
+curl -s http://localhost:5100/graphql \
   -H 'Content-Type: application/json' \
   -d '{"query":"{ live_set { tracks { id name } } }"}' | jq .
 
 # get clips with their ids and looping state
-curl -s http://localhost:4000/graphql \
+curl -s http://localhost:5100/graphql \
   -H 'Content-Type: application/json' \
   -d '{"query":"{ live_set { tracks { clip_slots { has_clip clip { id name looping } } } } }"}' | jq .
 
 # get notes from the first clip slot of the first track
-curl -s http://localhost:4000/graphql \
+curl -s http://localhost:5100/graphql \
   -H 'Content-Type: application/json' \
   -d '{"query":"{ live_set { track(index: 0) { clip_slot(index: 0) { clip { name get_all_notes_extended { notes { pitch start_time duration velocity } } } } } } }"}' | jq .
 
@@ -134,15 +134,15 @@ curl -s http://localhost:4000/graphql \
 # first query:
 # { live_set { track(index: 0) { clip_slot(index: 0) { clip { id } } } } }
 # then use that id here
-curl -s http://localhost:4000/graphql \
+curl -s http://localhost:5100/graphql \
   -H 'Content-Type: application/json' \
   -d '{"query":"mutation { clip_set_properties(id: 39, properties: { looping: false }) { id looping } }"}' | jq .
 
 # refetch a clip by id, then add notes and get the ids Live assigned
-curl -s http://localhost:4000/graphql \
+curl -s http://localhost:5100/graphql \
   -H 'Content-Type: application/json' \
   -d '{"query":"{ clip(id: 39) { loop_start loop_end start_marker end_marker } }"}' | jq .
-curl -s http://localhost:4000/graphql \
+curl -s http://localhost:5100/graphql \
   -H 'Content-Type: application/json' \
   -d '{"query":"mutation { clip_add_new_notes(id: 39, notes: [{ pitch: 60, start_time: 0, duration: 1 }]) { note_ids clip { length } } }"}' | jq .
 
