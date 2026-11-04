@@ -13,6 +13,22 @@ const anyTypedRules = [
 
 export default defineConfig({
   fmt: {
+    sortImports: {
+      groups: [
+        "type-builtin",
+        "type-external",
+        "type-internal",
+        ["type-parent", "type-sibling", "type-index"],
+        "react-libs",
+        ["value-builtin", "value-external"],
+        "value-internal",
+        ["value-parent", "value-sibling", "value-index"],
+        "unknown",
+      ],
+      customGroups: [
+        { groupName: "react-libs", elementNamePattern: ["react", "react-**"] },
+      ],
+    },
     printWidth: 80,
     ignorePatterns: ["docs/**", "refs/**", "dist/**"],
   },
@@ -32,6 +48,11 @@ export default defineConfig({
     ignorePatterns: ["dist/", "docs/", "refs/"],
     rules: {
       // Options on enabled rules, and opt-ins beyond the categories.
+      // The formatter orders import statements; this orders the names inside one.
+      "sort-imports": [
+        "error",
+        { ignoreDeclarationSort: true, ignoreCase: true },
+      ],
       "no-underscore-dangle": [
         "error",
         {
@@ -141,7 +162,6 @@ export default defineConfig({
       "oxc/no-map-spread": "off",
 
       // Off: the formatter owns it.
-      "sort-imports": "off",
       "no-duplicate-imports": "off",
       curly: "off",
       "unicorn/number-literal-case": "off",
