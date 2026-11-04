@@ -13,22 +13,7 @@ const anyTypedRules = [
 
 export default defineConfig({
   fmt: {
-    sortImports: {
-      groups: [
-        "type-builtin",
-        "type-external",
-        "type-internal",
-        ["type-parent", "type-sibling", "type-index"],
-        "react-libs",
-        ["value-builtin", "value-external"],
-        "value-internal",
-        ["value-parent", "value-sibling", "value-index"],
-        "unknown",
-      ],
-      customGroups: [
-        { groupName: "react-libs", elementNamePattern: ["react", "react-**"] },
-      ],
-    },
+    sortImports: true,
     printWidth: 80,
     ignorePatterns: ["docs/**", "refs/**", "dist/**"],
   },
