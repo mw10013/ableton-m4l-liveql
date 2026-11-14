@@ -3,9 +3,9 @@ packages:
 
 saveExact: true
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@1.4.0
-  vite-plus: 1.4.0
-  vitest: 5.0.5
+  vite: npm:@voidzero-dev/vite-plus-core@1.6.0
+  vite-plus: 1.6.0
+  vitest: 5.1.0
 overrides:
   vite@*: "catalog:"
   vitest@*: "catalog:"
