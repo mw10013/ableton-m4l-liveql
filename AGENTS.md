@@ -24,12 +24,12 @@
 
 ## Refs
 
-References are fetched by the shared refs CLI in `/Users/mw/projects/tools` (`vpx /Users/mw/projects/tools/refs.ts sync`); see its README for what it supports.
+References are fetched by the shared refs CLI in `~/Projects/tools` (`vpx ~/Projects/tools/refs.ts sync`); see its README for what it supports.
 
-- **Live Object Model / Max docs**: `/Users/mw/projects/m4l-docs/apiref/lom/` — shared, beside this checkout (also `apiref/js/` for `v8`, `apiref/nodeformax/`, `userguide/m4l/`, `reference/`). Refresh with `vpx /Users/mw/projects/tools/refs.ts sync m4l-docs`.
+- **Live Object Model / Max docs**: `~/Projects/m4l-docs/apiref/lom/` — shared, beside this checkout (also `apiref/js/` for `v8`, `apiref/nodeformax/`, `userguide/m4l/`, `reference/`). Refresh with `vpx ~/Projects/tools/refs.ts sync m4l-docs`.
 - **graphql-js**: `refs/graphql/src/` (the implementation the server executes against — resolver signatures, error shapes). Its docs site is in `refs/graphql/website/pages/` (`docs/`, API reference in `api-v17/`). Pinned to `package.json`.
 - **graphql-yoga**: `refs/graphql-yoga/` (server used by `liveql-n4m.js`). Pinned to `package.json`.
-- **prelive**: `/Users/mw/projects/ableton-m4l-prelive` — abandoned attempt at doing this as an Ableton Live extension. Kept for how it reached the object model.
+- **prelive**: `~/Projects/ableton-m4l-prelive` — abandoned attempt at doing this as an Ableton Live extension. Kept for how it reached the object model.
 
 ## Commands
 
@@ -58,11 +58,11 @@ vp run build:dist         # build the self-contained dist/ device (see README)
 
 - The schema is an SDL template literal in `liveql-n4m.js`. Field and type names mirror LOM names verbatim (`live_set`, `is_playing`, `has_midi_input`, `clip_slot`) — snake_case, not camelCase.
 - Mutations are named `<object>_<action>` after the LOM operation they perform (`clip_set_looping`, `song_continue_playing`).
-- Ground new fields in `/Users/mw/projects/m4l-docs/apiref/lom/` — the LOM is the source of truth for what a property is called and whether it is readable, writable or a child.
+- Ground new fields in `~/Projects/m4l-docs/apiref/lom/` — the LOM is the source of truth for what a property is called and whether it is readable, writable or a child.
 - One LOM operation per mutation. If a feature needs a read before a write, a specific write order, or a sequence of calls, that logic goes in the client, not here. Live's quirks (a silently dropped marker, a silently ignored note list) are documented in the field's schema docstring as a warning to callers, never worked around in a resolver.
 
 ## Do Not Edit
 
-- `refs/` — external reference code, gitignored. Also the shared `/Users/mw/projects/m4l-docs`.
+- `refs/` — external reference code, gitignored. Also the shared `~/Projects/m4l-docs`.
 - `dist/` — build output of `pnpm build:dist`.
 - `pnpm-lock.yaml` — regenerate through pnpm.
