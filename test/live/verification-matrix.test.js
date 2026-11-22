@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");
 const { describe, it, before, after } = require("node:test");
-const { checkoutDir, root } = require("./open.js");
+const { openedSet, root } = require("./open.js");
 
 /**
  * The questions only a running Live can answer, written as assertions. Opt-in:
@@ -63,7 +63,7 @@ async function data(query, variables) {
  * connection, and while the bridge is still coming up a query can fail. Worse,
  * while Live waits on its "save changes?" prompt the previous Set's server may
  * still answer, and the suite would mutate that Set, so ready means the open
- * Set is this checkout's `live:open` copy.
+ * Set is exactly the copy this checkout's last `live:open` wrote.
  */
 async function waitForServer(timeoutMs) {
   const deadline = Date.now() + timeoutMs;
@@ -72,10 +72,11 @@ async function waitForServer(timeoutMs) {
       errors: [err],
     }));
     const filePath = response.data?.live_set?.file_path;
-    if (filePath?.startsWith(`${checkoutDir}/`)) return;
+    const expected = openedSet();
+    if (expected !== undefined && filePath === expected) return;
     if (Date.now() > deadline) {
       assert.fail(
-        `no Set from ${checkoutDir} at ${URL} after ${timeoutMs / 1000}s (run pnpm live:open): ${filePath ?? response.errors?.[0]?.message}`,
+        `${expected ?? "no live:open Set"} is not open at ${URL} after ${timeoutMs / 1000}s (run pnpm live:open): ${filePath ?? response.errors?.[0]?.message}`,
       );
     }
     await new Promise((resolve) => {

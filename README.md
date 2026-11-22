@@ -48,7 +48,9 @@ pnpm test:live   # waits for the server, then runs against the open Set
 `test/live/fixture Project/` holds one of each LOM class the schema covers. `pnpm live:open` copies it to a
 temp dir, points the Set's LiveQL device at this checkout's `liveql.amxd`, and opens the copy, so a
 worktree tests its own scripts and the committed Set is never saved over. Each worktree needs its own
-`pnpm install`. Live asks to save the previous Set before it switches; that is the one manual step.
+`pnpm install`. When Live asks to save the previous Set, `live:open` clicks Don't Save, which needs
+Accessibility permission for the app running it (System Settings → Privacy & Security → Accessibility);
+without it, click Don't Save by hand.
 Edits to `liveql-n4m.js` restart the server (`@watch 1`) and edits to `liveql-m4l.js` reload the `v8`
 script (`autowatch = 1`), so the device rarely needs reloading.
 

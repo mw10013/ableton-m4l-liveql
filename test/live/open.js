@@ -11,9 +11,11 @@ const zlib = require("node:zlib");
  * device by file, not by content: the device `FileRef` carries `RelativePath`
  * (from the Project folder) and an absolute `Path`, and a committed Set points
  * them at whichever checkout last saved it. This copies the Set's Project
- * folder into `checkoutDir`, rewrites both values in every `FileRef` naming
- * `liveql.amxd`, and hands the copy to Live. The committed Set is never
- * touched, and rerunning overwrites the same copy.
+ * folder into a fresh run folder under `checkoutDir`, rewrites both values
+ * in every `FileRef` naming `liveql.amxd`, and hands the copy to Live. The
+ * committed Set is never touched. Each run gets its own folder so the copy's
+ * `file_path` differs from the Set it replaces, even when that was the same
+ * fixture, and `openedSet` tells `test:live` which Set it should find open.
  *
  *   pnpm live:open [path/to/set.als]      (defaults to the fixture Set)
  *
@@ -42,7 +44,11 @@ function open(source) {
     throw new Error(`${source} is not directly inside a Live Project folder`);
   }
   const amxd = path.join(root, "liveql.amxd");
-  const target = path.join(checkoutDir, path.basename(project));
+  const target = path.join(
+    checkoutDir,
+    String(Date.now()),
+    path.basename(project),
+  );
   fs.rmSync(checkoutDir, { recursive: true, force: true });
   fs.cpSync(project, target, {
     recursive: true,
@@ -71,6 +77,66 @@ function open(source) {
   fs.writeFileSync(set, zlib.gzipSync(xml));
   console.log(`live:open: ${count} LiveQL device(s) -> ${amxd}\n  ${set}`);
   execFileSync("open", ["-a", "Ableton Live 12 Suite", set]);
+  dismissSavePrompt(path.basename(set, ".als"));
+}
+
+/**
+ * Switching Sets makes Live ask "Save changes to ... before closing?" whenever
+ * the open Set has unsaved changes, and undoing back to the start does not
+ * clear that. The copy is throwaway, so this answers Don't Save. Live draws
+ * the dialog itself: accessibility sees an `AXDialog` with no buttons, and it
+ * ignores keystrokes, so this clicks by position. Don't Save is the bottom-left
+ * button, 66 points from the dialog's left edge and 26 above its bottom; Save
+ * is the default, so Return would be wrong. Live only takes the click when the
+ * pointer moves onto the button first. The script returns once Live's window is
+ * titled after the new Set, but not in the first 3 seconds, since reopening
+ * the fixture over itself keeps the title while the prompt is still coming;
+ * it gives up after 30 seconds.
+ *
+ * It needs Accessibility permission for the app running this (System Settings
+ * > Privacy & Security > Accessibility). Without it, click Don't Save by hand.
+ */
+function dismissSavePrompt(setName) {
+  const script = `
+    ObjC.import("CoreGraphics");
+    const live = Application("System Events").processes.byName("Live");
+    const click = (x, y) => {
+      const p = $.CGPointMake(x, y);
+      for (const type of [$.kCGEventMouseMoved, $.kCGEventLeftMouseDown, $.kCGEventLeftMouseUp]) {
+        $.CGEventPost($.kCGHIDEventTap, $.CGEventCreateMouseEvent(null, type, p, $.kCGMouseButtonLeft));
+        delay(0.15);
+      }
+    };
+    let result = "timeout";
+    for (let i = 0; i < 60 && result === "timeout"; i++) {
+      const windows = live.windows();
+      if (i >= 6 && windows.some((w) => w.subrole() === "AXStandardWindow" && w.name() === ${JSON.stringify(setName)})) result = "open";
+      const dialog = windows.find((w) => w.subrole() === "AXDialog");
+      if (dialog) {
+        live.frontmost = true;
+        const [x, y] = dialog.position();
+        const [, h] = dialog.size();
+        click(x + 66, y + h - 26);
+        result = "dismissed";
+      }
+      delay(0.5);
+    }
+    result;
+  `;
+  try {
+    const result = execFileSync(
+      "osascript",
+      ["-l", "JavaScript", "-e", script],
+      {
+        encoding: "utf8",
+      },
+    ).trim();
+    if (result === "dismissed") console.log("live:open: answered Don't Save");
+  } catch (err) {
+    console.log(
+      `live:open: could not answer Live's save prompt; click Don't Save if Live asks (${err.message.split("\n")[0]})`,
+    );
+  }
 }
 
 if (require.main === module) {
@@ -81,4 +147,14 @@ if (require.main === module) {
   );
 }
 
-module.exports = { checkoutDir, root };
+/** The Set the last `live:open` from this checkout wrote, if any. */
+function openedSet() {
+  const [run] = fs.existsSync(checkoutDir) ? fs.readdirSync(checkoutDir) : [];
+  if (run === undefined) return undefined;
+  const [project] = fs.readdirSync(path.join(checkoutDir, run));
+  const dir = path.join(checkoutDir, run, project);
+  const set = fs.readdirSync(dir).find((f) => f.endsWith(".als"));
+  return set && path.join(dir, set);
+}
+
+module.exports = { openedSet, root };
