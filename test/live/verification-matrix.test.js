@@ -773,7 +773,7 @@ describe("live", { skip: SKIP }, () => {
 
     it("records every member Live and the docs disagree on", async () => {
       const CLIP = `${INFO} view { ${INFO} }`;
-      const TRACK = `${INFO} arrangement_clips { ${CLIP} } clip_slots { ${INFO} clip { ${CLIP} } }`;
+      const TRACK = `${INFO} arrangement_clips { ${CLIP} } clip_slots { ${INFO} clip { ${CLIP} } } devices { ${INFO} }`;
       const { live_app, live_set } = await data(`{
         live_app { ${INFO} get_version_string }
         live_set {
@@ -805,12 +805,12 @@ describe("live", { skip: SKIP }, () => {
       walk(live_set);
       walk(live_app);
 
-      const mismatches = [];
-      for (const name of OVERRIDES.scope) {
-        const live = seen.get(name);
-        assert.ok(live, `the fixture Set has no ${name}`);
+      const scope = new Set(OVERRIDES.scope);
+      const parentOf = (name) =>
+        scope.has(LOM[name].parent) ? LOM[name].parent : null;
+      const docsOf = (name) => {
         const { children, properties, functions } = LOM[name];
-        const docs = new Map([
+        return new Map([
           ...Object.entries(children)
             .filter(([, m]) => m.access.includes("get"))
             .map(([n, m]) => [
@@ -822,14 +822,37 @@ describe("live", { skip: SKIP }, () => {
             .map(([n, m]) => [n, { kind: "property", type: m.type }]),
           ...Object.keys(functions).map((n) => [n, { kind: "function" }]),
         ]);
-        const found = (member, text) => mismatches.push({ name, member, text });
+      };
+      /**
+       * A class with subclasses in scope is seen through `Generic<Class>`, its
+       * plain objects, and a subclass is compared with its own members and its
+       * parent's. A mismatch a subclass shares with its parent's plain objects
+       * is the parent's, so it is recorded once, under the parent.
+       */
+      const typenameOf = (name) =>
+        OVERRIDES.scope.some((n) => parentOf(n) === name)
+          ? `Generic${name}`
+          : name;
+      const compare = (name) => {
+        const live = seen.get(typenameOf(name));
+        assert.ok(live, `the fixture Set has no ${typenameOf(name)}`);
+        const parent = parentOf(name);
+        const docs = new Map([
+          ...(parent ? docsOf(parent) : []),
+          ...docsOf(name),
+        ]);
+        const found = [];
+        const mismatch = (member, text) => found.push({ member, text });
         for (const [member, doc] of docs) {
           const got = live.get(member);
           if (!got)
-            found(member, `documented as a ${doc.kind}, in no ${name}'s info`);
+            mismatch(
+              member,
+              `documented as a ${doc.kind}, in no {class}'s info`,
+            );
           else if (got.type === "NoneType" || doc.kind === "function") continue;
           else if (doc.kind !== got.kind)
-            found(
+            mismatch(
               member,
               `documented as a ${doc.kind}, info lists a ${got.kind} ${got.type}`,
             );
@@ -841,15 +864,32 @@ describe("live", { skip: SKIP }, () => {
                 )
               : !doc.type.endsWith(got.type)
           )
-            found(member, `documented as ${doc.type}, info says ${got.type}`);
+            mismatch(
+              member,
+              `documented as ${doc.type}, info says ${got.type}`,
+            );
         }
         for (const [member, got] of live)
           if (!docs.has(member))
-            found(
+            mismatch(
               member,
               `undocumented, info lists a ${got.kind} ${got.type ?? ""}`.trim(),
             );
-      }
+        if (!parent) return found;
+        const inherited = new Set(
+          compare(parent).map(({ member, text }) => `${member} ${text}`),
+        );
+        return found.filter(
+          ({ member, text }) => !inherited.has(`${member} ${text}`),
+        );
+      };
+      const mismatches = OVERRIDES.scope.flatMap((name) =>
+        compare(name).map(({ member, text }) => ({
+          name,
+          member,
+          text: text.replace("{class}", typenameOf(name)),
+        })),
+      );
 
       const version = live_app.get_version_string;
       const rows = new Set();

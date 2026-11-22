@@ -39,6 +39,7 @@ type Song {
   visible_tracks: [Track!]
   master_track: Track
   view: SongView
+  appointed_device: Device
   arrangement_overdub: Boolean
   back_to_arranger: Boolean
   can_capture_midi: Boolean
@@ -226,6 +227,29 @@ type Mutation {
   clip_view_hide_envelope(id: Int!): ClipView
   clip_view_show_envelope(id: Int!): ClipView
   clip_view_show_loop(id: Int!): ClipView
+  device_set(id: Int!, properties: [DeviceSetInput!]!): Device
+  device_store_chosen_bank(id: Int!, script_index: Int!, bank_index: Int!): Device
+  device_save_preset_to_compare_ab_slot(id: Int!): Device
+  simpler_device_set(id: Int!, properties: [SimplerDeviceSetInput!]!): SimplerDevice
+  simpler_device_crop(id: Int!): SimplerDevice
+  simpler_device_reverse(id: Int!): SimplerDevice
+  simpler_device_warp_as(id: Int!, beats: Int!): SimplerDevice
+  simpler_device_warp_double(id: Int!): SimplerDevice
+  simpler_device_warp_half(id: Int!): SimplerDevice
+  simpler_device_replace_sample(id: Int!, file_path: String!): SimplerDevice
+  rack_device_set(id: Int!, properties: [RackDeviceSetInput!]!): RackDevice
+  rack_device_copy_pad(id: Int!, source_index: Int!, destination_index: Int!): RackDevice
+  rack_device_add_macro(id: Int!): RackDevice
+  rack_device_insert_chain(id: Int!, index: Int): RackDevice
+  rack_device_remove_macro(id: Int!): RackDevice
+  rack_device_randomize_macros(id: Int!): RackDevice
+  rack_device_store_variation(id: Int!): RackDevice
+  rack_device_recall_selected_variation(id: Int!): RackDevice
+  rack_device_recall_last_used_variation(id: Int!): RackDevice
+  rack_device_delete_selected_variation(id: Int!): RackDevice
+  wavetable_device_set(id: Int!, properties: [WavetableDeviceSetInput!]!): WavetableDevice
+  wavetable_device_add_parameter_to_modulation_matrix(id: Int!, parameter_to_add: Int!): WavetableDevice
+  eq8_device_set(id: Int!, properties: [Eq8DeviceSetInput!]!): Eq8Device
 
   """
   Adds notes and returns the ids Live assigned, in the order the notes were
@@ -263,6 +287,7 @@ type SongView {
   info: String!
   detail_clip: Clip
   highlighted_clip_slot: ClipSlot
+  mod_mapping_device: Device
   selected_scene: Scene
   selected_track: Track
   draw_mode: Boolean
@@ -273,6 +298,7 @@ type SongView {
 input SongViewSetInput @oneOf {
   detail_clip: Int
   highlighted_clip_slot: Int
+  mod_mapping_device: Int
   selected_scene: Int
   selected_track: Int
   draw_mode: Boolean
@@ -294,6 +320,7 @@ type Track {
   clip_slots: [ClipSlot!]
   arrangement_clip(index: Int!): Clip
   arrangement_clips: [Clip!]
+  devices: [Device!]
 
   """Null when the track is not inside a Group Track."""
   group_track: Track
@@ -578,6 +605,251 @@ type ClipView {
 input ClipViewSetInput @oneOf {
   grid_is_triplet: Boolean
   grid_quantization: Int
+}
+
+interface Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+}
+
+type GenericDevice implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+}
+
+input DeviceSetInput @oneOf {
+  name: String
+  is_using_compare_preset_b: Boolean
+}
+
+type SimplerDevice implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+  can_warp_as: Boolean
+  can_warp_double: Boolean
+  can_warp_half: Boolean
+  multi_sample_mode: Boolean
+  pad_slicing: Boolean
+  playback_mode: Int
+  playing_position: Float
+  playing_position_enabled: Boolean
+  retrigger: Boolean
+  slicing_playback_mode: Int
+  voices: Int
+}
+
+input SimplerDeviceSetInput @oneOf {
+  pad_slicing: Boolean
+  playback_mode: Int
+  retrigger: Boolean
+  slicing_playback_mode: Int
+  voices: Int
+}
+
+type RackDevice implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+  can_show_chains: Boolean
+  has_drum_pads: Boolean
+  has_macro_mappings: Boolean
+  is_showing_chains: Boolean
+  variation_count: Int
+  selected_variation_index: Int
+  visible_macro_count: Int
+}
+
+input RackDeviceSetInput @oneOf {
+  is_showing_chains: Boolean
+  selected_variation_index: Int
+}
+
+type WavetableDevice implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+  filter_routing: Int
+  mono_poly: Int
+  oscillator_1_effect_mode: Int
+  oscillator_2_effect_mode: Int
+  oscillator_1_wavetable_category: Int
+  oscillator_2_wavetable_category: Int
+  oscillator_1_wavetable_index: Int
+  oscillator_2_wavetable_index: Int
+  poly_voices: Int
+  unison_mode: Int
+  unison_voice_count: Int
+}
+
+input WavetableDeviceSetInput @oneOf {
+  filter_routing: Int
+  mono_poly: Int
+  oscillator_1_effect_mode: Int
+  oscillator_2_effect_mode: Int
+  oscillator_1_wavetable_category: Int
+  oscillator_2_wavetable_category: Int
+  oscillator_1_wavetable_index: Int
+  oscillator_2_wavetable_index: Int
+  poly_voices: Int
+  unison_mode: Int
+  unison_voice_count: Int
+}
+
+type Eq8Device implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+  edit_mode: Boolean
+  global_mode: Int
+  oversample: Boolean
+}
+
+input Eq8DeviceSetInput @oneOf {
+  edit_mode: Boolean
+  global_mode: Int
+  oversample: Boolean
+}
+
+type MaxDevice implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
 }
 
 type Note {

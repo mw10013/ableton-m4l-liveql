@@ -15,6 +15,13 @@ const LOM_OBJECT_TYPES = [
   "Scene",
   "Clip",
   "ClipView",
+  "Device",
+  "GenericDevice",
+  "SimplerDevice",
+  "RackDevice",
+  "WavetableDevice",
+  "Eq8Device",
+  "MaxDevice",
 ];
 const MUTATION_PREFIX = {
   Song: "song",
@@ -25,6 +32,11 @@ const MUTATION_PREFIX = {
   Clip: "clip",
   ClipView: "clip_view",
   ClipNotesPayload: "clip",
+  Device: "device",
+  SimplerDevice: "simpler_device",
+  RackDevice: "rack_device",
+  WavetableDevice: "wavetable_device",
+  Eq8Device: "eq8_device",
 };
 const INVENTED_FIELDS = new Set(["id", "info", "properties", "input"]);
 const INVENTED_ARGS = new Set(["id", "properties"]);

@@ -316,7 +316,7 @@ const INFO_DESCRIPTION =
 const CHILD_INPUT_DESCRIPTION = "A child is set by its id, and 0 clears it.";
 
 const prefixOf = (name) =>
-  name.replaceAll(/(?<=[a-z])(?=[A-Z])/gu, "_").toLowerCase();
+  name.replaceAll(/(?<=[a-z0-9])(?=[A-Z])/gu, "_").toLowerCase();
 const isObjectType = (type) =>
   type === "live object" || type === "id" || type?.replaceAll(".", "") in LOM;
 const nullable = (type) => type.replace(/!$/u, "");
@@ -351,6 +351,7 @@ function lomClass(name) {
   return {
     name,
     prefix: prefixOf(name),
+    parent: SCOPE.has(LOM[name].parent) ? LOM[name].parent : null,
     children: Object.entries(children).flatMap(
       ([member, { type, list, access }]) => {
         if (!access.includes("get")) return skip(member, "not readable");
@@ -370,6 +371,7 @@ function lomClass(name) {
       ([member, { type: docType, access }]) => {
         const row = o.properties?.[member] ?? {};
         const type = row.type ?? LOM_TYPES[docType];
+        if (row.skip) return skip(member, row.skip);
         if (!access.includes("get")) return skip(member, "not readable");
         if (!type) return skip(member, `doc type ${docType} has no mapping`);
         return [
@@ -415,6 +417,85 @@ Max.post(
   `liveql: left out ${skipped.length} LOM members: ${skipped.join("; ")}`,
 );
 
+const subclassesOf = (name) =>
+  Object.values(CLASSES).filter((c) => c.parent === name);
+
+/**
+ * The members of several classes of one family as one class's rows, a member
+ * the classes share kept once. Two classes naming one member as a different
+ * kind or GraphQL type cannot share a read or an interface field, so that
+ * throws at startup naming both.
+ */
+function mergeRows(classes) {
+  const seen = new Map();
+  const rows = (kind) => [
+    ...new Map(
+      classes.flatMap((c) =>
+        c[kind].map((r) => {
+          const shape = `${kind} ${r.type ?? r.field ?? "function"}${r.list ? " list" : ""}`;
+          const prior = seen.get(r.member);
+          if (prior && prior.shape !== shape)
+            throw new Error(
+              `liveql: ${prior.name}.${r.member} is a ${prior.shape} but ${c.name}.${r.member} is a ${shape}`,
+            );
+          seen.set(r.member, { name: c.name, shape });
+          return [r.member, r];
+        }),
+      ),
+    ).values(),
+  ];
+  return {
+    children: rows("children"),
+    properties: rows("properties"),
+    functions: rows("functions"),
+  };
+}
+
+/**
+ * The GraphQL object types the scope is exposed through. A class with
+ * subclasses in the scope (Device) becomes an interface of its own members,
+ * implemented by each subclass with the parent's members followed by its own,
+ * and by `Generic<Class>` with just the parent's for an object of the class
+ * itself (Operator is a plain Device). A subclass with subclasses of its own
+ * would need an interface implementing an interface, which nothing in the
+ * scope has yet, so it throws.
+ */
+function objectTypesOf(c) {
+  const subclasses = subclassesOf(c.name);
+  if (c.parent && subclasses.length > 0)
+    throw new Error(
+      `liveql: ${c.name} has a parent and subclasses in scope, which the builder does not nest`,
+    );
+  if (subclasses.length > 0)
+    return [
+      { ...c, interface: true },
+      { ...c, name: `Generic${c.name}`, implements: c.name },
+    ];
+  return [
+    c.parent
+      ? { ...c, ...mergeRows([CLASSES[c.parent], c]), implements: c.parent }
+      : c,
+  ];
+}
+
+/**
+ * What one `getObject` of a class reads: its members and its parent's, plus
+ * every subclass's when the class is an interface, so a `Track.devices` read
+ * answers whichever device it finds in one round trip. The bridge skips the
+ * members an object's `info` does not list, so asking a Simpler for a Rack's
+ * members costs nothing.
+ */
+const READS = Object.fromEntries(
+  Object.values(CLASSES).map((c) => [
+    c.name,
+    mergeRows([
+      ...(c.parent ? [CLASSES[c.parent]] : []),
+      c,
+      ...subclassesOf(c.name),
+    ]),
+  ]),
+);
+
 const description = (text, indent) =>
   text
     ? `${indent}"""\n${text
@@ -424,7 +505,41 @@ const description = (text, indent) =>
     : "";
 const field = (text, sdl) => `${description(text, "    ")}    ${sdl}\n`;
 
-function classSdl({ name, prefix, children, properties, functions }) {
+function objectSdl({
+  name,
+  interface: isInterface,
+  implements: parent,
+  children,
+  properties,
+  functions,
+}) {
+  return [
+    `  ${isInterface ? "interface" : "type"} ${name}${parent ? ` implements ${parent}` : ""} {\n`,
+    field(null, "id: Int!"),
+    field(null, "path: String!"),
+    field(null, "type: String!"),
+    field(INFO_DESCRIPTION, "info: String!"),
+    ...children.map(({ member, type, list, index, description: text }) =>
+      list
+        ? `${index ? field(null, `${index}(index: Int!): ${type}`) : ""}${field(text, `${member}: [${type}!]`)}`
+        : field(text, `${member}: ${type}`),
+    ),
+    ...properties.map(({ member, type, description: text }) =>
+      field(text, `${member}: ${type}`),
+    ),
+    ...functions
+      .filter((f) => f.field)
+      .map(({ member, field: type }) => field(null, `${member}: ${type}`)),
+    "  }\n",
+  ].join("");
+}
+
+/**
+ * A class's `<Class>SetInput` and mutations, for its own members only: a
+ * subclass's inherited members are set and called through the parent's
+ * mutations, which return the parent's interface.
+ */
+function mutationSdl({ name, prefix, children, properties, functions }) {
   const settable = [
     ...children
       .filter((c) => c.settable)
@@ -450,23 +565,6 @@ function classSdl({ name, prefix, children, properties, functions }) {
       ),
   ].join("");
   return [
-    `  type ${name} {\n`,
-    field(null, "id: Int!"),
-    field(null, "path: String!"),
-    field(null, "type: String!"),
-    field(INFO_DESCRIPTION, "info: String!"),
-    ...children.map(({ member, type, list, index, description: text }) =>
-      list
-        ? `${index ? field(null, `${index}(index: Int!): ${type}`) : ""}${field(text, `${member}: [${type}!]`)}`
-        : field(text, `${member}: ${type}`),
-    ),
-    ...properties.map(({ member, type, description: text }) =>
-      field(text, `${member}: ${type}`),
-    ),
-    ...functions
-      .filter((f) => f.field)
-      .map(({ member, field: type }) => field(null, `${member}: ${type}`)),
-    "  }\n",
     ...(settable.length === 0
       ? []
       : [
@@ -493,7 +591,7 @@ function classSdl({ name, prefix, children, properties, functions }) {
  * query.
  */
 function getObject(name, idOrPath) {
-  const { children, properties } = CLASSES[name];
+  const { children, properties } = READS[name];
   const members = (rows) => rows.map((r) => r.member);
   return get(
     idOrPath,
@@ -524,87 +622,102 @@ function callArgs(fieldName, params, args) {
   ).flatMap((v, i) => (params[i].id ? idArg(v) : [v].flat().map(toLiveValue)));
 }
 
-function classResolvers({ name, prefix, children, properties, functions }) {
-  const read = (id) => getObject(name, id);
+/**
+ * An interface resolves to the subclass named by the bridge's `type`, which
+ * is `LiveAPI.type` and so the LOM class (`SimplerDevice`, and `RackDevice`
+ * for both an Instrument and a Drum Rack), or to `Generic<Class>` for the
+ * class itself or a subclass outside the scope.
+ */
+function objectResolvers({
+  name,
+  interface: isInterface,
+  children,
+  functions,
+}) {
+  if (isInterface) {
+    const subclasses = new Set(subclassesOf(name).map((c) => c.name));
+    return {
+      __resolveType: ({ type }) =>
+        subclasses.has(type.replaceAll(".", ""))
+          ? type.replaceAll(".", "")
+          : `Generic${name}`,
+    };
+  }
   return {
-    type: {
-      info,
-      ...Object.fromEntries(
-        children.flatMap(({ member, type, list, index }) =>
-          list
-            ? [
-                [
-                  member,
-                  (parent) =>
-                    parent[member]?.map((id) => getObject(type, id)) ?? null,
-                ],
-                ...(index
-                  ? [
-                      [
-                        index,
-                        (parent, args) => {
-                          const id = parent[member]?.[args.index];
-                          return id === undefined ? null : getObject(type, id);
-                        },
-                      ],
-                    ]
-                  : []),
-              ]
-            : [
-                [
-                  member,
-                  (parent) =>
-                    parent[member] ? getObject(type, parent[member]) : null,
-                ],
-              ],
-        ),
-      ),
-      ...Object.fromEntries(
-        functions
-          .filter((f) => f.field)
-          .map(({ member, field: type }) => [
-            member,
-            async (parent) =>
-              FIELD_READERS[type.replace(/!$/u, "")](
-                await call(parent.id, member),
-              ),
-          ]),
-      ),
-    },
-    mutations: {
-      ...([...children, ...properties].some((m) => m.settable)
-        ? {
-            [`${prefix}_set`]: setter(
-              read,
-              new Set(children.filter((c) => c.settable).map((c) => c.member)),
-            ),
-          }
-        : {}),
-      ...Object.fromEntries(
-        functions
-          .filter((f) => !f.field)
-          .map(({ member, args }) => [
-            `${prefix}_${member}`,
-            async (parent, values, context, { fieldName }) => {
-              await call(
-                values.id,
+    info,
+    ...Object.fromEntries(
+      children.flatMap(({ member, type, list, index }) =>
+        list
+          ? [
+              [
                 member,
-                ...callArgs(fieldName, args, values),
-              );
-              return read(values.id);
-            },
-          ]),
+                (parent) =>
+                  parent[member]?.map((id) => getObject(type, id)) ?? null,
+              ],
+              ...(index
+                ? [
+                    [
+                      index,
+                      (parent, args) => {
+                        const id = parent[member]?.[args.index];
+                        return id === undefined ? null : getObject(type, id);
+                      },
+                    ],
+                  ]
+                : []),
+            ]
+          : [
+              [
+                member,
+                (parent) =>
+                  parent[member] ? getObject(type, parent[member]) : null,
+              ],
+            ],
       ),
-    },
+    ),
+    ...Object.fromEntries(
+      functions
+        .filter((f) => f.field)
+        .map(({ member, field: type }) => [
+          member,
+          async (parent) =>
+            FIELD_READERS[type.replace(/!$/u, "")](
+              await call(parent.id, member),
+            ),
+        ]),
+    ),
   };
 }
 
-const generated = Object.fromEntries(
-  Object.values(CLASSES).map((c) => [c.name, classResolvers(c)]),
-);
+function classMutations({ name, prefix, children, properties, functions }) {
+  const read = (id) => getObject(name, id);
+  return {
+    ...([...children, ...properties].some((m) => m.settable)
+      ? {
+          [`${prefix}_set`]: setter(
+            read,
+            new Set(children.filter((c) => c.settable).map((c) => c.member)),
+          ),
+        }
+      : {}),
+    ...Object.fromEntries(
+      functions
+        .filter((f) => !f.field)
+        .map(({ member, args }) => [
+          `${prefix}_${member}`,
+          async (parent, values, context, { fieldName }) => {
+            await call(values.id, member, ...callArgs(fieldName, args, values));
+            return read(values.id);
+          },
+        ]),
+    ),
+  };
+}
 
 const typeDefs = /* GraphQL */ `
-  ${Object.values(CLASSES).map(classSdl).join("\n")}
+  ${Object.values(CLASSES)
+    .map((c) => [...objectTypesOf(c).map(objectSdl), mutationSdl(c)].join(""))
+    .join("\n")}
   extend type Clip {
     """
     Every note in the clip, sorted by start_time then pitch. Null on an audio
@@ -707,7 +820,9 @@ const typeDefs = /* GraphQL */ `
 
 const resolvers = {
   ...Object.fromEntries(
-    Object.entries(generated).map(([name, r]) => [name, r.type]),
+    Object.values(CLASSES)
+      .flatMap(objectTypesOf)
+      .map((t) => [t.name, objectResolvers(t)]),
   ),
   Query: {
     live_set: () => getObject("Song", "live_set"),
@@ -718,7 +833,7 @@ const resolvers = {
     scene: byId("Scene"),
   },
   Mutation: {
-    ...Object.assign({}, ...Object.values(generated).map((r) => r.mutations)),
+    ...Object.assign({}, ...Object.values(CLASSES).map(classMutations)),
     clip_add_new_notes: async (parent, args) => {
       const note_ids = await addNewNotes(args.id, args.notes);
       return { clip: await getObject("Clip", args.id), note_ids };
@@ -762,7 +877,7 @@ const resolvers = {
     },
   },
   Clip: {
-    ...generated.Clip.type,
+    ...objectResolvers(CLASSES.Clip),
     get_all_notes_extended: midiOnly(async (parent) =>
       sortJsonNotesDictionary(await call(parent.id, "get_all_notes_extended")),
     ),

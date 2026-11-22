@@ -3,12 +3,13 @@
  * schema builder in `liveql-n4m.js`. Pure data.
  *
  * - `scope`: the classes the schema exposes. A member typed by a class outside
- *   it is left out.
+ *   it is left out. A class whose `lom.json` parent is in scope inherits the
+ *   parent's members, and a parent with subclasses in scope is an interface.
  * - `properties.<name>`: `type`, the GraphQL type when the doc type has no
  *   mapping or the field stays non-null; `default`, the value an absent or
  *   empty read resolves to; `settable`, a member Live sets though the docs say
  *   it cannot be; `description` for the field and `inputDescription` for its
- *   `<Class>SetInput` field.
+ *   `<Class>SetInput` field; `skip`, why a property is left out.
  * - `children.<name>`: `description`, and `index`, the name of a singular
  *   accessor that takes an index into the child list.
  * - `functions.<name>`: `args`, the GraphQL arguments in LOM call order, each
@@ -32,6 +33,12 @@ module.exports = {
     "Scene",
     "Clip",
     "ClipView",
+    "Device",
+    "SimplerDevice",
+    "RackDevice",
+    "WavetableDevice",
+    "Eq8Device",
+    "MaxDevice",
   ],
   classes: {
     Application: {
@@ -254,6 +261,56 @@ module.exports = {
         grid_is_triplet: {
           description:
             "Live's Triplet Grid toggle, which the grid_quantization enum has no values for.",
+        },
+      },
+    },
+    Device: {
+      drift: {
+        canonical_parent:
+          "undocumented, info lists a child Track (Live 12.4.6)",
+        type: "documented as int, info says DeviceType (Live 12.4.6)",
+      },
+      properties: {
+        is_using_compare_preset_b: {
+          description:
+            "Null when can_compare_ab is false: such a device's info leaves it out.",
+        },
+        type: {
+          skip: "the bridge's type field is LiveAPI.type, which this int would overwrite, and class_name and __typename identify the device",
+        },
+      },
+    },
+    RackDevice: {
+      drift: {
+        is_using_compare_preset_b:
+          "documented as a property, in no RackDevice's info (Live 12.4.6); absent because no fixture Rack can_compare_ab",
+      },
+    },
+    MaxDevice: {
+      drift: {
+        is_using_compare_preset_b:
+          "documented as a property, in no MaxDevice's info (Live 12.4.6); absent because no fixture Max device can_compare_ab",
+      },
+    },
+    WavetableDevice: {
+      properties: {
+        oscillator_1_wavetable_category: { type: "Int" },
+        oscillator_2_wavetable_category: { type: "Int" },
+        oscillator_1_wavetable_index: { type: "Int" },
+        oscillator_2_wavetable_index: { type: "Int" },
+      },
+      functions: {
+        get_modulation_target_parameter_name: {
+          skip: "returns a symbol the docs describe only in prose",
+        },
+        get_modulation_value: {
+          skip: "returns a value the docs describe only in prose",
+        },
+        is_parameter_modulatable: {
+          skip: "returns a bool the docs describe only in prose",
+        },
+        set_modulation_value: {
+          skip: "the docs list no parameter for the amount to set",
         },
       },
     },

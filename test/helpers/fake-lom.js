@@ -98,6 +98,7 @@ function trackProps(overrides, absent = []) {
     group_track: ["id", 0],
     clip_slots: [],
     arrangement_clips: [],
+    devices: [],
     ...overrides,
   };
   return Object.fromEntries(
@@ -161,7 +162,28 @@ function clipProps(overrides) {
 }
 
 /**
- * One MIDI track (10) with a clip slot holding MIDI clip 40, one audio track
+ * A device's props. Every device's `info` lists the LOM's `type` property, the
+ * DeviceType int, which shares its name with the bridge's `type`.
+ */
+function deviceProps(overrides) {
+  return {
+    can_have_chains: [0],
+    can_have_drum_pads: [0],
+    class_display_name: ["Device"],
+    class_name: ["Device"],
+    is_active: [1],
+    name: ["Device"],
+    type: [1],
+    latency_in_samples: [0],
+    latency_in_ms: [0],
+    can_compare_ab: [1],
+    is_using_compare_preset_b: [0],
+    ...overrides,
+  };
+}
+
+/**
+ * One MIDI track (10) holding a Simpler (60) and a plain Device (61), with a clip slot holding MIDI clip 40, one audio track
  * (11) holding arrangement clip 50, a return track (13) and a master track (12)
  * missing the members Live's `info` leaves out there. None of them is a Group
  * Track, so none has a fold_state. Song.View's
@@ -191,6 +213,30 @@ function defaultObjects() {
       props: trackProps({
         name: ["MIDI"],
         clip_slots: ["id", 20, "id", 21],
+        devices: ["id", 60, "id", 61],
+      }),
+    },
+    60: {
+      id: 60,
+      path: "live_set tracks 0 devices 0",
+      type: "SimplerDevice",
+      props: deviceProps({
+        class_display_name: ["Simpler"],
+        class_name: ["OriginalSimpler"],
+        name: ["Simpler"],
+        playback_mode: [0],
+        retrigger: [0],
+        voices: [1],
+      }),
+    },
+    61: {
+      id: 61,
+      path: "live_set tracks 0 devices 1",
+      type: "Device",
+      props: deviceProps({
+        class_display_name: ["Operator"],
+        class_name: ["Operator"],
+        name: ["Operator"],
       }),
     },
     11: {
@@ -338,6 +384,7 @@ function createLom() {
   objects[objects.live_set.id] = objects.live_set;
   objects[objects.live_app.id] = objects.live_app;
   const log = [];
+  const gets = [];
   const notes = { 40: [{ note_id: 1, ...DEFAULT_NOTE }] };
   const calls = {};
   let nextNoteId = 100;
@@ -354,6 +401,7 @@ function createLom() {
 
   const get = (params) => {
     const o = resolve(params.idOrPath);
+    gets.push(params);
     const out = { id: o.id, path: o.path, type: o.type };
     const listed = (keys) => (keys ?? []).filter((k) => k in o.props);
     for (const k of listed(params.propertyKeysSingle)) {
@@ -493,6 +541,7 @@ function createLom() {
   return {
     objects,
     log,
+    gets,
     notes,
     calls,
     setsOf: (property) =>
