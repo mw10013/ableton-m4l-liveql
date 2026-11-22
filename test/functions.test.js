@@ -107,4 +107,17 @@ describe("functions that answer a value", () => {
       ["call", 1, "create_scene", -1],
     ]);
   });
+
+  it("reads back nothing for a mutation's answer when its object is not selected", async () => {
+    lom.calls.select_instrument = () => [0];
+    lom.gets.length = 0;
+    const { data, errors } = await gql(
+      "mutation { track_view_select_instrument(id: 11) { select_instrument } }",
+    );
+    assert.equal(errors, undefined);
+    assert.deepEqual(data, {
+      track_view_select_instrument: { select_instrument: false },
+    });
+    assert.deepEqual(lom.gets, []);
+  });
 });

@@ -366,8 +366,11 @@ const isMultiValued = (p) => !p.dictionary && isList(p.type);
  */
 const dictionaryString = (key, value) =>
   JSON.stringify(key === true ? value : { [key]: value });
-const dictionaryInput = (type) =>
-  isList(type) ? nullable(type) : `${nullable(type)}Input`;
+const dictionaryInput = (type) => {
+  const inner = type.replaceAll(/[[\]!]/gu, "");
+  if (!isList(type)) return `${inner}Input`;
+  return inner in READERS ? nullable(type) : `[${inner}Input!]`;
+};
 
 /**
  * The dictionary keys Live returned that the GraphQL type has no field for,
@@ -452,6 +455,7 @@ function lomClass(name) {
     name,
     prefix: prefixOf(name),
     pathType: o.path ?? "String!",
+    typeByMembers: o.typeByMembers ?? false,
     parent: SCOPE.has(LOM[name].parent) ? LOM[name].parent : null,
     children: Object.entries(children).flatMap(
       ([member, { type, list, access }]) => {
@@ -503,6 +507,14 @@ function lomClass(name) {
           return skip(
             member,
             `unresolved parameter ${unresolved.map((p) => p.name ?? `[${p.type}]`).join(", ")}`,
+          );
+        const answer = row?.field ?? row?.returns;
+        if (
+          answer &&
+          !(nullable(answer) in READERS || SCOPE.has(nullable(answer)))
+        )
+          throw new Error(
+            `liveql: ${name}.${member} answers ${answer}, which no reader reads and no class in scope is`,
           );
         return [
           {
@@ -973,9 +985,10 @@ const RESOLVER_MEMBERS = {
 /**
  * Which members of a read class each GraphQL field needs: a property or
  * child its own, an indexed accessor (`track(index)`) its child list, a
- * hand-written resolver its `RESOLVER_MEMBERS`. On an interface, `__typename`
- * needs every subclass's own members, because `__resolveType` picks a view's
- * subclass by which of them the read holds. Any other field (`id`, `path`,
+ * hand-written resolver its `RESOLVER_MEMBERS`. On an interface whose override
+ * says `typeByMembers`, `__typename` needs every subclass's own members,
+ * because `__resolveType` picks a view's subclass by which of them the read
+ * holds; any other interface resolves by `liveApiType` and needs none. Any other field (`id`, `path`,
  * `info`, a function field) needs none: the bridge always sends `id` and
  * `path`, and the rest only use `id`. One family's classes never
  * name a member two ways (`mergeRows` throws), so a field name means one
@@ -987,7 +1000,7 @@ const FIELD_MEMBERS = Object.fromEntries(
     new Map([
       ...[...children, ...properties].map((m) => [m.member, [m.member]]),
       ...children.filter((c) => c.index).map((c) => [c.index, [c.member]]),
-      ...(subclassesOf(name).length > 0
+      ...(CLASSES[name].typeByMembers
         ? [["__typename", subclassesOf(name).flatMap(ownMembers)]]
         : []),
       ...Object.entries(RESOLVER_MEMBERS[name] ?? {}),

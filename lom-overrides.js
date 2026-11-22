@@ -28,6 +28,9 @@
  *   mutation returns in a `<Class><Function>Payload` beside the object read
  *   back; `custom`, a function `liveql-n4m.js` writes by hand; `skip`, why a
  *   function is left out.
+ * - `typeByMembers`: an interface whose objects all answer `LiveAPI.type` with
+ *   a name that is no class (every device view says `View`), so `__typename`
+ *   reads each subclass's own members to tell which one an object is.
  * - `drift.<name>`: where Live's `info` disagrees with the docs for a member
  *   (undocumented, absent from every object, or another type), as the `test:live`
  *   drift check prints it. The schema builder ignores it; the row records that
@@ -589,6 +592,7 @@ module.exports = {
       },
     },
     DeviceView: {
+      typeByMembers: true,
       drift: {
         canonical_parent:
           "undocumented, info lists a child typed by the owning device's class, such as RackDevice (Live 12.4.6)",

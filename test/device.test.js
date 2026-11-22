@@ -23,13 +23,11 @@ describe("device", () => {
    * `LiveAPI.type` under its own key, so reading the int leaves the concrete
    * GraphQL type intact.
    */
-  it("reads every device with one get that names type and, for __typename, each subclass's own members", async () => {
+  it("reads every device with one get of only the selected members, since __typename resolves by Live's class", async () => {
     await gql(DEVICES);
     const reads = lom.gets.filter((g) => g.idOrPath === 60);
     assert.equal(reads.length, 1);
-    const keys = reads[0].propertyKeysSingle;
-    for (const k of ["type", "name", "voices", "variation_count", "edit_mode"])
-      assert.ok(keys.includes(k), `reads ${k}`);
+    assert.deepEqual(reads[0].propertyKeysSingle.toSorted(), ["name", "type"]);
   });
 
   it("reads the DeviceType int of every kind of device, by id too", async () => {
