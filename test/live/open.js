@@ -15,7 +15,8 @@ const zlib = require("node:zlib");
  * in every `FileRef` naming `liveql.amxd`, and hands the copy to Live. The
  * committed Set is never touched. Each run gets its own folder so the copy's
  * `file_path` differs from the Set it replaces, even when that was the same
- * fixture, and `openedSet` tells `test:live` which Set it should find open.
+ * fixture, and `openedSet`, the newest run's Set, tells `test:live` which Set
+ * it should find open.
  *
  *   pnpm live:open [path/to/set.als]      (defaults to the fixture Set)
  *
@@ -49,7 +50,18 @@ function open(source) {
     String(Date.now()),
     path.basename(project),
   );
-  fs.rmSync(checkoutDir, { recursive: true, force: true });
+  /**
+   * Prunes only run folders more than an hour old. Live may still be opening,
+   * or have queued, the copy a run moments ago made (an open sent while the
+   * screen was locked lands later); deleting it makes Live show a modal "could
+   * not be opened" dialog that blocks every later run.
+   */
+  const stale = Date.now() - 60 * 60 * 1000;
+  for (const run of fs.existsSync(checkoutDir)
+    ? fs.readdirSync(checkoutDir)
+    : [])
+    if (Number(run) < stale)
+      fs.rmSync(path.join(checkoutDir, run), { recursive: true, force: true });
   fs.cpSync(project, target, {
     recursive: true,
     filter: (f) => path.basename(f) !== "Backup",
@@ -149,7 +161,9 @@ if (require.main === module) {
 
 /** The Set the last `live:open` from this checkout wrote, if any. */
 function openedSet() {
-  const [run] = fs.existsSync(checkoutDir) ? fs.readdirSync(checkoutDir) : [];
+  const run = (fs.existsSync(checkoutDir) ? fs.readdirSync(checkoutDir) : [])
+    .filter((r) => /^\d+$/u.test(r))
+    .toSorted((a, b) => Number(b) - Number(a))[0];
   if (run === undefined) return undefined;
   const [project] = fs.readdirSync(path.join(checkoutDir, run));
   const dir = path.join(checkoutDir, run, project);
