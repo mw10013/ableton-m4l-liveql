@@ -17,6 +17,10 @@
  *   GraphQL type of a function exposed as a lazily called field instead of a
  *   mutation; `custom`, a function `liveql-n4m.js` writes by hand; `skip`, why
  *   a function is left out.
+ * - `drift.<name>`: where Live's `info` disagrees with the docs for a member
+ *   (undocumented, absent from every object, or another type), as the `test:live`
+ *   drift check prints it. The schema builder ignores it; the row records that
+ *   a human has seen the mismatch.
  */
 module.exports = {
   scope: [
@@ -64,7 +68,16 @@ module.exports = {
         create_scene: { args: { index: "Int = -1" } },
       },
     },
+    SongView: {
+      drift: {
+        canonical_parent: "undocumented, info lists a child Song (Live 12.4.6)",
+      },
+    },
     Track: {
+      drift: {
+        canonical_parent: "undocumented, info lists a child Song (Live 12.4.6)",
+        fold_state: "documented as int, info says bool (Live 12.4.6)",
+      },
       children: {
         group_track: {
           description: "Null when the track is not inside a Group Track.",
@@ -111,6 +124,12 @@ module.exports = {
       },
     },
     ClipSlot: {
+      drift: {
+        canonical_parent:
+          "undocumented, info lists a child Track (Live 12.4.6)",
+        playing_status:
+          "documented as int, info says ClipSlotPlayingState (Live 12.4.6)",
+      },
       properties: {
         color: {
           description:
@@ -127,6 +146,9 @@ module.exports = {
       },
     },
     Scene: {
+      drift: {
+        canonical_parent: "undocumented, info lists a child Song (Live 12.4.6)",
+      },
       properties: {
         name: { type: "String!", default: "" },
       },
@@ -138,6 +160,14 @@ module.exports = {
       },
     },
     Clip: {
+      drift: {
+        canonical_parent:
+          "undocumented, info lists a child Track (Live 12.4.6)",
+        is_session_clip:
+          "documented as a property, in no Clip's info (Live 12.4.6)",
+        is_take_lane_clip:
+          "documented as a property, in no Clip's info (Live 12.4.6)",
+      },
       properties: {
         name: { type: "String!", default: "" },
         loop_start: {
@@ -200,6 +230,9 @@ module.exports = {
       },
     },
     ClipView: {
+      drift: {
+        canonical_parent: "undocumented, info lists a child Clip (Live 12.4.6)",
+      },
       properties: {
         /**
          * The LOM says only "Get/set the grid quantization" for

@@ -1,6 +1,9 @@
 const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");
 const { describe, it, before, after } = require("node:test");
+const path = require("node:path");
+const LOM = require("../../lom.json");
+const OVERRIDES = require("../../lom-overrides.js");
 const { openedSet, root } = require("./open.js");
 
 /**
@@ -704,5 +707,169 @@ describe("live", { skip: SKIP }, () => {
         );
       });
     }
+  });
+
+  /**
+   * Compares what Live reports for each object of the fixture Set with what the
+   * LOM docs say about its class. Every object's `info` is read and grouped by
+   * `__typename`, and a member counts as present when any object of the class
+   * lists it, since one object lacking a member (the master track's `arm`) is
+   * Live's normal absence and not drift. Only readable members are compared:
+   * `info` never lists an observe-only one. Types are compared after mapping
+   * the docs' vocabulary onto the Python names `info` prints, and `NoneType`
+   * says only that the value is None right now (`info` then lists even a
+   * child as a property), so neither its kind nor its type is compared, and a
+   * real type from another object of the class wins over it. The
+   * fixture holds no audio clip, so one is made in the arrangement from the
+   * fixture's sample and deleted afterwards. A mismatch prints as a `RECORD:`
+   * line holding the `drift` row that records it in `lom-overrides.js`, rather
+   * than failing, because the docs are in flux; a `drift` row Live no longer
+   * bears out prints too.
+   */
+  describe("drift between info and lom.json", () => {
+    const LIVE_TYPES = {
+      symbol: "str",
+      unicode: "str",
+      dictionary: "dict",
+      long: "int",
+      list: "Vector",
+    };
+    const INFO = "cls: __typename info";
+    let audioClip, audioTrack;
+
+    before(async () => {
+      const { live_set } = await data(
+        "{ live_set { tracks { id has_audio_input is_foldable arrangement_clips { id } } } }",
+      );
+      audioTrack = live_set.tracks.find(
+        (t) => t.has_audio_input && !t.is_foldable,
+      ).id;
+      const sample = path.join(
+        path.dirname(openedSet()),
+        "Samples/Imported/liveql-sine-a440.wav",
+      );
+      const before = new Set(
+        live_set.tracks
+          .find((t) => t.id === audioTrack)
+          .arrangement_clips.map((c) => c.id),
+      );
+      audioClip = (
+        await data(
+          `mutation ($f: String!) { track_create_audio_clip(id: ${audioTrack}, file_path: $f, position: 0) { arrangement_clips { id is_audio_clip } } }`,
+          { f: sample },
+        )
+      ).track_create_audio_clip.arrangement_clips.find(
+        (c) => c.is_audio_clip && !before.has(c.id),
+      )?.id;
+      assert.ok(audioClip, "track_create_audio_clip made no audio clip");
+    });
+
+    after(async () => {
+      if (audioClip)
+        await data(
+          `mutation { track_delete_clip(id: ${audioTrack}, clip: ${audioClip}) { id } }`,
+        );
+    });
+
+    it("records every member Live and the docs disagree on", async () => {
+      const CLIP = `${INFO} view { ${INFO} }`;
+      const TRACK = `${INFO} arrangement_clips { ${CLIP} } clip_slots { ${INFO} clip { ${CLIP} } }`;
+      const { live_app, live_set } = await data(`{
+        live_app { ${INFO} get_version_string }
+        live_set {
+          ${INFO} view { ${INFO} } scenes { ${INFO} }
+          tracks { ${TRACK} } return_tracks { ${TRACK} } master_track { ${TRACK} }
+        }
+      }`);
+      const seen = new Map();
+      const walk = (o) => {
+        if (Array.isArray(o)) {
+          o.forEach(walk);
+          return;
+        }
+        if (!o || typeof o !== "object") return;
+        if (o.info) {
+          const members = seen.get(o.cls) ?? new Map();
+          for (const [kind, name, type] of o.info
+            .split("\n")
+            .map((line) => line.trim().split(" ")))
+            if (
+              ["property", "child", "children", "function"].includes(kind) &&
+              (type !== "NoneType" || !members.has(name))
+            )
+              members.set(name, { kind, type });
+          seen.set(o.cls, members);
+        }
+        Object.values(o).forEach(walk);
+      };
+      walk(live_set);
+      walk(live_app);
+
+      const mismatches = [];
+      for (const name of OVERRIDES.scope) {
+        const live = seen.get(name);
+        assert.ok(live, `the fixture Set has no ${name}`);
+        const { children, properties, functions } = LOM[name];
+        const docs = new Map([
+          ...Object.entries(children)
+            .filter(([, m]) => m.access.includes("get"))
+            .map(([n, m]) => [
+              n,
+              { kind: m.list ? "children" : "child", type: m.type },
+            ]),
+          ...Object.entries(properties)
+            .filter(([, m]) => m.access.includes("get"))
+            .map(([n, m]) => [n, { kind: "property", type: m.type }]),
+          ...Object.keys(functions).map((n) => [n, { kind: "function" }]),
+        ]);
+        const found = (member, text) => mismatches.push({ name, member, text });
+        for (const [member, doc] of docs) {
+          const got = live.get(member);
+          if (!got)
+            found(member, `documented as a ${doc.kind}, in no ${name}'s info`);
+          else if (got.type === "NoneType" || doc.kind === "function") continue;
+          else if (doc.kind !== got.kind)
+            found(
+              member,
+              `documented as a ${doc.kind}, info lists a ${got.kind} ${got.type}`,
+            );
+          else if (!doc.type) continue;
+          else if (
+            doc.kind === "property"
+              ? !got.type.endsWith(
+                  LIVE_TYPES[doc.type] ?? doc.type.split("/")[0],
+                )
+              : !doc.type.endsWith(got.type)
+          )
+            found(member, `documented as ${doc.type}, info says ${got.type}`);
+        }
+        for (const [member, got] of live)
+          if (!docs.has(member))
+            found(
+              member,
+              `undocumented, info lists a ${got.kind} ${got.type ?? ""}`.trim(),
+            );
+      }
+
+      const version = live_app.get_version_string;
+      const rows = new Set();
+      for (const { name, member, text } of mismatches) {
+        rows.add(`${name}.${member}`);
+        if (!OVERRIDES.classes[name]?.drift?.[member])
+          record(
+            `drift ${name}.${member}`,
+            `add to classes.${name}.drift in lom-overrides.js: ${member}: ${JSON.stringify(`${text} (Live ${version})`)},`,
+          );
+      }
+      for (const [name, { drift = {} } = {}] of Object.entries(
+        OVERRIDES.classes,
+      ))
+        for (const member of Object.keys(drift))
+          if (!rows.has(`${name}.${member}`))
+            record(
+              `drift ${name}.${member}`,
+              "this Set no longer shows it; delete the row unless the fixture lacks the object that did",
+            );
+    });
   });
 });
