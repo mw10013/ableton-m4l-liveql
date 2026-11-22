@@ -117,6 +117,21 @@ function get(json) {
   }
 }
 
+/**
+ * Raw `LiveAPI.info`: the object's id, type, description, and the children,
+ * properties and functions Live reports for it, one per line, ending in `done`.
+ */
+function info(json) {
+  let actionId = null;
+  try {
+    const params = JSON.parse(json);
+    actionId = params.actionId;
+    outletSuccessfulResult(actionId, getLive(params.idOrPath).info);
+  } catch (err) {
+    outletFailedResult(actionId, err);
+  }
+}
+
 function set(json) {
   let actionId = null;
   try {

@@ -369,6 +369,17 @@ function createLom() {
     return out;
   };
 
+  const info = (params) => {
+    const o = resolve(params.idOrPath);
+    log.push(["info", o.id]);
+    return [
+      `id ${o.id}`,
+      `type ${o.type}`,
+      ...Object.keys(o.props).map((k) => `property ${k}`),
+      "done",
+    ].join("\n");
+  };
+
   const set = (params) => {
     const o = resolve(params.idOrPath);
     log.push(["set", o.id, params.property, params.value]);
@@ -486,10 +497,7 @@ function createLom() {
       log.filter((entry) => entry[0] === "set" && entry[2] === property),
     setOrder: () =>
       log.filter(([action]) => action === "set").map((entry) => entry[2]),
-    exec: (params) =>
-      (params.action === "get" ? get : params.action === "set" ? set : call)(
-        params,
-      ),
+    exec: (params) => ({ get, info, set, call })[params.action](params),
   };
 }
 

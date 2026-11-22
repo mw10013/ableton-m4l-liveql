@@ -25,7 +25,7 @@ const MUTATION_PREFIX = {
   ClipView: "clip_view",
   ClipNotesPayload: "clip",
 };
-const INVENTED_FIELDS = new Set(["id", "properties", "input"]);
+const INVENTED_FIELDS = new Set(["id", "info", "properties", "input"]);
 const INVENTED_ARGS = new Set(["id", "properties"]);
 const INVENTED_MUTATIONS = new Set(["write_notes", "replace_notes"]);
 

@@ -40,6 +40,10 @@ async function call(id, ...args) {
   });
 }
 
+async function info(parent) {
+  return exec({ action: "info", idOrPath: parent.id });
+}
+
 let actionId = 0;
 const actionResultHandlers = new Map();
 
@@ -109,6 +113,12 @@ const typeDefs = /* GraphQL */ `
     id: Int!
     path: String!
     type: String!
+    """
+    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
+    and functions Live reports for this object, one per line, ending in \`done\`.
+    Read only when selected.
+    """
+    info: String!
     get_major_version: Int!
     get_minor_version: Int!
     get_bugfix_version: Int!
@@ -119,6 +129,12 @@ const typeDefs = /* GraphQL */ `
     id: Int!
     path: String!
     type: String!
+    """
+    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
+    and functions Live reports for this object, one per line, ending in \`done\`.
+    Read only when selected.
+    """
+    info: String!
     """
     Empty string for a Set that has never been saved.
     """
@@ -190,6 +206,12 @@ const typeDefs = /* GraphQL */ `
     id: Int!
     path: String!
     type: String!
+    """
+    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
+    and functions Live reports for this object, one per line, ending in \`done\`.
+    Read only when selected.
+    """
+    info: String!
     selected_track: Track
     detail_clip: Clip
     highlighted_clip_slot: ClipSlot
@@ -214,6 +236,12 @@ const typeDefs = /* GraphQL */ `
     id: Int!
     path: String!
     type: String!
+    """
+    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
+    and functions Live reports for this object, one per line, ending in \`done\`.
+    Read only when selected.
+    """
+    info: String!
     name: String!
     has_midi_input: Boolean!
     has_audio_input: Boolean!
@@ -275,6 +303,12 @@ const typeDefs = /* GraphQL */ `
     id: Int!
     path: String!
     type: String!
+    """
+    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
+    and functions Live reports for this object, one per line, ending in \`done\`.
+    Read only when selected.
+    """
+    info: String!
     clip: Clip
     has_clip: Boolean!
     has_stop_button: Boolean!
@@ -298,6 +332,12 @@ const typeDefs = /* GraphQL */ `
     id: Int!
     path: String!
     type: String!
+    """
+    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
+    and functions Live reports for this object, one per line, ending in \`done\`.
+    Read only when selected.
+    """
+    info: String!
     name: String!
     color: Int!
     color_index: Int!
@@ -326,6 +366,12 @@ const typeDefs = /* GraphQL */ `
     id: Int!
     path: String!
     type: String!
+    """
+    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
+    and functions Live reports for this object, one per line, ending in \`done\`.
+    Read only when selected.
+    """
+    info: String!
     name: String!
     color: Int!
     color_index: Int!
@@ -422,6 +468,12 @@ const typeDefs = /* GraphQL */ `
     id: Int!
     path: String!
     type: String!
+    """
+    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
+    and functions Live reports for this object, one per line, ending in \`done\`.
+    Read only when selected.
+    """
+    info: String!
     """
     The editor's grid, as Off plus Live's nine Fixed Grid entries, coarse to
     fine: 0 = Off (Snap to Grid unchecked), 1 = 8 Bars, 2 = 4 Bars, 3 = 2 Bars,
@@ -1326,7 +1378,9 @@ const resolvers = {
       return getClipView(args.id);
     },
   },
+  Application: { info },
   Song: {
+    info,
     view: (parent) => getSongView(parent.view),
     track: (parent, args) => {
       const id = parent.tracks[args.index];
@@ -1343,6 +1397,7 @@ const resolvers = {
     scenes: (parent) => parent.scenes.map((id) => getScene(id)),
   },
   SongView: {
+    info,
     detail_clip: (parent) =>
       parent.detail_clip ? getClip(parent.detail_clip) : null,
     selected_track: (parent) =>
@@ -1355,6 +1410,7 @@ const resolvers = {
       parent.selected_scene ? getScene(parent.selected_scene) : null,
   },
   Track: {
+    info,
     group_track: (parent) =>
       parent.group_track ? getTrack(parent.group_track) : null,
     clip_slot: (parent, args) => {
@@ -1370,12 +1426,15 @@ const resolvers = {
       parent.arrangement_clips.map((id) => getClip(id)),
   },
   ClipSlot: {
+    info,
     clip: (parent) => (parent.clip ? getClip(parent.clip) : null),
   },
   Scene: {
+    info,
     clip_slots: (parent) => parent.clip_slots.map((id) => getClipSlot(id)),
   },
   Clip: {
+    info,
     view: (parent) => getClipView(parent.view),
     get_all_notes_extended: midiOnly(async (parent) =>
       sortJsonNotesDictionary(await call(parent.id, "get_all_notes_extended")),
@@ -1392,6 +1451,7 @@ const resolvers = {
       ),
     ),
   },
+  ClipView: { info },
 };
 
 const yoga = createYoga({

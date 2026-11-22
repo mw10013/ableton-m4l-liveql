@@ -189,7 +189,7 @@ export default defineConfig({
             "error",
             {
               argsIgnorePattern: "^_",
-              varsIgnorePattern: "^_|^(get|set|call)$",
+              varsIgnorePattern: "^_|^(get|info|set|call)$",
             },
           ],
         },

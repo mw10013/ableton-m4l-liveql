@@ -449,6 +449,41 @@ describe("live", { skip: SKIP }, () => {
    * bridge used to die on them: a track with no clip slots answers clip_slots
    * with the empty symbol, not an empty list, and the whole object read threw.
    */
+  /**
+   * `LiveAPI.get` answers 1 for a member a track lacks, but `info` leaves the
+   * member out, so `info` can tell which members an object really has.
+   */
+  it("lists in info only the members a track has", async () => {
+    const { live_set } = await data(
+      "{ live_set { master_track { info } return_tracks { info } tracks { info has_midi_input } } }",
+    );
+    const members = (info) =>
+      new Set(
+        info
+          .split("\n")
+          .filter((line) => line.startsWith("property "))
+          .map((line) => line.split(" ")[1]),
+      );
+    const has = (info, names) => names.map((n) => members(info).has(n));
+    assert.deepEqual(has(live_set.master_track.info, ["arm", "mute", "solo"]), [
+      false,
+      false,
+      false,
+    ]);
+    assert.deepEqual(
+      has(live_set.return_tracks[0].info, ["arm", "mute", "solo"]),
+      [false, true, true],
+    );
+    assert.deepEqual(
+      has(live_set.tracks.find((t) => t.has_midi_input).info, [
+        "arm",
+        "mute",
+        "solo",
+      ]),
+      [true, true, true],
+    );
+  });
+
   it("resolves return and master tracks, with their absent members as null", async () => {
     const TRACK = `id name type mute solo arm playing_slot_index fired_slot_index fold_state
       group_track { id } clip_slots { id } arrangement_clips { id }`;
