@@ -2135,4 +2135,11 @@ type Query {
   clip_slot(id: Int!): ClipSlot
   track(id: Int!): Track
   scene(id: Int!): Scene
+
+  """
+  The device with this LOM id, as its subclass, or null if the object is not
+  a device.
+  """
+  device(id: Int!): Device
+  device_parameter(id: Int!): DeviceParameter
 }

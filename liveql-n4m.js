@@ -248,13 +248,23 @@ function midiOnly(fn) {
   return (parent, args) => (parent.is_midi_clip ? fn(parent, args) : null);
 }
 
+/**
+ * Whether a LOM class is the named class or one of its subclasses, so a
+ * by-id query for an interface (`device`) answers a SimplerDevice too. A
+ * class outside the LOM, such as a device view's bare `View`, is neither.
+ */
+const isA = (type, name) =>
+  type === name || (LOM[type]?.parent ? isA(LOM[type].parent, name) : false);
+
 function byId(name) {
   return async (parent, args, context, info) => {
     const o = await get(args.id).catch((err) => {
       if (isInvalidId(err)) return null;
       throw err;
     });
-    return o?.type === name ? getObject(name, args.id, info) : null;
+    return o && isA(o.type.replaceAll(".", ""), name)
+      ? getObject(name, args.id, info)
+      : null;
   };
 }
 
@@ -1142,6 +1152,12 @@ const typeDefs = /* GraphQL */ `
     clip_slot(id: Int!): ClipSlot
     track(id: Int!): Track
     scene(id: Int!): Scene
+    """
+    The device with this LOM id, as its subclass, or null if the object is not
+    a device.
+    """
+    device(id: Int!): Device
+    device_parameter(id: Int!): DeviceParameter
   }
 
   """
@@ -1193,6 +1209,8 @@ const resolvers = {
     clip_slot: byId("ClipSlot"),
     track: byId("Track"),
     scene: byId("Scene"),
+    device: byId("Device"),
+    device_parameter: byId("DeviceParameter"),
   },
   Mutation: {
     ...Object.assign({}, ...Object.values(CLASSES).map(classMutations)),

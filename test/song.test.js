@@ -143,6 +143,22 @@ describe("song", () => {
     });
   });
 
+  it("resolves a device by id as its subclass, and a parameter by id", async () => {
+    const { data, errors } = await gql(
+      "{ a: device(id: 60) { __typename name } b: device(id: 61) { __typename } c: device(id: 64) { id } d: device(id: 10) { id } e: device_parameter(id: 70) { name } f: device_parameter(id: 60) { id } g: device(id: 999) { id } }",
+    );
+    assert.equal(errors, undefined);
+    assert.deepEqual(data, {
+      a: { __typename: "SimplerDevice", name: "Simpler" },
+      b: { __typename: "GenericDevice" },
+      c: null,
+      d: null,
+      e: { name: "Volume" },
+      f: null,
+      g: null,
+    });
+  });
+
   it("sets a child with the id N atom pair, and clears it with id 0", async () => {
     const { data } = await gql(
       "mutation { song_view_set(id: 2, properties: [{ detail_clip: 40 }, { selected_scene: 0 }, { follow_song: true }]) { id } }",

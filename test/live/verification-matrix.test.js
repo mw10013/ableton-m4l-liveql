@@ -658,6 +658,27 @@ describe("live", { skip: SKIP }, () => {
     assert.deepEqual(response.data, { a: null, b: null });
   });
 
+  it("resolves a device by id as its subclass and a parameter by id, and null for any other object", async () => {
+    const { live_set } = await data(
+      "{ live_set { tracks { devices { cls: __typename id view { id } parameters { id name } } } } }",
+    );
+    const device = live_set.tracks
+      .flatMap((t) => t.devices)
+      .find((d) => d.cls !== "GenericDevice");
+    const [parameter] = device.parameters;
+    const response = await gql(
+      `{ a: device(id: ${device.id}) { cls: __typename } b: device_parameter(id: ${parameter.id}) { name } c: device(id: ${device.view.id}) { id } d: device_parameter(id: ${device.id}) { id } e: device(id: ${track.id}) { id } }`,
+    );
+    assert.equal(response.errors, undefined);
+    assert.deepEqual(response.data, {
+      a: { cls: device.cls },
+      b: { name: parameter.name },
+      c: null,
+      d: null,
+      e: null,
+    });
+  });
+
   /**
    * The bridge points one `LiveAPI` at each action's target, and Live leaves it
    * on its previous target when the id names no object, so a set on a bad id
