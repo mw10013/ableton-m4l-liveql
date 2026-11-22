@@ -4,10 +4,27 @@ inlets = 1;
 outlets = 1;
 autowatch = 1;
 
+let sharedLive = null;
+
+/**
+ * Every action points one `LiveAPI` at its target instead of constructing a
+ * new one. Measured in Live 12.4.6: `new LiveAPI` cost about 17 ms per action,
+ * and every instance stays alive, so construction and `LiveAPI.get` both kept
+ * slowing down for the whole Live session (a get went from 18 to 22 ms over
+ * 3200 actions), and reopening the Set did not reset it. Retargeting by `id`
+ * cost about 0.5 ms and stayed flat over 400 queries. It is made on first use because
+ * a `LiveAPI` cannot be created in global code. The handlers run one at a time,
+ * so no action sees another's target. Pointing it at an id no object has
+ * leaves it on its previous target, which once sent a `track_set` for a bad id
+ * to the track read before it, so it is first pointed at `id 0`, no object,
+ * and a bad id or path leaves it there with an empty `path`.
+ */
 function getLive(idOrPath) {
-  const live = new LiveAPI(
-    typeof idOrPath === "string" ? idOrPath : `id ${idOrPath}`,
-  );
+  sharedLive ??= new LiveAPI();
+  const live = sharedLive;
+  live.id = 0;
+  if (typeof idOrPath === "string") live.path = idOrPath;
+  else live.id = idOrPath;
   if (live.path === "") {
     // oxlint-disable-next-line no-throw-literal, typescript/only-throw-error -- `outletFailedResult` reports `message.toString()`, and an Error would prefix "Error: " to the message GraphQL clients see
     throw `Invalid live id or path: ${idOrPath}`;

@@ -27,7 +27,7 @@ describe("device", () => {
    * The LOM's DeviceType int is also named `type`; reading it would overwrite
    * the bridge's `type`, which is what picks the concrete GraphQL type.
    */
-  it("reads every device with one get that names the whole family's members but not type", async () => {
+  it("reads every device with one get that, for __typename, names each subclass's own members but not type", async () => {
     await gql(DEVICES);
     const reads = lom.gets.filter((g) => g.idOrPath === 60);
     assert.equal(reads.length, 1);

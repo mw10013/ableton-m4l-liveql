@@ -2,6 +2,7 @@ const http = require("http");
 const path = require("path");
 const Max = require("max-api");
 const { createYoga, createSchema } = require("graphql-yoga");
+const { Kind } = require("graphql");
 
 // This will be printed directly to the Max console
 Max.post(`liveql: loaded the ${path.basename(__filename)} script`);
@@ -154,7 +155,7 @@ function isInvalidId(err) {
  * applied, since Live keeps them. The object is read once, after the last set.
  */
 function setter(read, children = new Set()) {
-  return async (parent, { id, properties }, context, { fieldName }) => {
+  return async (parent, { id, properties }, context, info) => {
     const applied = [];
     for (const [index, item] of properties.entries()) {
       const [[property, value]] = Object.entries(item);
@@ -166,13 +167,13 @@ function setter(read, children = new Set()) {
         );
       } catch (err) {
         throw new Error(
-          `${err.message}; ${fieldName} stopped at properties[${index}], applied: ${applied.join(", ") || "none"}`,
+          `${err.message}; ${info.fieldName} stopped at properties[${index}], applied: ${applied.join(", ") || "none"}`,
           { cause: err },
         );
       }
       applied.push(`properties[${index}] ${property}`);
     }
-    return read(id);
+    return read(id, info);
   };
 }
 
@@ -241,12 +242,12 @@ function midiOnly(fn) {
 }
 
 function byId(name) {
-  return async (parent, args) => {
+  return async (parent, args, context, info) => {
     const o = await get(args.id).catch((err) => {
       if (isInvalidId(err)) return null;
       throw err;
     });
-    return o?.type === name ? getObject(name, args.id) : null;
+    return o?.type === name ? getObject(name, args.id, info) : null;
   };
 }
 
@@ -420,6 +421,7 @@ Max.post(
 
 const subclassesOf = (name) =>
   Object.values(CLASSES).filter((c) => c.parent === name);
+const ownMembers = (c) => [...c.children, ...c.properties].map((m) => m.member);
 
 /**
  * The members of several classes of one family as one class's rows, a member
@@ -584,16 +586,46 @@ function mutationSdl({ name, prefix, children, properties, functions }) {
 }
 
 /**
- * Reads one object of a scope class with a single bridge `get` naming every
- * member the class exposes. A property with an override `default` resolves to
- * it when the read leaves it out: an empty symbol (Song.name and
- * Song.file_path on an unsaved Set, an unnamed clip) may come back as an empty
- * list, which the bridge drops, and the `String!` field would fail the whole
- * query.
+ * The field names a selection asks of one object, through inline and named
+ * fragments, by name and not alias, so an aliased field reads the member it
+ * names. A fragment on a type other than the read class itself stands for
+ * `__typename` too, because choosing which fragments apply resolves the
+ * object's concrete type.
  */
-function getObject(name, idOrPath) {
+function selectedFields(name, selections, fragments) {
+  return selections.flatMap((s) => {
+    if (s.kind === Kind.FIELD) return [s.name.value];
+    const fragment =
+      s.kind === Kind.INLINE_FRAGMENT ? s : fragments[s.name.value];
+    return [
+      ...(fragment.typeCondition && fragment.typeCondition.name.value !== name
+        ? ["__typename"]
+        : []),
+      ...selectedFields(name, fragment.selectionSet.selections, fragments),
+    ];
+  });
+}
+
+/**
+ * Reads one object of a scope class with a single bridge `get` naming only
+ * the members the resolver's selection needs, per `FIELD_MEMBERS`. A property
+ * with an override `default` resolves to it when the read leaves it out: an
+ * empty symbol (Song.name and Song.file_path on an unsaved Set, an unnamed
+ * clip) may come back as an empty list, which the bridge drops, and the
+ * `String!` field would fail the whole query.
+ */
+function getObject(name, idOrPath, { fieldNodes, fragments }) {
+  const needs = FIELD_MEMBERS[name];
+  const wanted = new Set(
+    fieldNodes
+      .flatMap((n) =>
+        selectedFields(name, n.selectionSet?.selections ?? [], fragments),
+      )
+      .flatMap((f) => needs.get(f) ?? []),
+  );
   const { children, properties } = READS[name];
-  const members = (rows) => rows.map((r) => r.member);
+  const members = (rows) =>
+    rows.filter((r) => wanted.has(r.member)).map((r) => r.member);
   return get(
     idOrPath,
     members(properties.filter((p) => !isList(p.type))),
@@ -604,7 +636,7 @@ function getObject(name, idOrPath) {
     ...o,
     ...Object.fromEntries(
       properties
-        .filter((p) => p.default !== undefined)
+        .filter((p) => p.default !== undefined && wanted.has(p.member))
         .map((p) => [p.member, o[p.member] ?? p.default]),
     ),
   }));
@@ -646,9 +678,7 @@ function objectResolvers({
         const type = o.type.replaceAll(".", "");
         return (
           subclasses.find((c) =>
-            type in LOM
-              ? c.name === type
-              : [...c.children, ...c.properties].some((m) => m.member in o),
+            type in LOM ? c.name === type : ownMembers(c).some((m) => m in o),
           )?.name ?? `Generic${name}`
         );
       },
@@ -662,16 +692,19 @@ function objectResolvers({
           ? [
               [
                 member,
-                (parent) =>
-                  parent[member]?.map((id) => getObject(type, id)) ?? null,
+                (parent, args, context, info) =>
+                  parent[member]?.map((id) => getObject(type, id, info)) ??
+                  null,
               ],
               ...(index
                 ? [
                     [
                       index,
-                      (parent, args) => {
+                      (parent, args, context, info) => {
                         const id = parent[member]?.[args.index];
-                        return id === undefined ? null : getObject(type, id);
+                        return id === undefined
+                          ? null
+                          : getObject(type, id, info);
                       },
                     ],
                   ]
@@ -680,8 +713,8 @@ function objectResolvers({
           : [
               [
                 member,
-                (parent) =>
-                  parent[member] ? getObject(type, parent[member]) : null,
+                (parent, args, context, info) =>
+                  parent[member] ? getObject(type, parent[member], info) : null,
               ],
             ],
       ),
@@ -701,7 +734,7 @@ function objectResolvers({
 }
 
 function classMutations({ name, prefix, children, properties, functions }) {
-  const read = (id) => getObject(name, id);
+  const read = (id, info) => getObject(name, id, info);
   return {
     ...([...children, ...properties].some((m) => m.settable)
       ? {
@@ -716,14 +749,70 @@ function classMutations({ name, prefix, children, properties, functions }) {
         .filter((f) => !f.field)
         .map(({ member, args }) => [
           `${prefix}_${member}`,
-          async (parent, values, context, { fieldName }) => {
-            await call(values.id, member, ...callArgs(fieldName, args, values));
-            return read(values.id);
+          async (parent, values, context, info) => {
+            await call(
+              values.id,
+              member,
+              ...callArgs(info.fieldName, args, values),
+            );
+            return read(values.id, info);
           },
         ]),
     ),
   };
 }
+
+const CLIP_NOTE_FIELDS = {
+  get_all_notes_extended: async (parent) =>
+    sortJsonNotesDictionary(await call(parent.id, "get_all_notes_extended")),
+  get_notes_by_id: async (parent, args) => ({
+    notes: await getNotesById(parent.id, args.note_ids),
+  }),
+  get_notes_extended: (parent, args) =>
+    getNotesExtended(parent, { ...args, id: parent.id }),
+  get_selected_notes_extended: async (parent) =>
+    sortJsonNotesDictionary(
+      await call(parent.id, "get_selected_notes_extended"),
+    ),
+};
+
+/**
+ * The members a hand-written field resolver reads off its parent, by read
+ * class and field. A generated field needs no row here: `FIELD_MEMBERS` maps
+ * it from the class's rows. A hand-written resolver that reads a member of
+ * its parent must list it, or the read leaves it out and the resolver sees
+ * it absent.
+ */
+const RESOLVER_MEMBERS = {
+  Clip: Object.fromEntries(
+    Object.keys(CLIP_NOTE_FIELDS).map((f) => [f, ["is_midi_clip"]]),
+  ),
+};
+
+/**
+ * Which members of a read class each GraphQL field needs: a property or
+ * child its own, an indexed accessor (`track(index)`) its child list, a
+ * hand-written resolver its `RESOLVER_MEMBERS`. On an interface, `__typename`
+ * needs every subclass's own members, because `__resolveType` picks a view's
+ * subclass by which of them the read holds. Any other field (`id`, `path`,
+ * `type`, `info`, a function field) needs none: the bridge always sends `id`,
+ * `path` and `type`, and the rest only use `id`. One family's classes never
+ * name a member two ways (`mergeRows` throws), so a field name means one
+ * member across an interface and all its implementations.
+ */
+const FIELD_MEMBERS = Object.fromEntries(
+  Object.entries(READS).map(([name, { children, properties }]) => [
+    name,
+    new Map([
+      ...[...children, ...properties].map((m) => [m.member, [m.member]]),
+      ...children.filter((c) => c.index).map((c) => [c.index, [c.member]]),
+      ...(subclassesOf(name).length > 0
+        ? [["__typename", subclassesOf(name).flatMap(ownMembers)]]
+        : []),
+      ...Object.entries(RESOLVER_MEMBERS[name] ?? {}),
+    ]),
+  ]),
+);
 
 const typeDefs = /* GraphQL */ `
   ${Object.values(CLASSES)
@@ -836,8 +925,10 @@ const resolvers = {
       .map((t) => [t.name, objectResolvers(t)]),
   ),
   Query: {
-    live_set: () => getObject("Song", "live_set"),
-    live_app: () => getObject("Application", "live_app"),
+    live_set: (parent, args, context, info) =>
+      getObject("Song", "live_set", info),
+    live_app: (parent, args, context, info) =>
+      getObject("Application", "live_app", info),
     clip: byId("Clip"),
     clip_slot: byId("ClipSlot"),
     track: byId("Track"),
@@ -845,17 +936,17 @@ const resolvers = {
   },
   Mutation: {
     ...Object.assign({}, ...Object.values(CLASSES).map(classMutations)),
-    clip_add_new_notes: async (parent, args) => {
-      const note_ids = await addNewNotes(args.id, args.notes);
-      return { clip: await getObject("Clip", args.id), note_ids };
-    },
-    clip_apply_note_modifications: async (parent, args) => {
+    clip_add_new_notes: async (parent, args) => ({
+      id: args.id,
+      note_ids: await addNewNotes(args.id, args.notes),
+    }),
+    clip_apply_note_modifications: async (parent, args, context, info) => {
       await call(
         args.id,
         "apply_note_modifications",
         normalizeNotesDictionaryInput({ notes: args.notes }),
       );
-      return getObject("Clip", args.id);
+      return getObject("Clip", args.id, info);
     },
     /**
      * Dictionary form so `destination_time` and `transposition_amount` can be
@@ -873,7 +964,7 @@ const resolvers = {
      * the editor grid (an off-grid source keeps its offset), and copies landing
      * past `loop_end` do not extend the clip's region.
      */
-    clip_duplicate_notes_by_id: async (parent, args) => {
+    clip_duplicate_notes_by_id: async (parent, args, context, info) => {
       const { id, note_ids, destination_time, transposition_amount } = args;
       await call(id, "duplicate_notes_by_id", {
         note_ids,
@@ -884,24 +975,16 @@ const resolvers = {
           ? {}
           : { transposition_amount }),
       });
-      return getObject("Clip", id);
+      return getObject("Clip", id, info);
     },
+  },
+  ClipNotesPayload: {
+    clip: ({ id }, args, context, info) => getObject("Clip", id, info),
   },
   Clip: {
     ...objectResolvers(CLASSES.Clip),
-    get_all_notes_extended: midiOnly(async (parent) =>
-      sortJsonNotesDictionary(await call(parent.id, "get_all_notes_extended")),
-    ),
-    get_notes_by_id: midiOnly(async (parent, args) => ({
-      notes: await getNotesById(parent.id, args.note_ids),
-    })),
-    get_notes_extended: midiOnly((parent, args) =>
-      getNotesExtended(parent, { ...args, id: parent.id }),
-    ),
-    get_selected_notes_extended: midiOnly(async (parent) =>
-      sortJsonNotesDictionary(
-        await call(parent.id, "get_selected_notes_extended"),
-      ),
+    ...Object.fromEntries(
+      Object.entries(CLIP_NOTE_FIELDS).map(([f, fn]) => [f, midiOnly(fn)]),
     ),
   },
 };

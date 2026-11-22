@@ -593,6 +593,26 @@ describe("live", { skip: SKIP }, () => {
   });
 
   /**
+   * The bridge points one `LiveAPI` at each action's target, and Live leaves it
+   * on its previous target when the id names no object, so a set on a bad id
+   * once renamed the track read just before it.
+   */
+  it("fails a set on an id no object has without touching the object read before it", async () => {
+    const { name } = (await data(`{ track(id: ${track.id}) { name } }`)).track;
+    const response = await gql(
+      'mutation { track_set(id: 999999, properties: [{ name: "liveql-stray" }]) { id } }',
+    );
+    assert.match(
+      response.errors?.[0]?.message ?? "",
+      /Invalid live id or path: 999999/u,
+    );
+    assert.equal(
+      (await data(`{ track(id: ${track.id}) { name } }`)).track.name,
+      name,
+    );
+  });
+
+  /**
    * The LOM says an omitted `destination_time` places the copies "after the last
    * selected note" without saying what that means for a chord, a gap, or notes
    * running past the loop. Each case asserts the shape of the answer — one copy
