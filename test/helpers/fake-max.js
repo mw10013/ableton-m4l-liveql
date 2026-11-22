@@ -25,6 +25,7 @@ function createMax(lom) {
   const posts = [];
   return {
     posts,
+    handlers,
     post: (message) => Promise.resolve(void posts.push(String(message))),
     addHandler: (name, fn) => handlers.set(name, fn),
     outlet: (action, ...parts) =>

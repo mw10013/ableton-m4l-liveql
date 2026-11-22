@@ -12,60 +12,70 @@ const {
 // This will be printed directly to the Max console
 Max.post(`liveql: loaded the ${path.basename(__filename)} script`);
 
-let pendingReads = [];
+const pendingReads = [];
+let reading = false;
+const READS_PER_MESSAGE = 32;
 
 /**
- * Queues one object read for the next batched bridge `get`. Measured in Live
- * 12.4.6, a bridge message cost 11-21 ms whether it read 1 member or 30, so a
- * query that sent one `get` per object (about 318 for every device parameter
- * of the fixture Set, 3.8 s) paid per message, not per `LiveAPI.get`. GraphQL
- * resolves the siblings of a list across microtasks, as each parent's read
- * settles, so the flush waits for the next macrotask with `setImmediate`:
- * by then every sibling at that depth has queued its read, and a query costs
- * about one message per level of the tree. A failed read rejects only its own
- * promise; a failed message rejects every read in it. Only reads are batched:
- * `set` and `call` go out at once, and GraphQL runs mutation fields one after
- * another, each with its readback, so no read waits across a later write.
+ * Queues one object read, `{ idOrPath, propertyKeysSingle,
+ * propertyKeysMultiple, childKeysSingle, childKeysMultiple }`, for a batched
+ * bridge `get`. Measured in Live 12.4.6, a bridge message cost 11-21 ms
+ * whether it read 1 member or 30, so a query that sent one `get` per object
+ * (about 318 for every device parameter of the fixture Set, 3.8 s) paid per
+ * message, not per `LiveAPI.get`. GraphQL resolves the siblings of a list
+ * across microtasks, as each parent's read settles, so the first read waits
+ * for the next macrotask with `setImmediate`, by when every sibling has queued
+ * its own. A failed read rejects only its own promise; a failed message
+ * rejects every read in it. Only reads are batched: `set` and `call` go out at
+ * once, and GraphQL runs mutation fields one after another, each with its
+ * readback, so no read waits across a later write.
  */
-function get(
-  idOrPath,
-  propertyKeysSingle = null,
-  propertyKeysMultiple = null,
-  childKeysSingle = null,
-  childKeysMultiple = null,
-) {
+function get(read) {
   return new Promise((resolve, reject) => {
-    if (pendingReads.length === 0) setImmediate(flushReads);
-    pendingReads.push({
-      read: {
-        idOrPath,
-        propertyKeysSingle,
-        propertyKeysMultiple,
-        childKeysSingle,
-        childKeysMultiple,
-      },
-      resolve,
-      reject,
-    });
+    pendingReads.push({ read, resolve, reject });
+    if (!reading) {
+      reading = true;
+      setImmediate(flushReads);
+    }
   });
 }
 
+/**
+ * Sends the queued reads at most `READS_PER_MESSAGE` to a message, one
+ * message at a time. `v8` runs a message to the end on Live's main thread, so
+ * one message of all 302 parameter reads of the fixture Set froze Live:
+ * measured in Live 12.4.6, an accessibility query to Live's windows took up to
+ * 1000 ms during it against 180 ms idle, and 230 ms at most with messages of
+ * 32 reads (1.5-3 ms each). Sending the next only after the last one answers
+ * lets Live run between them, at the cost of a message (about 20-45 ms) per 32
+ * reads of one level. The next waits a macrotask, as the first does, so the
+ * reads the answered ones lead to join it. The queue is shared, so another
+ * request's read waits behind the reads queued before it.
+ */
 function flushReads() {
-  const batch = pendingReads;
-  pendingReads = [];
-  exec({ action: "get", reads: batch.map((r) => r.read) }).then(
-    (results) =>
-      results.forEach(({ data, message }, i) =>
-        message === undefined
-          ? batch[i].resolve(data)
-          : batch[i].reject(
-              new Error(`liveql: get on ${batch[i].read.idOrPath}: ${message}`),
-            ),
-      ),
-    (err) => {
-      batch.forEach(({ reject }) => reject(err));
-    },
-  );
+  const batch = pendingReads.splice(0, READS_PER_MESSAGE);
+  exec({ action: "get", reads: batch.map((r) => r.read) })
+    .then(
+      (results) =>
+        results.forEach(({ data, message }, i) =>
+          message === undefined
+            ? batch[i].resolve(data)
+            : batch[i].reject(
+                new Error(
+                  `liveql: get on ${batch[i].read.idOrPath}: ${message}`,
+                ),
+              ),
+        ),
+      (err) => {
+        batch.forEach(({ reject }) => reject(err));
+      },
+    )
+    .finally(() =>
+      setImmediate(() => {
+        if (pendingReads.length > 0) flushReads();
+        else reading = false;
+      }),
+    );
 }
 
 async function set(id, property, value) {
@@ -110,25 +120,50 @@ function describeAction({ action, idOrPath, property, args, reads }) {
  */
 const atoms = (json) => json.match(/.{1,8000}/gsu);
 
+const EXEC_TIMEOUT_MS = 10_000;
+
+/**
+ * Sends one action and awaits the result with its `actionId`, failing after
+ * `EXEC_TIMEOUT_MS` instead of waiting forever for a result that will never
+ * match: `v8` answers a message it cannot parse with a null `actionId`, and
+ * a modal dialog in Live holds every message until it closes. A `set` or
+ * `call` that times out may still apply when Live gets to it.
+ */
 async function exec(params) {
   actionId += 1;
-
+  const id = actionId;
   const p = new Promise((resolve, reject) => {
-    actionResultHandlers.set(actionId, { resolve, reject });
+    const timer = setTimeout(() => {
+      actionResultHandlers.delete(id);
+      reject(new Error(`no result from Live in ${EXEC_TIMEOUT_MS} ms`));
+    }, EXEC_TIMEOUT_MS);
+    actionResultHandlers.set(id, { resolve, reject, timer });
   });
-  const action = { actionId, ...params };
+  const action = { actionId: id, ...params };
   await Max.outlet(action.action, ...atoms(JSON.stringify(action)));
   return p.catch((err) => {
     throw new Error(`liveql: ${describeAction(params)}: ${err.message}`);
   });
 }
 
+/**
+ * A result that is not JSON is logged and dropped rather than thrown: a throw
+ * here exits `node.script`, and Max stops respawning it after a few exits.
+ * The request it answered fails on its timeout.
+ */
 Max.addHandler("result", async (...parts) => {
   const json = parts.join("");
-  const result = JSON.parse(json);
+  let result;
+  try {
+    result = JSON.parse(json);
+  } catch {
+    await Max.post(`liveql: unreadable result: ${json.slice(0, 200)}`);
+    return;
+  }
   const handler = actionResultHandlers.get(result.actionId);
   actionResultHandlers.delete(result.actionId);
   if (!handler) return;
+  clearTimeout(handler.timer);
   if (result.status !== "succeeded") {
     await Max.post(`liveql: failed result: ${json}`);
     handler.reject(new Error(result.message));
@@ -305,7 +340,7 @@ const isA = (type, name) =>
 
 function byId(name) {
   return async (parent, args, context, info) => {
-    const o = await get(args.id).catch((err) => {
+    const o = await get({ idOrPath: args.id }).catch((err) => {
       if (isInvalidId(err)) return null;
       throw err;
     });
@@ -818,13 +853,13 @@ function getObject(name, idOrPath, { fieldNodes, fragments }) {
   const { children, properties } = READS[name];
   const members = (rows) =>
     rows.filter((r) => wanted.has(r.member)).map((r) => r.member);
-  return get(
+  return get({
     idOrPath,
-    members(properties.filter((p) => !isMultiValued(p))),
-    members(properties.filter(isMultiValued)),
-    members(children.filter((c) => !c.list)),
-    members(children.filter((c) => c.list)),
-  ).then((o) => ({
+    propertyKeysSingle: members(properties.filter((p) => !isMultiValued(p))),
+    propertyKeysMultiple: members(properties.filter(isMultiValued)),
+    childKeysSingle: members(children.filter((c) => !c.list)),
+    childKeysMultiple: members(children.filter((c) => c.list)),
+  }).then((o) => ({
     ...o,
     ...Object.fromEntries(
       properties

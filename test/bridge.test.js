@@ -1,13 +1,13 @@
 const assert = require("node:assert/strict");
-const { describe, it, beforeEach } = require("node:test");
-const { createServer } = require("./helpers/server");
+const { describe, it, beforeEach, mock } = require("node:test");
+const { createServer, errorMessage } = require("./helpers/server");
 
 const DEVICES = "{ live_set { tracks { devices { name } } } }";
 
 describe("bridge get batching", () => {
-  let gql, lom, messages;
+  let gql, lom, max, messages;
   beforeEach(() => {
-    ({ gql, lom } = createServer());
+    ({ gql, lom, max } = createServer());
     messages = [];
     const { exec } = lom;
     lom.exec = (params) => {
@@ -63,5 +63,55 @@ describe("bridge get batching", () => {
     );
     assert.equal(errors, undefined);
     assert.equal(data.clip_set.name, name);
+  });
+
+  it("sends at most 32 reads a message, the next only after the last answers", async () => {
+    lom.objects.live_set.props.tracks = Array.from({ length: 40 }, () => [
+      "id",
+      10,
+    ]).flat();
+    const outlet = max.outlet;
+    let inFlight = 0;
+    let overlapped = false;
+    max.outlet = async (...args) => {
+      overlapped ||= inFlight > 0;
+      inFlight += 1;
+      await outlet(...args);
+      setImmediate(() => {
+        inFlight -= 1;
+      });
+    };
+    const { data } = await gql("{ live_set { tracks { name } } }");
+    assert.equal(data.live_set.tracks.length, 40);
+    assert.deepEqual(
+      messages.map((m) => m.reads.length),
+      [1, 32, 8],
+    );
+    assert.equal(overlapped, false);
+  });
+
+  it("fails a request Live never answers after 10 s instead of hanging", async () => {
+    mock.timers.enable({ apis: ["setTimeout"] });
+    try {
+      max.outlet = () => Promise.resolve();
+      const response = gql("{ live_set { tempo } }");
+      await new Promise((resolve) => {
+        setImmediate(resolve);
+      });
+      mock.timers.tick(10_000);
+      assert.equal(
+        errorMessage(await response),
+        "liveql: get on live_set: no result from Live in 10000 ms",
+      );
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
+  it("logs and drops a result that is not JSON, and keeps serving", async () => {
+    await max.handlers.get("result")('{"status":"succ');
+    assert.match(max.posts.at(-1), /^liveql: unreadable result: \{"status"/u);
+    const { data } = await gql("{ live_set { tempo } }");
+    assert.equal(data.live_set.tempo, 120);
   });
 });
