@@ -449,31 +449,68 @@ describe("live", { skip: SKIP }, () => {
   });
 
   /**
-   * The LOM types TuningSystem's notes as dictionaries; the bridge reads one as
-   * the JSON string `LiveAPI.get` answers, and Live takes that string back.
+   * The LOM types TuningSystem's notes as dictionaries, which the schema types
+   * as objects and writes back as the JSON string Live reads them as.
    */
-  it("sets a tuning system dictionary as a JSON string and reads it back", async () => {
+  it("sets a tuning system note from a typed input, which moves highest_note too", async () => {
+    const NOTES =
+      "lowest_note { index_in_octave octave } highest_note { index_in_octave octave }";
     const { live_set } = await data(
-      "{ live_set { tuning_system { id path lowest_note } } }",
+      `{ live_set { tuning_system { id path ${NOTES} } } }`,
     );
-    const { id, lowest_note } = live_set.tuning_system;
+    const { id, lowest_note, highest_note } = live_set.tuning_system;
     record("TuningSystem path", JSON.stringify(live_set.tuning_system.path));
-    const moved = JSON.stringify({
-      ...JSON.parse(lowest_note),
-      octave: JSON.parse(lowest_note).octave + 1,
-    });
-    const set = (value) =>
-      data(
-        `mutation ($v: String!) { tuning_system_set(id: ${id}, properties: [{ lowest_note: $v }]) { lowest_note } }`,
-        { v: value },
-      );
+    const set = async (p) =>
+      (
+        await data(
+          `mutation ($p: [TuningSystemSetInput!]!) { tuning_system_set(id: ${id}, properties: $p) { ${NOTES} } }`,
+          { p },
+        )
+      ).tuning_system_set;
     try {
+      const up = (n) => ({ ...n, octave: n.octave + 1 });
+      assert.deepEqual(await set([{ lowest_note: up(lowest_note) }]), {
+        lowest_note: up(lowest_note),
+        highest_note: up(highest_note),
+      });
+    } finally {
+      assert.deepEqual(await set([{ lowest_note }, { highest_note }]), {
+        lowest_note,
+        highest_note,
+      });
+    }
+  });
+
+  it("sets a track's input routing channel by identifier, and ignores one outside the list", async () => {
+    const ROUTING =
+      "input_routing_channel { display_name identifier } available_input_routing_channels { display_name identifier }";
+    const { live_set } = await data(
+      `{ live_set { tracks { id has_midi_input ${ROUTING} } } }`,
+    );
+    const target = live_set.tracks.find(
+      (t) => t.has_midi_input && t.available_input_routing_channels?.length > 1,
+    );
+    assert.ok(target, "the fixture Set has no MIDI track with input channels");
+    const { input_routing_channel: current } = target;
+    const available = target.available_input_routing_channels;
+    assert.ok(available.some((c) => c.identifier === current.identifier));
+    const other = available.find((c) => c.identifier !== current.identifier);
+    const set = async (identifier) =>
+      (
+        await data(
+          `mutation { track_set(id: ${target.id}, properties: [{ input_routing_channel: { identifier: ${identifier} } }]) { input_routing_channel { display_name identifier } } }`,
+        )
+      ).track_set.input_routing_channel;
+    try {
+      assert.deepEqual(await set(other.identifier), other);
+      const outside = Math.max(...available.map((c) => c.identifier)) + 1000;
       assert.deepEqual(
-        JSON.parse((await set(moved)).tuning_system_set.lowest_note),
-        JSON.parse(moved),
+        await set(outside),
+        other,
+        "Live no longer ignores an identifier outside the list",
       );
     } finally {
-      await set(lowest_note);
+      assert.deepEqual(await set(current.identifier), current);
     }
   });
 
@@ -875,6 +912,69 @@ describe("live", { skip: SKIP }, () => {
           (t) => t.id,
         ),
         tracks,
+      );
+    });
+
+    /**
+     * Each LOM dictionary property's keys as Live returns them against its
+     * GraphQL type's fields, as the server reports them in the
+     * `dictionary_drift` extension: a key the type lacks, which the response
+     * drops, or a field Live left out. Every dictionary row is selected on
+     * every object of the fixture and the inserted devices, and each must read
+     * non-null somewhere so the check is not vacuous.
+     */
+    it("records every dictionary key Live and its GraphQL type disagree on", async () => {
+      const rows = Object.entries(OVERRIDES.classes).flatMap(
+        ([name, { properties = {} }]) =>
+          Object.entries(properties)
+            .filter(([, row]) => row.dictionary)
+            .map(([member, row]) => ({
+              name,
+              member,
+              type: row.type.replaceAll(/[![\]]/gu, ""),
+            })),
+      );
+      const types = [...new Set(rows.map((r) => r.type))];
+      const introspected = await data(
+        `{ ${types.map((t) => `${t}: __type(name: "${t}") { fields { name } }`).join(" ")} }`,
+      );
+      const selectionOf = (name) =>
+        rows
+          .filter((r) => r.name === name)
+          .map(
+            ({ member, type }) =>
+              `${member}${introspected[type]?.fields ? ` { ${introspected[type].fields.map((f) => f.name).join(" ")} }` : ""}`,
+          )
+          .join(" ");
+      const DEVICE_IO = `cls: __typename ${selectionOf("DeviceIO")}`;
+      const TRACK = `cls: __typename ${selectionOf("Track")} devices { cls: __typename ... on CompressorDevice { ${selectionOf("CompressorDevice")} } ... on MaxDevice { audio_inputs { ${DEVICE_IO} } audio_outputs { ${DEVICE_IO} } midi_inputs { ${DEVICE_IO} } midi_outputs { ${DEVICE_IO} } } }`;
+      const response = await gql(`{ live_set {
+        tuning_system { cls: __typename ${selectionOf("TuningSystem")} }
+        tracks { ${TRACK} } return_tracks { ${TRACK} } master_track { ${TRACK} }
+      } }`);
+      const drift = response.extensions?.dictionary_drift ?? [];
+      for (const { at, unknown, missing } of drift)
+        record(
+          `drift ${at}`,
+          `keys the GraphQL type lacks [${unknown.join(", ")}], fields Live left out [${missing.join(", ")}]`,
+        );
+      if (drift.length > 0) return;
+      assert.equal(response.errors, undefined, JSON.stringify(response.errors));
+      const read = new Set();
+      const walk = (o) => {
+        if (Array.isArray(o)) o.forEach(walk);
+        else if (o && typeof o === "object") {
+          for (const [k, v] of Object.entries(o)) {
+            if (v !== null && o.cls) read.add(`${o.cls}.${k}`);
+            walk(v);
+          }
+        }
+      };
+      walk(response.data);
+      assert.deepEqual(
+        rows.map((r) => `${r.name}.${r.member}`).filter((m) => !read.has(m)),
+        [],
+        "these dictionaries read null on every object",
       );
     });
 

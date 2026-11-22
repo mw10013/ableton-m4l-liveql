@@ -2,7 +2,12 @@ const http = require("http");
 const path = require("path");
 const Max = require("max-api");
 const { createYoga, createSchema } = require("graphql-yoga");
-const { Kind } = require("graphql");
+const {
+  Kind,
+  getNullableType,
+  isListType,
+  isObjectType: isGraphQLObjectType,
+} = require("graphql");
 
 // This will be printed directly to the Max console
 Max.post(`liveql: loaded the ${path.basename(__filename)} script`);
@@ -148,23 +153,21 @@ function isInvalidId(err) {
 
 /**
  * The resolver for `<object>_set`. Each `properties` item is `@oneOf`, so it
- * has exactly one key, and is one LOM `set` sent in list order. A child is set
- * by id, and `0` becomes `id 0`, the LOM's empty child. The first failed set
+ * has exactly one key, and is one LOM `set` sent in list order, its value
+ * passed through the member's `encoders` entry or as a Live value. A child is
+ * set by id, and `0` becomes `id 0`, the LOM's empty child; a dictionary is
+ * set as the JSON string Live reads it as. The first failed set
  * stops the list, because later items may depend on it (a marker is only valid
  * against its partner), and the error names that item and the ones already
  * applied, since Live keeps them. The object is read once, after the last set.
  */
-function setter(read, children = new Set()) {
+function setter(read, encoders) {
   return async (parent, { id, properties }, context, info) => {
     const applied = [];
     for (const [index, item] of properties.entries()) {
       const [[property, value]] = Object.entries(item);
       try {
-        await set(
-          id,
-          property,
-          children.has(property) ? idArg(value) : toLiveValue(value),
-        );
+        await set(id, property, (encoders.get(property) ?? toLiveValue)(value));
       } catch (err) {
         throw new Error(
           `${err.message}; ${info.fieldName} stopped at properties[${index}], applied: ${applied.join(", ") || "none"}`,
@@ -323,6 +326,75 @@ const isObjectType = (type) =>
   type === "live object" || type === "id" || type?.replaceAll(".", "") in LOM;
 const nullable = (type) => type.replace(/!$/u, "");
 const isList = (type) => type.startsWith("[");
+const isMultiValued = (p) => !p.dictionary && isList(p.type);
+
+/**
+ * A LOM dictionary property crosses the bridge as the one JSON string
+ * `LiveAPI.get` answers and `LiveAPI.set` takes. Most hold their value under a
+ * single key named after the member (`{"routing_type": {...}}`), which the
+ * override row's `dictionary` names; `true` means the dictionary is the value
+ * itself (`TuningSystem.lowest_note`). A write sends the same shape back, so
+ * it stays one `set`. Live answers a member an object lacks though its `info`
+ * lists it (a Group Track's `input_routing_type`) with the dictionary minus
+ * that key, which resolves to null like any absent member.
+ */
+const dictionaryString = (key, value) =>
+  JSON.stringify(key === true ? value : { [key]: value });
+const dictionaryInput = (type) =>
+  isList(type) ? nullable(type) : `${nullable(type)}Input`;
+
+/**
+ * The dictionary keys Live returned that the GraphQL type has no field for,
+ * which the response would silently drop, and the fields Live left out, by
+ * their path into Live's dictionary. Collected per request and answered in
+ * the `dictionary_drift` response extension rather than as an error, so a
+ * Live update that adds a key keeps working and `test:live` can still see it.
+ */
+const DICTIONARY_DRIFT = new WeakMap();
+
+function keyDrift(at, keys, expected) {
+  const unknown = keys.filter((k) => !expected.includes(k));
+  const missing = expected.filter((k) => !keys.includes(k));
+  return unknown.length + missing.length > 0 ? [{ at, unknown, missing }] : [];
+}
+
+function shapeDrift(value, type, at) {
+  const t = getNullableType(type);
+  if (isListType(t))
+    return [value].flat().flatMap((v) => shapeDrift(v, t.ofType, `${at}[]`));
+  if (!isGraphQLObjectType(t) || typeof value !== "object" || value === null)
+    return [];
+  const fields = t.getFields();
+  return [
+    ...keyDrift(at, Object.keys(value), Object.keys(fields)),
+    ...Object.keys(value)
+      .filter((k) => k in fields)
+      .flatMap((k) => shapeDrift(value[k], fields[k].type, `${at}.${k}`)),
+  ];
+}
+
+function dictionaryResolver(member, key) {
+  return (parent, args, { request }, info) => {
+    if (parent[member] === undefined) return null;
+    const dictionary = JSON.parse(parent[member]);
+    const at = `${info.parentType.name}.${member}`;
+    const value = key === true ? dictionary : dictionary[key];
+    const drift = [
+      ...(key === true
+        ? []
+        : keyDrift(at, Object.keys(dictionary), [key]).filter(
+            (d) => d.unknown.length > 0,
+          )),
+      ...shapeDrift(value, info.returnType, key === true ? at : `${at}.${key}`),
+    ];
+    if (drift.length > 0)
+      DICTIONARY_DRIFT.set(request, [
+        ...(DICTIONARY_DRIFT.get(request) ?? []),
+        ...drift,
+      ]);
+    return value ?? null;
+  };
+}
 
 /**
  * A documented parameter as a GraphQL argument, or null when the docs leave
@@ -551,7 +623,10 @@ function mutationSdl({ name, prefix, children, properties, functions }) {
       .map((c) => ({ ...c, inputType: "Int" })),
     ...properties
       .filter((p) => p.settable)
-      .map((p) => ({ ...p, inputType: nullable(p.type) })),
+      .map((p) => ({
+        ...p,
+        inputType: p.dictionary ? dictionaryInput(p.type) : nullable(p.type),
+      })),
   ];
   const mutations = [
     settable.length === 0
@@ -630,8 +705,8 @@ function getObject(name, idOrPath, { fieldNodes, fragments }) {
     rows.filter((r) => wanted.has(r.member)).map((r) => r.member);
   return get(
     idOrPath,
-    members(properties.filter((p) => !isList(p.type))),
-    members(properties.filter((p) => isList(p.type))),
+    members(properties.filter((p) => !isMultiValued(p))),
+    members(properties.filter(isMultiValued)),
     members(children.filter((c) => !c.list)),
     members(children.filter((c) => c.list)),
   ).then((o) => ({
@@ -671,6 +746,7 @@ function objectResolvers({
   name,
   interface: isInterface,
   children,
+  properties,
   functions,
 }) {
   if (isInterface) {
@@ -688,6 +764,14 @@ function objectResolvers({
   }
   return {
     info,
+    ...Object.fromEntries(
+      properties
+        .filter((p) => p.dictionary)
+        .map(({ member, dictionary }) => [
+          member,
+          dictionaryResolver(member, dictionary),
+        ]),
+    ),
     ...Object.fromEntries(
       children.flatMap(({ member, type, list, index }) =>
         list
@@ -742,7 +826,15 @@ function classMutations({ name, prefix, children, properties, functions }) {
       ? {
           [`${prefix}_set`]: setter(
             read,
-            new Set(children.filter((c) => c.settable).map((c) => c.member)),
+            new Map([
+              ...children.map((c) => [c.member, idArg]),
+              ...properties
+                .filter((p) => p.dictionary)
+                .map((p) => [
+                  p.member,
+                  (value) => dictionaryString(p.dictionary, value),
+                ]),
+            ]),
           ),
         }
       : {}),
@@ -867,6 +959,71 @@ const typeDefs = /* GraphQL */ `
     probability: Float
     velocity_deviation: Float
     release_velocity: Float
+  }
+
+  """
+  One of the routing types Live lists for a track's, a bus's or a
+  Compressor's sidechain input or output, such as Ext. In or a track name.
+  """
+  type RoutingType {
+    display_name: String!
+    identifier: Int!
+  }
+
+  """
+  One of the channels Live lists for the selected routing type, such as
+  Ch. 1 or All Channels.
+  """
+  type RoutingChannel {
+    display_name: String!
+    identifier: Int!
+  }
+
+  """
+  A routing type to select, by the identifier of one of the matching
+  available_*routing_types. Live ignores an identifier not in that list
+  without raising: compare the returned value with what you asked for.
+  """
+  input RoutingTypeInput {
+    identifier: Int!
+  }
+
+  """
+  A routing channel to select, by the identifier of one of the matching
+  available_*routing_channels. Live ignores an identifier not in that list
+  without raising: compare the returned value with what you asked for.
+  """
+  input RoutingChannelInput {
+    identifier: Int!
+  }
+
+  """
+  A note of the tuning system: its index within the pseudo octave and its
+  octave.
+  """
+  type TuningNote {
+    index_in_octave: Int!
+    octave: Int!
+  }
+
+  input TuningNoteInput {
+    index_in_octave: Int!
+    octave: Int!
+  }
+
+  """
+  The note the tuning system is pitched from, and its frequency in Hz.
+  """
+  type ReferencePitch {
+    index_in_octave: Int!
+    octave: Int!
+    frequency: Float!
+  }
+
+  input ReferencePitchInput {
+    index_in_octave: Int!
+    octave: Int!
+    frequency: Float!
   }
 
   type ClipNotesPayload {
@@ -994,6 +1151,24 @@ const resolvers = {
 const yoga = createYoga({
   schema: createSchema({ typeDefs, resolvers }),
   maskedErrors: false,
+  plugins: [
+    {
+      onExecutionResult(payload) {
+        const { request, result } = payload;
+        const drift = DICTIONARY_DRIFT.get(request);
+        if (drift && result && !(Symbol.asyncIterator in result))
+          payload.setResult({
+            ...result,
+            extensions: {
+              ...result.extensions,
+              dictionary_drift: [
+                ...new Map(drift.map((d) => [JSON.stringify(d), d])).values(),
+              ],
+            },
+          });
+      },
+    },
+  ],
 });
 
 const port = Number(process.argv[2]) || 5100;

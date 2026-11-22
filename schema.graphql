@@ -300,6 +300,7 @@ type Mutation {
   cue_point_set(id: Int!, properties: [CuePointSetInput!]!): CuePoint
   cue_point_jump(id: Int!): CuePoint
   groove_set(id: Int!, properties: [GrooveSetInput!]!): Groove
+  compressor_device_set(id: Int!, properties: [CompressorDeviceSetInput!]!): CompressorDevice
   drift_device_set(id: Int!, properties: [DriftDeviceSetInput!]!): DriftDevice
   drum_cell_device_set(id: Int!, properties: [DrumCellDeviceSetInput!]!): DrumCellDevice
   hybrid_reverb_device_set(id: Int!, properties: [HybridReverbDeviceSetInput!]!): HybridReverbDevice
@@ -408,6 +409,18 @@ type Track {
   Null on tracks the LOM does not give it to, such as return and master tracks.
   """
   arm: Boolean
+
+  """Null on tracks with no input routing: Group, return and master tracks."""
+  available_input_routing_channels: [RoutingChannel!]
+
+  """Null on tracks with no input routing: Group, return and master tracks."""
+  available_input_routing_types: [RoutingType!]
+
+  """Null on tracks the LOM does not give it to, such as the master track."""
+  available_output_routing_channels: [RoutingChannel!]
+
+  """Null on tracks the LOM does not give it to, such as the master track."""
+  available_output_routing_types: [RoutingType!]
   back_to_arranger: Boolean
   can_be_armed: Boolean
   can_be_frozen: Boolean
@@ -428,6 +441,12 @@ type Track {
   input_meter_left: Float
   input_meter_level: Float
   input_meter_right: Float
+
+  """Null on tracks with no input routing: Group, return and master tracks."""
+  input_routing_channel: RoutingChannel
+
+  """Null on tracks with no input routing: Group, return and master tracks."""
+  input_routing_type: RoutingType
   is_foldable: Boolean
   is_frozen: Boolean
   is_grouped: Boolean
@@ -444,6 +463,12 @@ type Track {
   output_meter_right: Float
   performance_impact: Float
 
+  """Null on tracks the LOM does not give it to, such as the master track."""
+  output_routing_channel: RoutingChannel
+
+  """Null on tracks the LOM does not give it to, such as the master track."""
+  output_routing_type: RoutingType
+
   """Null on tracks with no clip slots, such as return and master tracks."""
   playing_slot_index: Int
 
@@ -458,9 +483,13 @@ input TrackSetInput @oneOf {
   color_index: Int
   fold_state: Int
   implicit_arm: Boolean
+  input_routing_channel: RoutingChannelInput
+  input_routing_type: RoutingTypeInput
   is_showing_chains: Boolean
   mute: Boolean
   name: String
+  output_routing_channel: RoutingChannelInput
+  output_routing_type: RoutingTypeInput
   solo: Boolean
 }
 
@@ -1461,6 +1490,15 @@ type CompressorDevice implements Device {
 
   """Null when can_compare_ab is false: such a device's info leaves it out."""
   is_using_compare_preset_b: Boolean
+  available_input_routing_channels: [RoutingChannel!]
+  available_input_routing_types: [RoutingType!]
+  input_routing_channel: RoutingChannel
+  input_routing_type: RoutingType
+}
+
+input CompressorDeviceSetInput @oneOf {
+  input_routing_channel: RoutingChannelInput
+  input_routing_type: RoutingTypeInput
 }
 
 type DriftDevice implements Device {
@@ -1849,46 +1887,26 @@ type TuningSystem {
   info: String!
   name: String
   pseudo_octave_in_cents: Float
+  lowest_note: TuningNote
+  highest_note: TuningNote
+  reference_pitch: ReferencePitch
 
-  """
-  Live's dictionary as a JSON string, such as
-  `{"index_in_octave": 6, "octave": -7}`.
-  """
-  lowest_note: String
-
-  """
-  Live's dictionary as a JSON string, such as
-  `{"index_in_octave": 0, "octave": 12}`.
-  """
-  highest_note: String
-
-  """
-  Live's dictionary as a JSON string, such as
-  `{"index_in_octave": 5, "octave": 3, "frequency": 440.0}`.
-  """
-  reference_pitch: String
-
-  """
-  Live's dictionary as a JSON string, the cents of each note of the pseudo
-  octave under one key: `{"note_tunings": [0.0, 171.43, ...]}`.
-  """
-  note_tunings: String
+  """The cents of each note of the pseudo octave."""
+  note_tunings: [Float!]
 }
 
 input TuningSystemSetInput @oneOf {
   name: String
 
-  """A JSON string of the dictionary the field reads."""
-  lowest_note: String
-
-  """A JSON string of the dictionary the field reads."""
-  highest_note: String
-
-  """A JSON string of the dictionary the field reads."""
-  reference_pitch: String
-
-  """A JSON string of the dictionary the field reads."""
-  note_tunings: String
+  """
+  Live also moves highest_note by the same number of notes, keeping the
+  range's span, without saying so. Set highest_note after lowest_note to
+  place both.
+  """
+  lowest_note: TuningNoteInput
+  highest_note: TuningNoteInput
+  reference_pitch: ReferencePitchInput
+  note_tunings: [Float!]
 }
 
 type DeviceIO {
@@ -1902,47 +1920,17 @@ type DeviceIO {
   Read only when selected.
   """
   info: String!
-
-  """
-  Live's dictionary as a JSON string, the channels under one key:
-  `{"available_routing_channels": [{"display_name": "", "identifier": 50}]}`.
-  """
-  available_routing_channels: String
-
-  """
-  Live's dictionary as a JSON string, the types under one key:
-  `{"available_routing_types": [{"display_name": "Ext. In", "identifier": 34}, ...]}`.
-  """
-  available_routing_types: String
+  available_routing_channels: [RoutingChannel!]
+  available_routing_types: [RoutingType!]
   default_external_routing_channel_is_none: Boolean
-
-  """
-  Live's dictionary as a JSON string, under one key:
-  `{"routing_channel": {"display_name": "", "identifier": 50}}`.
-  """
-  routing_channel: String
-
-  """
-  Live's dictionary as a JSON string, under one key:
-  `{"routing_type": {"display_name": "No Input", "identifier": 46}}`.
-  """
-  routing_type: String
+  routing_channel: RoutingChannel
+  routing_type: RoutingType
 }
 
 input DeviceIOSetInput @oneOf {
   default_external_routing_channel_is_none: Boolean
-
-  """
-  A JSON string naming one of available_routing_channels, such as
-  `{"identifier": 50}`.
-  """
-  routing_channel: String
-
-  """
-  A JSON string naming one of available_routing_types, such as
-  `{"identifier": 46}`.
-  """
-  routing_type: String
+  routing_channel: RoutingChannelInput
+  routing_type: RoutingTypeInput
 }
 
 type Note {
@@ -1971,6 +1959,69 @@ input NoteInput {
   probability: Float
   velocity_deviation: Float
   release_velocity: Float
+}
+
+"""
+One of the routing types Live lists for a track's, a bus's or a
+Compressor's sidechain input or output, such as Ext. In or a track name.
+"""
+type RoutingType {
+  display_name: String!
+  identifier: Int!
+}
+
+"""
+One of the channels Live lists for the selected routing type, such as
+Ch. 1 or All Channels.
+"""
+type RoutingChannel {
+  display_name: String!
+  identifier: Int!
+}
+
+"""
+A routing type to select, by the identifier of one of the matching
+available_*routing_types. Live ignores an identifier not in that list
+without raising: compare the returned value with what you asked for.
+"""
+input RoutingTypeInput {
+  identifier: Int!
+}
+
+"""
+A routing channel to select, by the identifier of one of the matching
+available_*routing_channels. Live ignores an identifier not in that list
+without raising: compare the returned value with what you asked for.
+"""
+input RoutingChannelInput {
+  identifier: Int!
+}
+
+"""
+A note of the tuning system: its index within the pseudo octave and its
+octave.
+"""
+type TuningNote {
+  index_in_octave: Int!
+  octave: Int!
+}
+
+input TuningNoteInput {
+  index_in_octave: Int!
+  octave: Int!
+}
+
+"""The note the tuning system is pitched from, and its frequency in Hz."""
+type ReferencePitch {
+  index_in_octave: Int!
+  octave: Int!
+  frequency: Float!
+}
+
+input ReferencePitchInput {
+  index_in_octave: Int!
+  octave: Int!
+  frequency: Float!
 }
 
 type ClipNotesPayload {

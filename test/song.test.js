@@ -215,9 +215,9 @@ describe("song", () => {
     );
   });
 
-  it("reads the tuning system, whose path Live leaves null, with its dictionaries as JSON strings", async () => {
+  it("reads the tuning system, whose path Live leaves null, with its dictionaries as typed objects", async () => {
     const { data } = await gql(
-      "{ live_set { tuning_system { __typename id path name pseudo_octave_in_cents lowest_note } } }",
+      "{ live_set { tuning_system { __typename id path name pseudo_octave_in_cents lowest_note { index_in_octave octave } reference_pitch { octave frequency } note_tunings } } }",
     );
     assert.deepEqual(data.live_set.tuning_system, {
       __typename: "TuningSystem",
@@ -225,7 +225,40 @@ describe("song", () => {
       path: null,
       name: "7-EDO",
       pseudo_octave_in_cents: 1200,
-      lowest_note: '{"index_in_octave": 6, "octave": -7}',
+      lowest_note: { index_in_octave: 6, octave: -7 },
+      reference_pitch: { octave: 3, frequency: 440 },
+      note_tunings: [0, 171.42857360839844],
     });
+  });
+
+  it("sets a tuning system dictionary from a typed input with one set each", async () => {
+    await gql(
+      "mutation { tuning_system_set(id: 95, properties: [{ lowest_note: { index_in_octave: 1, octave: -6 } }, { note_tunings: [0, 170] }]) { id } }",
+    );
+    assert.deepEqual(
+      lom.log.filter(([action]) => action === "set"),
+      [
+        ["set", 95, "lowest_note", '{"index_in_octave":1,"octave":-6}'],
+        ["set", 95, "note_tunings", '{"note_tunings":[0,170]}'],
+      ],
+    );
+  });
+
+  it("reads a track's routing as typed objects, null where Live answers without the key", async () => {
+    const { data } = await gql(
+      "{ live_set { tracks { input_routing_type { display_name identifier } available_input_routing_types { display_name } } master_track { output_routing_type { identifier } } } }",
+    );
+    assert.deepEqual(data.live_set.tracks[0], {
+      input_routing_type: { display_name: "All Ins", identifier: 17 },
+      available_input_routing_types: [
+        { display_name: "All Ins" },
+        { display_name: "No Input" },
+      ],
+    });
+    assert.deepEqual(data.live_set.tracks[1], {
+      input_routing_type: null,
+      available_input_routing_types: null,
+    });
+    assert.deepEqual(data.live_set.master_track, { output_routing_type: null });
   });
 });

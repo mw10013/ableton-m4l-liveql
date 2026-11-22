@@ -160,35 +160,56 @@ describe("device", () => {
     assert.deepEqual(set.data.plugin_device_set, { selected_preset_index: 1 });
   });
 
-  it("reads a Max device's buses as DeviceIO, dictionaries as Live's JSON strings, and sets one as a string", async () => {
+  it("reads a Max device's buses as DeviceIO with typed routing, and sets one with a single set", async () => {
     const { data } = await gql(
-      "{ live_set { master_track { devices { ... on MaxDevice { audio_inputs { __typename id routing_type default_external_routing_channel_is_none } audio_outputs { id routing_type } midi_inputs { id } } } } } }",
+      "{ live_set { master_track { devices { ... on MaxDevice { audio_inputs { __typename id routing_type { display_name identifier } available_routing_types { identifier } default_external_routing_channel_is_none } audio_outputs { id routing_type { display_name } } midi_inputs { id } } } } } }",
     );
     assert.deepEqual(data.live_set.master_track.devices[1], {
       audio_inputs: [
         {
           __typename: "DeviceIO",
           id: 72,
-          routing_type:
-            '{"routing_type": {"display_name": "No Input", "identifier": 46}}',
+          routing_type: { display_name: "No Input", identifier: 46 },
+          available_routing_types: [{ identifier: 34 }, { identifier: 46 }],
           default_external_routing_channel_is_none: false,
         },
       ],
-      audio_outputs: [
-        {
-          id: 73,
-          routing_type:
-            '{"routing_type": {"display_name": "No Output", "identifier": 29}}',
-        },
-      ],
+      audio_outputs: [{ id: 73, routing_type: { display_name: "No Output" } }],
       midi_inputs: [],
     });
-    await gql(
-      String.raw`mutation { device_io_set(id: 72, properties: [{ routing_type: "{\"identifier\": 34}" }]) { id } }`,
+    lom.log.length = 0;
+    const set = await gql(
+      "mutation { device_io_set(id: 72, properties: [{ routing_type: { identifier: 34 } }]) { routing_type { identifier } } }",
     );
-    assert.deepEqual(lom.setsOf("routing_type"), [
-      ["set", 72, "routing_type", '{"identifier": 34}'],
+    assert.deepEqual(set.data.device_io_set, {
+      routing_type: { identifier: 34 },
+    });
+    assert.deepEqual(
+      lom.log.filter(([action]) => action !== "get"),
+      [["set", 72, "routing_type", '{"routing_type":{"identifier":34}}']],
+    );
+  });
+
+  it("reports dictionary keys the GraphQL type lacks, and fields Live left out, without failing", async () => {
+    lom.objects[73].props.routing_type = [
+      '{"routing_type": {"display_name": "No Output", "kind": 2}, "extra": 1}',
+    ];
+    const response = await gql(
+      "{ live_set { master_track { devices { ... on MaxDevice { audio_outputs { routing_type { display_name } } } } } } }",
+    );
+    assert.equal(response.errors, undefined);
+    assert.deepEqual(response.extensions.dictionary_drift, [
+      { at: "DeviceIO.routing_type", unknown: ["extra"], missing: [] },
+      {
+        at: "DeviceIO.routing_type.routing_type",
+        unknown: ["kind"],
+        missing: ["identifier"],
+      },
     ]);
+    const clean = await gql(
+      "{ live_set { master_track { devices { ... on MaxDevice { audio_inputs { routing_type { display_name } } } } } } }",
+    );
+    assert.equal(clean.extensions, undefined);
   });
 
   it("resolves a device nested in a rack's chain", async () => {

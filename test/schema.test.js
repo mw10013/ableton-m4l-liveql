@@ -94,8 +94,18 @@ const MUTATION_PREFIX = {
   PluginDevice: "plugin_device",
   TuningSystem: "tuning_system",
   DeviceIO: "device_io",
+  CompressorDevice: "compressor_device",
 };
 const INVENTED_FIELDS = new Set(["id", "info", "properties", "input"]);
+/**
+ * Keys of the TuningSystem dictionaries, named verbatim as Live returns them:
+ * the docs describe those dictionaries only in prose.
+ */
+const LIVE_DICTIONARY_KEYS = new Set([
+  "index_in_octave",
+  "octave",
+  "frequency",
+]);
 const INVENTED_ARGS = new Set(["id", "properties"]);
 const INVENTED_MUTATIONS = new Set(["write_notes", "replace_notes"]);
 
@@ -234,7 +244,9 @@ describe("schema", () => {
         if (typeName === "Mutation") continue;
         for (const [fieldName, field] of Object.entries(type.getFields())) {
           assert.ok(
-            known(fieldName) || INVENTED_FIELDS.has(fieldName),
+            known(fieldName) ||
+              INVENTED_FIELDS.has(fieldName) ||
+              LIVE_DICTIONARY_KEYS.has(fieldName),
             `${typeName}.${fieldName} is not a LOM name`,
           );
           for (const arg of field.args ?? []) {

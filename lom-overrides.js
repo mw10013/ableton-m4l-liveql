@@ -11,7 +11,11 @@
  *   mapping or the field stays non-null; `default`, the value an absent or
  *   empty read resolves to; `settable`, a member Live sets though the docs say
  *   it cannot be; `description` for the field and `inputDescription` for its
- *   `<Class>SetInput` field; `skip`, why a property is left out.
+ *   `<Class>SetInput` field; `skip`, why a property is left out;
+ *   `dictionary`, a LOM dictionary exposed as the GraphQL object or list
+ *   `type` names: Live's key holding the value, or `true` when the
+ *   dictionary is the value itself. A settable one is set through the
+ *   `<type>Input` input type, or the list type itself.
  * - `children.<name>`: `description`; `index`, the name of a singular
  *   accessor that takes an index into the child list; `list: true`, a child
  *   list whose doc heading names the class without `list of`.
@@ -26,6 +30,11 @@
  *   drift check prints it. The schema builder ignores it; the row records that
  *   a human has seen the mismatch.
  */
+const INPUT_ROUTING =
+  "Null on tracks with no input routing: Group, return and master tracks.";
+const OUTPUT_ROUTING =
+  "Null on tracks the LOM does not give it to, such as the master track.";
+
 module.exports = {
   scope: [
     "Application",
@@ -157,6 +166,46 @@ module.exports = {
         fired_slot_index: {
           description:
             "Null on tracks with no clip slots, such as return and master tracks.",
+        },
+        available_input_routing_channels: {
+          type: "[RoutingChannel!]",
+          dictionary: "available_input_routing_channels",
+          description: INPUT_ROUTING,
+        },
+        available_input_routing_types: {
+          type: "[RoutingType!]",
+          dictionary: "available_input_routing_types",
+          description: INPUT_ROUTING,
+        },
+        available_output_routing_channels: {
+          type: "[RoutingChannel!]",
+          dictionary: "available_output_routing_channels",
+          description: OUTPUT_ROUTING,
+        },
+        available_output_routing_types: {
+          type: "[RoutingType!]",
+          dictionary: "available_output_routing_types",
+          description: OUTPUT_ROUTING,
+        },
+        input_routing_channel: {
+          type: "RoutingChannel",
+          dictionary: "input_routing_channel",
+          description: INPUT_ROUTING,
+        },
+        input_routing_type: {
+          type: "RoutingType",
+          dictionary: "input_routing_type",
+          description: INPUT_ROUTING,
+        },
+        output_routing_channel: {
+          type: "RoutingChannel",
+          dictionary: "output_routing_channel",
+          description: OUTPUT_ROUTING,
+        },
+        output_routing_type: {
+          type: "RoutingType",
+          dictionary: "output_routing_type",
+          description: OUTPUT_ROUTING,
         },
       },
       functions: {
@@ -508,28 +557,17 @@ module.exports = {
       },
       properties: {
         lowest_note: {
-          type: "String",
-          description:
-            'Live\'s dictionary as a JSON string, such as\n`{"index_in_octave": 6, "octave": -7}`.',
-          inputDescription: "A JSON string of the dictionary the field reads.",
+          type: "TuningNote",
+          dictionary: true,
+          inputDescription:
+            "Live also moves highest_note by the same number of notes, keeping the\nrange's span, without saying so. Set highest_note after lowest_note to\nplace both.",
         },
-        highest_note: {
-          type: "String",
-          description:
-            'Live\'s dictionary as a JSON string, such as\n`{"index_in_octave": 0, "octave": 12}`.',
-          inputDescription: "A JSON string of the dictionary the field reads.",
-        },
-        reference_pitch: {
-          type: "String",
-          description:
-            'Live\'s dictionary as a JSON string, such as\n`{"index_in_octave": 5, "octave": 3, "frequency": 440.0}`.',
-          inputDescription: "A JSON string of the dictionary the field reads.",
-        },
+        highest_note: { type: "TuningNote", dictionary: true },
+        reference_pitch: { type: "ReferencePitch", dictionary: true },
         note_tunings: {
-          type: "String",
-          description:
-            'Live\'s dictionary as a JSON string, the cents of each note of the pseudo\noctave under one key: `{"note_tunings": [0.0, 171.43, ...]}`.',
-          inputDescription: "A JSON string of the dictionary the field reads.",
+          type: "[Float!]",
+          dictionary: "note_tunings",
+          description: "The cents of each note of the pseudo octave.",
         },
       },
     },
@@ -540,28 +578,37 @@ module.exports = {
       },
       properties: {
         available_routing_channels: {
-          type: "String",
-          description:
-            'Live\'s dictionary as a JSON string, the channels under one key:\n`{"available_routing_channels": [{"display_name": "", "identifier": 50}]}`.',
+          type: "[RoutingChannel!]",
+          dictionary: "available_routing_channels",
         },
         available_routing_types: {
-          type: "String",
-          description:
-            'Live\'s dictionary as a JSON string, the types under one key:\n`{"available_routing_types": [{"display_name": "Ext. In", "identifier": 34}, ...]}`.',
+          type: "[RoutingType!]",
+          dictionary: "available_routing_types",
         },
         routing_channel: {
-          type: "String",
-          description:
-            'Live\'s dictionary as a JSON string, under one key:\n`{"routing_channel": {"display_name": "", "identifier": 50}}`.',
-          inputDescription:
-            'A JSON string naming one of available_routing_channels, such as\n`{"identifier": 50}`.',
+          type: "RoutingChannel",
+          dictionary: "routing_channel",
         },
-        routing_type: {
-          type: "String",
-          description:
-            'Live\'s dictionary as a JSON string, under one key:\n`{"routing_type": {"display_name": "No Input", "identifier": 46}}`.',
-          inputDescription:
-            'A JSON string naming one of available_routing_types, such as\n`{"identifier": 46}`.',
+        routing_type: { type: "RoutingType", dictionary: "routing_type" },
+      },
+    },
+    CompressorDevice: {
+      properties: {
+        available_input_routing_channels: {
+          type: "[RoutingChannel!]",
+          dictionary: "available_input_routing_channels",
+        },
+        available_input_routing_types: {
+          type: "[RoutingType!]",
+          dictionary: "available_input_routing_types",
+        },
+        input_routing_channel: {
+          type: "RoutingChannel",
+          dictionary: "input_routing_channel",
+        },
+        input_routing_type: {
+          type: "RoutingType",
+          dictionary: "input_routing_type",
         },
       },
     },

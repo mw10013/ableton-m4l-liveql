@@ -205,7 +205,9 @@ function parameterProps(overrides) {
 /**
  * One MIDI track (10) holding a Simpler (60) with two parameters (70, 71) and a plain Device (61), with a clip slot holding MIDI clip 40 whose groove is 91, one audio track
  * (11) holding arrangement clip 50 and an Audio Effect Rack (62) whose chain (80) holds a plain Device (63), a return track (13) holding a Shifter (66) and a master track (12) holding a plug-in (67) and a Max Audio Effect (68) whose audio buses are 72 and 73
- * missing the members Live's `info` leaves out there. None of them is a Group
+ * missing the members Live's `info` leaves out there; the master track's `info`
+ * lists `output_routing_type`, which Live answers with a dictionary missing
+ * its key. None of them is a Group
  * Track, so none has a fold_state. Song.View's
  * `highlighted_clip_slot` is `id 0` so the bridge's null child is covered.
  * The Song has one cue point (90) and a tuning system (95). Every device view's `LiveAPI.type` is a
@@ -237,6 +239,12 @@ function defaultObjects() {
         name: ["MIDI"],
         clip_slots: ["id", 20, "id", 21],
         devices: ["id", 60, "id", 61],
+        input_routing_type: [
+          '{"input_routing_type": {"display_name": "All Ins", "identifier": 17}}',
+        ],
+        available_input_routing_types: [
+          '{"available_input_routing_types": [{"display_name": "All Ins", "identifier": 17}, {"display_name": "No Input", "identifier": 23}]}',
+        ],
       }),
     },
     60: {
@@ -351,6 +359,7 @@ function defaultObjects() {
           can_be_armed: [0],
           clip_slots: "",
           devices: ["id", 67, "id", 68],
+          output_routing_type: ["{}"],
         },
         [
           "arm",
