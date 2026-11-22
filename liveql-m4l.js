@@ -43,9 +43,15 @@ function outletFailedResult(actionId, message) {
 outletFailedResult.local = 1; // prevent Max from exposing as a message handler
 
 /**
- * The wire contract the Node layer is written against: a single property is
- * recorded only when `LiveAPI.get` yields exactly one value, so a member Live
- * omits on this object reads as an empty list and drops out of the result; a
+ * The wire contract the Node layer is written against: a requested member the
+ * object's `LiveAPI.info` does not list is never read and drops out of the
+ * result. `LiveAPI.get` cannot tell: it answers 1 for a member the object
+ * lacks, which arrived as `arm: true` on the master track and `fold_state: 1`
+ * on a track that does not fold, while `info` lists only the members the
+ * object has (`property`, `child` and `children` lines, the name second). A
+ * single property is
+ * recorded only when `LiveAPI.get` yields exactly one value, so a member that
+ * reads as an empty list drops out of the result too; a
  * child is the id at index 1, where `id 0` means none; a child list is the ids
  * with the `id` tokens stripped. Every one of those reads is coerced because
  * `LiveAPI.get` does not always answer with an array: a return track's
@@ -66,6 +72,18 @@ function isChildId(v) {
 }
 isChildId.local = 1;
 
+/** The names on the `property`, `child` and `children` lines of `LiveAPI.info`. */
+function membersOf(live) {
+  return new Set(
+    String(live.info)
+      .split("\n")
+      .map((line) => line.split(" "))
+      .filter(([kind]) => ["property", "child", "children"].includes(kind))
+      .map(([, name]) => name),
+  );
+}
+membersOf.local = 1;
+
 function get(json) {
   let actionId = null;
   try {
@@ -78,8 +96,21 @@ function get(json) {
       path: live.unquotedpath,
       type: live.type,
     };
+    const keys = [
+      params.propertyKeysSingle,
+      params.propertyKeysMultiple,
+      params.childKeysSingle,
+      params.childKeysMultiple,
+    ].map((ks) => ks ?? []);
+    const members = keys.flat().length > 0 ? membersOf(live) : new Set();
+    const [
+      propertyKeysSingle,
+      propertyKeysMultiple,
+      childKeysSingle,
+      childKeysMultiple,
+    ] = keys.map((ks) => ks.filter((k) => members.has(k)));
 
-    for (const k of params.propertyKeysSingle ?? []) {
+    for (const k of propertyKeysSingle) {
       const raw = live.get(k);
       const propertyArr = Array.isArray(raw)
         ? raw
@@ -91,7 +122,7 @@ function get(json) {
       }
     }
 
-    for (const k of params.propertyKeysMultiple ?? []) {
+    for (const k of propertyKeysMultiple) {
       const raw = live.get(k);
       o[k] = Array.isArray(raw)
         ? raw
@@ -100,13 +131,13 @@ function get(json) {
           : [raw];
     }
 
-    for (const k of params.childKeysSingle ?? []) {
+    for (const k of childKeysSingle) {
       const raw = live.get(k);
       const id = Array.isArray(raw) ? raw[1] : undefined;
       o[k] = isChildId(id) ? id : null;
     }
 
-    for (const k of params.childKeysMultiple ?? []) {
+    for (const k of childKeysMultiple) {
       const raw = live.get(k);
       o[k] = Array.isArray(raw) ? raw.filter(isChildId) : [];
     }

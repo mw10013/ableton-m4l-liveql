@@ -501,10 +501,10 @@ describe("live", { skip: SKIP }, () => {
         [],
         `${track.name} reported clip slots`,
       );
-      assert.deepEqual(
+      assert.equal(
         track.arrangement_clips,
-        [],
-        `${track.name} reported arrangement clips`,
+        null,
+        `${track.name} reported arrangement clips; its info has none`,
       );
       assert.equal(
         track.group_track,

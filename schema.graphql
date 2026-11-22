@@ -1,0 +1,628 @@
+type Application {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  current_dialog_button_count: Int
+  current_dialog_message: String
+  open_dialog_count: Int
+  average_process_usage: Float
+  peak_process_usage: Float
+  get_bugfix_version: Int!
+  get_major_version: Int!
+  get_minor_version: Int!
+  get_version_string: String!
+}
+
+type Song {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  return_tracks: [Track!]
+  scene(index: Int!): Scene
+  scenes: [Scene!]
+  track(index: Int!): Track
+  tracks: [Track!]
+  visible_tracks: [Track!]
+  master_track: Track
+  view: SongView
+  arrangement_overdub: Boolean
+  back_to_arranger: Boolean
+  can_capture_midi: Boolean
+  can_jump_to_next_cue: Boolean
+  can_jump_to_prev_cue: Boolean
+  can_redo: Boolean
+  can_undo: Boolean
+  clip_trigger_quantization: Int
+  count_in_duration: Int
+  current_song_time: Float
+  exclusive_arm: Boolean
+  exclusive_solo: Boolean
+
+  """Empty string for a Set that has never been saved."""
+  file_path: String!
+  groove_amount: Float
+  is_ableton_link_enabled: Boolean
+  is_ableton_link_start_stop_sync_enabled: Boolean
+  is_counting_in: Boolean
+  is_playing: Boolean
+  last_event_time: Float
+  loop: Boolean
+  loop_length: Float
+  loop_start: Float
+  metronome: Boolean
+  midi_recording_quantization: Int
+
+  """Empty string for a Set that has never been saved."""
+  name: String!
+  nudge_down: Boolean
+  nudge_up: Boolean
+  tempo_follower_enabled: Boolean
+  overdub: Boolean
+  punch_in: Boolean
+  punch_out: Boolean
+  re_enable_automation_enabled: Boolean
+  record_mode: Boolean
+  root_note: Int
+  scale_intervals: [Int!]
+  scale_mode: Boolean
+  scale_name: String!
+  select_on_launch: Boolean
+  session_automation_record: Boolean
+  session_record: Boolean
+  session_record_status: Int
+  signature_denominator: Int
+  signature_numerator: Int
+  song_length: Float
+  start_time: Float
+  swing_amount: Float
+  tempo: Float
+}
+
+input SongSetInput @oneOf {
+  arrangement_overdub: Boolean
+  back_to_arranger: Boolean
+  clip_trigger_quantization: Int
+  current_song_time: Float
+  groove_amount: Float
+  is_ableton_link_enabled: Boolean
+  is_ableton_link_start_stop_sync_enabled: Boolean
+  is_playing: Boolean
+  loop: Boolean
+  loop_length: Float
+  loop_start: Float
+  metronome: Boolean
+  midi_recording_quantization: Int
+  nudge_down: Boolean
+  nudge_up: Boolean
+  tempo_follower_enabled: Boolean
+  overdub: Boolean
+  punch_in: Boolean
+  punch_out: Boolean
+  record_mode: Boolean
+  root_note: Int
+  scale_mode: Boolean
+  scale_name: String
+  session_automation_record: Boolean
+  session_record: Boolean
+  signature_denominator: Int
+  signature_numerator: Int
+  start_time: Float
+  swing_amount: Float
+  tempo: Float
+}
+
+"""
+Each <object>_set does one LOM set per properties item, in list order, then
+reads the object back once. It stops at the first set that fails, and the
+error names that item and the items already applied, which stay applied.
+"""
+type Mutation {
+  song_set(id: Int!, properties: [SongSetInput!]!): Song
+  song_capture_and_insert_scene(id: Int!): Song
+  song_capture_midi(id: Int!, destination: Int = 0): Song
+  song_continue_playing(id: Int!): Song
+  song_create_midi_track(id: Int!, index: Int = -1): Song
+  song_create_return_track(id: Int!): Song
+  song_create_scene(id: Int!, index: Int = -1): Song
+  song_force_link_beat_time(id: Int!): Song
+  song_jump_by(id: Int!, beats: Float!): Song
+  song_jump_to_next_cue(id: Int!): Song
+  song_jump_to_prev_cue(id: Int!): Song
+  song_play_selection(id: Int!): Song
+  song_re_enable_automation(id: Int!): Song
+  song_redo(id: Int!): Song
+  song_scrub_by(id: Int!, beats: Float!): Song
+  song_set_or_delete_cue(id: Int!): Song
+  song_start_playing(id: Int!): Song
+  song_stop_all_clips(id: Int!, quantized: Boolean = true): Song
+  song_stop_playing(id: Int!): Song
+  song_tap_tempo(id: Int!): Song
+  song_undo(id: Int!): Song
+  song_view_set(id: Int!, properties: [SongViewSetInput!]!): SongView
+  track_set(id: Int!, properties: [TrackSetInput!]!): Track
+  track_create_audio_clip(id: Int!, file_path: String!, position: Float!): Track
+  track_create_midi_clip(id: Int!, start_time: Float!, length: Float!): Track
+  track_create_take_lane(id: Int!): Track
+  track_delete_clip(id: Int!, clip: Int!): Track
+  track_duplicate_clip_slot(id: Int!, index: Int!): Track
+  track_duplicate_clip_to_arrangement(id: Int!, clip: Int!, destination_time: Float!): Track
+  track_insert_device(id: Int!, device_name: String!, target_index: Int): Track
+  track_jump_in_running_session_clip(id: Int!, beats: Float!): Track
+  track_stop_all_clips(id: Int!): Track
+  clip_slot_set(id: Int!, properties: [ClipSlotSetInput!]!): ClipSlot
+  clip_slot_create_clip(id: Int!, length: Float!): ClipSlot
+  clip_slot_delete_clip(id: Int!): ClipSlot
+  clip_slot_duplicate_clip_to(id: Int!, target_clip_slot: Int!): ClipSlot
+
+  """
+  The LOM takes these optional arguments positionally, so launch_quantization
+  without record_length is rejected with an error naming the missing one.
+  """
+  clip_slot_fire(id: Int!, record_length: Float, launch_quantization: Int): ClipSlot
+  clip_slot_set_fire_button_state(id: Int!, state: Boolean!): ClipSlot
+  clip_slot_stop(id: Int!): ClipSlot
+  scene_set(id: Int!, properties: [SceneSetInput!]!): Scene
+
+  """
+  The LOM takes these optional arguments positionally, so
+  can_select_scene_on_launch without force_legato is rejected with an error
+  naming the missing one.
+  """
+  scene_fire(id: Int!, force_legato: Boolean, can_select_scene_on_launch: Boolean): Scene
+  scene_fire_as_selected(id: Int!, force_legato: Boolean): Scene
+  scene_set_fire_button_state(id: Int!, state: Boolean!): Scene
+  clip_set(id: Int!, properties: [ClipSetInput!]!): Clip
+  clip_clear_all_envelopes(id: Int!): Clip
+  clip_clear_envelope(id: Int!, device_parameter: Int!): Clip
+  clip_crop(id: Int!): Clip
+  clip_deselect_all_notes(id: Int!): Clip
+  clip_duplicate_loop(id: Int!): Clip
+  clip_duplicate_region(id: Int!, region_start: Float!, region_length: Float!, destination_time: Float!, pitch: Int = -1, transposition_amount: Int = 0): Clip
+  clip_fire(id: Int!): Clip
+  clip_move_playing_pos(id: Int!, beats: Float!): Clip
+  clip_move_warp_marker(id: Int!, beat_time: Float!, beat_time_distance: Float!): Clip
+
+  """
+  Live's Quantize dialog in menu order: 0 = no quantization, 1 = 1/4,
+  2 = 1/8, 3 = 1/8T, 4 = 1/8 + 1/8T, 5 = 1/16, 6 = 1/16T, 7 = 1/16 + 1/16T,
+  8 = 1/32. Anything from 9 up is silently ignored, so an out-of-range grid
+  gives no error and an unquantized clip. Not the ClipView.grid_quantization
+  enum. Quantizing takes Song.swing_amount into account.
+  """
+  clip_quantize(id: Int!, quantization_grid: Int!, amount: Float!): Clip
+
+  """
+  Live's Quantize dialog in menu order: 0 = no quantization, 1 = 1/4,
+  2 = 1/8, 3 = 1/8T, 4 = 1/8 + 1/8T, 5 = 1/16, 6 = 1/16T, 7 = 1/16 + 1/16T,
+  8 = 1/32. Anything from 9 up is silently ignored, so an out-of-range grid
+  gives no error and an unquantized clip. Not the ClipView.grid_quantization
+  enum. Quantizing takes Song.swing_amount into account.
+  """
+  clip_quantize_pitch(id: Int!, pitch: Int!, quantization_grid: Int!, amount: Float!): Clip
+  clip_remove_notes_by_id(id: Int!, note_ids: [Int!]!): Clip
+  clip_remove_notes_extended(id: Int!, from_pitch: Int!, pitch_span: Int!, from_time: Float!, time_span: Float!): Clip
+  clip_remove_warp_marker(id: Int!, beat_time: Float!): Clip
+  clip_scrub(id: Int!, beat_time: Float!): Clip
+  clip_select_all_notes(id: Int!): Clip
+  clip_select_notes_by_id(id: Int!, note_ids: [Int!]!): Clip
+  clip_set_fire_button_state(id: Int!, state: Boolean!): Clip
+  clip_stop(id: Int!): Clip
+  clip_stop_scrub(id: Int!): Clip
+  clip_view_set(id: Int!, properties: [ClipViewSetInput!]!): ClipView
+  clip_view_hide_envelope(id: Int!): ClipView
+  clip_view_show_envelope(id: Int!): ClipView
+  clip_view_show_loop(id: Int!): ClipView
+
+  """
+  Adds notes and returns the ids Live assigned, in the order the notes were
+  given.
+  """
+  clip_add_new_notes(id: Int!, notes: [NoteInput!]!): ClipNotesPayload
+
+  """
+  Live silently ignores the entire list when any note_id in it is not in the
+  clip: no error, nothing changes, and the returned clip is unchanged. Check the
+  ids first with clip(id) { get_notes_by_id(note_ids: [...]) } if that matters,
+  and compare the returned notes with what you asked for.
+  """
+  clip_apply_note_modifications(id: Int!, notes: [NoteInput!]!): Clip
+
+  """
+  Omit destination_time to place the copies the way the GUI's Duplicate does:
+  every copy is shifted by the span of the selection, its last note end minus
+  its first note start. The shift is not snapped to the editor grid, and
+  copies landing past loop_end do not extend the clip's region.
+  """
+  clip_duplicate_notes_by_id(id: Int!, note_ids: [Int!]!, destination_time: Float, transposition_amount: Int): Clip
+}
+
+type SongView {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  detail_clip: Clip
+  highlighted_clip_slot: ClipSlot
+  selected_scene: Scene
+  selected_track: Track
+  draw_mode: Boolean
+  follow_song: Boolean
+}
+
+"""A child is set by its id, and 0 clears it."""
+input SongViewSetInput @oneOf {
+  detail_clip: Int
+  highlighted_clip_slot: Int
+  selected_scene: Int
+  selected_track: Int
+  draw_mode: Boolean
+  follow_song: Boolean
+}
+
+type Track {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  clip_slot(index: Int!): ClipSlot
+  clip_slots: [ClipSlot!]
+  arrangement_clip(index: Int!): Clip
+  arrangement_clips: [Clip!]
+
+  """Null when the track is not inside a Group Track."""
+  group_track: Track
+
+  """
+  Null on tracks the LOM does not give it to, such as return and master tracks.
+  """
+  arm: Boolean
+  back_to_arranger: Boolean
+  can_be_armed: Boolean
+  can_be_frozen: Boolean
+  can_show_chains: Boolean
+  color: Int
+  color_index: Int
+
+  """Null on tracks with no clip slots, such as return and master tracks."""
+  fired_slot_index: Int
+
+  """Null unless is_foldable: only Group Tracks have a fold state."""
+  fold_state: Int
+  has_audio_input: Boolean
+  has_audio_output: Boolean
+  has_midi_input: Boolean
+  has_midi_output: Boolean
+  implicit_arm: Boolean
+  input_meter_left: Float
+  input_meter_level: Float
+  input_meter_right: Float
+  is_foldable: Boolean
+  is_frozen: Boolean
+  is_grouped: Boolean
+  is_part_of_selection: Boolean
+  is_showing_chains: Boolean
+  is_visible: Boolean
+
+  """Null on tracks the LOM does not give it to, such as the master track."""
+  mute: Boolean
+  muted_via_solo: Boolean
+  name: String!
+  output_meter_left: Float
+  output_meter_level: Float
+  output_meter_right: Float
+  performance_impact: Float
+
+  """Null on tracks with no clip slots, such as return and master tracks."""
+  playing_slot_index: Int
+
+  """Null on tracks the LOM does not give it to, such as the master track."""
+  solo: Boolean
+}
+
+input TrackSetInput @oneOf {
+  arm: Boolean
+  back_to_arranger: Boolean
+  color: Int
+  color_index: Int
+  fold_state: Int
+  implicit_arm: Boolean
+  is_showing_chains: Boolean
+  mute: Boolean
+  name: String
+  solo: Boolean
+}
+
+type ClipSlot {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  clip: Clip
+
+  """
+  Null outside Group Track slots, which are the only slots the LOM colors.
+  """
+  color: Int
+  color_index: Int
+  controls_other_clips: Boolean
+  has_clip: Boolean
+  has_stop_button: Boolean
+  is_group_slot: Boolean
+  is_playing: Boolean
+  is_recording: Boolean
+  is_triggered: Boolean
+  playing_status: Int
+  will_record_on_start: Boolean
+}
+
+input ClipSlotSetInput @oneOf {
+  has_stop_button: Boolean
+}
+
+type Scene {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  clip_slots: [ClipSlot!]
+  color: Int
+  color_index: Int
+  is_empty: Boolean
+  is_triggered: Boolean
+  name: String!
+  tempo: Float
+  tempo_enabled: Boolean
+  time_signature_numerator: Int
+  time_signature_denominator: Int
+  time_signature_enabled: Boolean
+}
+
+input SceneSetInput @oneOf {
+  color: Int
+  color_index: Int
+  name: String
+  tempo: Float
+  tempo_enabled: Boolean
+  time_signature_numerator: Int
+  time_signature_denominator: Int
+  time_signature_enabled: Boolean
+}
+
+type Clip {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  view: ClipView
+  color: Int
+  color_index: Int
+  end_marker: Float
+  end_time: Float
+  gain: Float
+  gain_display_string: String
+  file_path: String
+  has_envelopes: Boolean
+  has_groove: Boolean
+  is_session_clip: Boolean
+  is_arrangement_clip: Boolean
+  is_take_lane_clip: Boolean
+  is_audio_clip: Boolean
+  is_midi_clip: Boolean
+  is_overdubbing: Boolean
+  is_playing: Boolean
+  is_recording: Boolean
+  is_triggered: Boolean
+  launch_mode: Int
+  launch_quantization: Int
+  legato: Boolean
+  length: Float
+  loop_end: Float
+  loop_start: Float
+  looping: Boolean
+  muted: Boolean
+  name: String!
+  pitch_coarse: Int
+  pitch_fine: Float
+  playing_position: Float
+  position: Float
+  ram_mode: Boolean
+  sample_length: Int
+  sample_rate: Float
+  signature_denominator: Int
+  signature_numerator: Int
+  start_marker: Float
+  start_time: Float
+  velocity_amount: Float
+  warp_mode: Int
+  warping: Boolean
+  will_record_on_start: Boolean
+
+  """
+  Every note in the clip, sorted by start_time then pitch. Null on an audio
+  clip, as are the other three note fields.
+  """
+  get_all_notes_extended: NotesDictionary
+
+  """
+  The notes with these ids. Ids that are not in the clip are simply absent
+  from the result rather than an error, so a shorter list than you asked for
+  means some ids are stale.
+  """
+  get_notes_by_id(note_ids: [Int!]!): NotesDictionary
+  get_notes_extended(from_pitch: Int!, pitch_span: Int!, from_time: Float!, time_span: Float!): NotesDictionary
+  get_selected_notes_extended: NotesDictionary
+}
+
+input ClipSetInput @oneOf {
+  color: Int
+  color_index: Int
+
+  """
+  Live drops an end_marker set before the current start_marker without
+  raising. Order the items so start stays <= end, and compare the returned
+  clip with what you asked for.
+  """
+  end_marker: Float
+  gain: Float
+  is_playing: Boolean
+  launch_mode: Int
+  launch_quantization: Int
+  legato: Boolean
+
+  """
+  Live drops a loop_end set before the current loop_start without raising.
+  Order the items so start stays <= end, and compare the returned clip with
+  what you asked for.
+  """
+  loop_end: Float
+
+  """
+  Live drops a loop_start set past the current loop_end without raising.
+  Order the items so start stays <= end, and compare the returned clip with
+  what you asked for.
+  """
+  loop_start: Float
+  looping: Boolean
+  muted: Boolean
+  name: String
+  pitch_coarse: Int
+  pitch_fine: Float
+  position: Float
+  ram_mode: Boolean
+  signature_denominator: Int
+  signature_numerator: Int
+
+  """
+  Live drops a start_marker set past the current end_marker without raising.
+  Order the items so start stays <= end, and compare the returned clip with
+  what you asked for.
+  """
+  start_marker: Float
+  velocity_amount: Float
+  warp_mode: Int
+  warping: Boolean
+}
+
+type ClipView {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+
+  """
+  Live's Triplet Grid toggle, which the grid_quantization enum has no values for.
+  """
+  grid_is_triplet: Boolean
+
+  """
+  The editor's grid, as Off plus Live's nine Fixed Grid entries, coarse to
+  fine: 0 = Off (Snap to Grid unchecked), 1 = 8 Bars, 2 = 4 Bars, 3 = 2 Bars,
+  4 = 1 Bar, 5 = 1/2, 6 = 1/4, 7 = 1/8, 8 = 1/16, 9 = 1/32. Anything outside
+  0-9 is ignored and leaves the current value, with no error. The menu's
+  Adaptive Grid entries are not reachable here. This is NOT the enum
+  clip_quantize takes: a 1/16 grid is 8 here and 5 there.
+  """
+  grid_quantization: Int
+}
+
+input ClipViewSetInput @oneOf {
+  grid_is_triplet: Boolean
+  grid_quantization: Int
+}
+
+type Note {
+  note_id: Int!
+  pitch: Int!
+  start_time: Float!
+  duration: Float!
+  velocity: Float!
+  mute: Boolean!
+  probability: Float!
+  velocity_deviation: Float!
+  release_velocity: Float!
+}
+
+type NotesDictionary {
+  notes: [Note!]!
+}
+
+input NoteInput {
+  note_id: Int
+  pitch: Int
+  start_time: Float
+  duration: Float
+  velocity: Float
+  mute: Boolean
+  probability: Float
+  velocity_deviation: Float
+  release_velocity: Float
+}
+
+type ClipNotesPayload {
+  clip: Clip!
+  note_ids: [Int!]!
+}
+
+type Query {
+  live_set: Song!
+  live_app: Application!
+
+  """
+  The clip with this LOM id, or null if no object has it or the object is not
+  a Clip. The by-id queries never raise for a bad id.
+  """
+  clip(id: Int!): Clip
+  clip_slot(id: Int!): ClipSlot
+  track(id: Int!): Track
+  scene(id: Int!): Scene
+}

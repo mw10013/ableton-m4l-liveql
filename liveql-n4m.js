@@ -84,817 +84,6 @@ Max.addHandler("result", async (json) => {
   handler.resolve(result.data);
 });
 
-/**
- * GraphQL is the schema boundary for Live API type normalization.
- *
- * The Live Object Model documents many fields as `bool`, but Max's `LiveAPI`
- * commonly returns those values as numeric `0` / `1`. We keep the Max bridge in
- * `liveql-m4l.js` generic and expose those fields here as GraphQL `Boolean`
- * where appropriate.
- *
- * In practice, Yoga/GraphQL coerces `0` -> `false` and `1` -> `true` for output
- * fields typed as `Boolean`, so output boolean fields usually need no custom
- * resolver logic.
- *
- * For boolean mutations, GraphQL inputs arrive as normal JavaScript booleans.
- * Live property setters still expect the Max/Live representation, so mutation
- * resolvers convert `true` / `false` to `1` / `0` before calling `LiveAPI.set`.
- *
- * Field, argument and mutation names mirror the LOM verbatim. Nullable fields
- * are the members the LOM documents as absent on some objects of the type
- * (Track.arm on return/master tracks, ClipSlot.color outside Group Track slots,
- * note functions on audio clips). The bridge records a property only when
- * `LiveAPI.get` yields exactly one value, so an absent member that reads as an
- * empty list resolves to null; one that throws fails the whole object read
- * with Live's message. Which of the two Live does is unverified.
- */
-const typeDefs = /* GraphQL */ `
-  type Application {
-    id: Int!
-    path: String!
-    type: String!
-    """
-    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
-    and functions Live reports for this object, one per line, ending in \`done\`.
-    Read only when selected.
-    """
-    info: String!
-    get_major_version: Int!
-    get_minor_version: Int!
-    get_bugfix_version: Int!
-    get_version_string: String!
-  }
-
-  type Song {
-    id: Int!
-    path: String!
-    type: String!
-    """
-    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
-    and functions Live reports for this object, one per line, ending in \`done\`.
-    Read only when selected.
-    """
-    info: String!
-    """
-    Empty string for a Set that has never been saved.
-    """
-    name: String!
-    """
-    Empty string for a Set that has never been saved.
-    """
-    file_path: String!
-    is_playing: Boolean!
-    tempo: Float!
-    signature_numerator: Int!
-    signature_denominator: Int!
-    current_song_time: Float!
-    start_time: Float!
-    last_event_time: Float!
-    song_length: Float!
-    loop: Boolean!
-    loop_start: Float!
-    loop_length: Float!
-    metronome: Boolean!
-    swing_amount: Float!
-    midi_recording_quantization: Int!
-    clip_trigger_quantization: Int!
-    root_note: Int!
-    scale_name: String!
-    scale_intervals: [Int!]!
-    scale_mode: Boolean!
-    can_undo: Boolean!
-    can_redo: Boolean!
-    record_mode: Boolean!
-    session_record: Boolean!
-    overdub: Boolean!
-    arrangement_overdub: Boolean!
-    is_counting_in: Boolean!
-    can_capture_midi: Boolean!
-    view: SongView!
-    track(index: Int!): Track
-    tracks: [Track!]!
-    return_tracks: [Track!]!
-    visible_tracks: [Track!]!
-    master_track: Track!
-    scene(index: Int!): Scene
-    scenes: [Scene!]!
-  }
-
-  input SongSetInput @oneOf {
-    tempo: Float
-    signature_numerator: Int
-    signature_denominator: Int
-    current_song_time: Float
-    start_time: Float
-    loop: Boolean
-    loop_start: Float
-    loop_length: Float
-    metronome: Boolean
-    swing_amount: Float
-    midi_recording_quantization: Int
-    clip_trigger_quantization: Int
-    root_note: Int
-    scale_name: String
-    scale_mode: Boolean
-    record_mode: Boolean
-    session_record: Boolean
-    overdub: Boolean
-    arrangement_overdub: Boolean
-  }
-
-  type SongView {
-    id: Int!
-    path: String!
-    type: String!
-    """
-    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
-    and functions Live reports for this object, one per line, ending in \`done\`.
-    Read only when selected.
-    """
-    info: String!
-    selected_track: Track
-    detail_clip: Clip
-    highlighted_clip_slot: ClipSlot
-    selected_scene: Scene
-    draw_mode: Boolean!
-    follow_song: Boolean!
-  }
-
-  """
-  A child is set by its id, and 0 clears it.
-  """
-  input SongViewSetInput @oneOf {
-    selected_track: Int
-    detail_clip: Int
-    highlighted_clip_slot: Int
-    selected_scene: Int
-    draw_mode: Boolean
-    follow_song: Boolean
-  }
-
-  type Track {
-    id: Int!
-    path: String!
-    type: String!
-    """
-    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
-    and functions Live reports for this object, one per line, ending in \`done\`.
-    Read only when selected.
-    """
-    info: String!
-    name: String!
-    has_midi_input: Boolean!
-    has_audio_input: Boolean!
-    has_audio_output: Boolean!
-    has_midi_output: Boolean!
-    can_be_armed: Boolean!
-    """
-    Null on tracks the LOM does not give it to, such as return and master tracks.
-    """
-    arm: Boolean
-    """
-    Null on tracks the LOM does not give it to, such as the master track.
-    """
-    mute: Boolean
-    """
-    Null on tracks the LOM does not give it to, such as the master track.
-    """
-    solo: Boolean
-    muted_via_solo: Boolean!
-    color: Int!
-    color_index: Int!
-    is_foldable: Boolean!
-    is_grouped: Boolean!
-    is_visible: Boolean!
-    is_frozen: Boolean!
-    """
-    Null unless is_foldable: only Group Tracks have a fold state.
-    """
-    fold_state: Int
-    """
-    Null on tracks with no clip slots, such as return and master tracks.
-    """
-    playing_slot_index: Int
-    """
-    Null on tracks with no clip slots, such as return and master tracks.
-    """
-    fired_slot_index: Int
-    """
-    Null when the track is not inside a Group Track.
-    """
-    group_track: Track
-    clip_slot(index: Int!): ClipSlot
-    clip_slots: [ClipSlot!]!
-    arrangement_clip(index: Int!): Clip
-    arrangement_clips: [Clip!]!
-  }
-
-  input TrackSetInput @oneOf {
-    name: String
-    arm: Boolean
-    mute: Boolean
-    solo: Boolean
-    color: Int
-    color_index: Int
-    fold_state: Int
-  }
-
-  type ClipSlot {
-    id: Int!
-    path: String!
-    type: String!
-    """
-    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
-    and functions Live reports for this object, one per line, ending in \`done\`.
-    Read only when selected.
-    """
-    info: String!
-    clip: Clip
-    has_clip: Boolean!
-    has_stop_button: Boolean!
-    is_playing: Boolean!
-    is_recording: Boolean!
-    is_triggered: Boolean!
-    playing_status: Int!
-    is_group_slot: Boolean!
-    will_record_on_start: Boolean!
-    """
-    Null outside Group Track slots, which are the only slots the LOM colors.
-    """
-    color: Int
-  }
-
-  input ClipSlotSetInput @oneOf {
-    has_stop_button: Boolean
-  }
-
-  type Scene {
-    id: Int!
-    path: String!
-    type: String!
-    """
-    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
-    and functions Live reports for this object, one per line, ending in \`done\`.
-    Read only when selected.
-    """
-    info: String!
-    name: String!
-    color: Int!
-    color_index: Int!
-    is_empty: Boolean!
-    is_triggered: Boolean!
-    tempo: Float!
-    tempo_enabled: Boolean!
-    time_signature_numerator: Int!
-    time_signature_denominator: Int!
-    time_signature_enabled: Boolean!
-    clip_slots: [ClipSlot!]!
-  }
-
-  input SceneSetInput @oneOf {
-    name: String
-    color: Int
-    color_index: Int
-    tempo_enabled: Boolean
-    tempo: Float
-    time_signature_enabled: Boolean
-    time_signature_numerator: Int
-    time_signature_denominator: Int
-  }
-
-  type Clip {
-    id: Int!
-    path: String!
-    type: String!
-    """
-    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
-    and functions Live reports for this object, one per line, ending in \`done\`.
-    Read only when selected.
-    """
-    info: String!
-    name: String!
-    color: Int!
-    color_index: Int!
-    is_arrangement_clip: Boolean!
-    is_session_clip: Boolean!
-    is_take_lane_clip: Boolean!
-    is_audio_clip: Boolean!
-    is_midi_clip: Boolean!
-    length: Float!
-    looping: Boolean!
-    loop_start: Float!
-    loop_end: Float!
-    start_marker: Float!
-    end_marker: Float!
-    position: Float!
-    start_time: Float!
-    end_time: Float!
-    signature_numerator: Int!
-    signature_denominator: Int!
-    muted: Boolean!
-    is_playing: Boolean!
-    is_recording: Boolean!
-    is_triggered: Boolean!
-    is_overdubbing: Boolean!
-    playing_position: Float!
-    launch_mode: Int!
-    launch_quantization: Int!
-    legato: Boolean!
-    velocity_amount: Float!
-    has_envelopes: Boolean!
-    has_groove: Boolean!
-    will_record_on_start: Boolean!
-    view: ClipView!
-    """
-    Every note in the clip, sorted by start_time then pitch. Null on an audio
-    clip, as are the other three note fields.
-    """
-    get_all_notes_extended: NotesDictionary
-    """
-    The notes with these ids. Ids that are not in the clip are simply absent
-    from the result rather than an error, so a shorter list than you asked for
-    means some ids are stale.
-    """
-    get_notes_by_id(note_ids: [Int!]!): NotesDictionary
-    get_notes_extended(
-      from_pitch: Int!
-      pitch_span: Int!
-      from_time: Float!
-      time_span: Float!
-    ): NotesDictionary
-    get_selected_notes_extended: NotesDictionary
-  }
-
-  input ClipSetInput @oneOf {
-    name: String
-    signature_numerator: Int
-    signature_denominator: Int
-    looping: Boolean
-    """
-    Live drops a loop_start set past the current loop_end without raising.
-    Order the items so start stays <= end, and compare the returned clip with
-    what you asked for.
-    """
-    loop_start: Float
-    """
-    Live drops a loop_end set before the current loop_start without raising.
-    Order the items so start stays <= end, and compare the returned clip with
-    what you asked for.
-    """
-    loop_end: Float
-    """
-    Live drops a start_marker set past the current end_marker without raising.
-    Order the items so start stays <= end, and compare the returned clip with
-    what you asked for.
-    """
-    start_marker: Float
-    """
-    Live drops an end_marker set before the current start_marker without
-    raising. Order the items so start stays <= end, and compare the returned
-    clip with what you asked for.
-    """
-    end_marker: Float
-    position: Float
-    muted: Boolean
-    color: Int
-    color_index: Int
-    launch_mode: Int
-    launch_quantization: Int
-    legato: Boolean
-    velocity_amount: Float
-  }
-
-  type ClipView {
-    id: Int!
-    path: String!
-    type: String!
-    """
-    Raw \`LiveAPI.info\`: id, type, description, and the children, properties
-    and functions Live reports for this object, one per line, ending in \`done\`.
-    Read only when selected.
-    """
-    info: String!
-    """
-    The editor's grid, as Off plus Live's nine Fixed Grid entries, coarse to
-    fine: 0 = Off (Snap to Grid unchecked), 1 = 8 Bars, 2 = 4 Bars, 3 = 2 Bars,
-    4 = 1 Bar, 5 = 1/2, 6 = 1/4, 7 = 1/8, 8 = 1/16, 9 = 1/32. Anything outside
-    0-9 is ignored and leaves the current value, with no error. The menu's
-    Adaptive Grid entries are not reachable here. This is NOT the enum
-    clip_quantize takes: a 1/16 grid is 8 here and 5 there.
-    """
-    grid_quantization: Int!
-    """
-    Live's Triplet Grid toggle, which the grid_quantization enum has no values for.
-    """
-    grid_is_triplet: Boolean!
-  }
-
-  input ClipViewSetInput @oneOf {
-    grid_quantization: Int
-    grid_is_triplet: Boolean
-  }
-
-  type Note {
-    note_id: Int!
-    pitch: Int!
-    start_time: Float!
-    duration: Float!
-    velocity: Float!
-    mute: Boolean!
-    probability: Float!
-    velocity_deviation: Float!
-    release_velocity: Float!
-  }
-
-  type NotesDictionary {
-    notes: [Note!]!
-  }
-
-  input NoteInput {
-    note_id: Int
-    pitch: Int
-    start_time: Float
-    duration: Float
-    velocity: Float
-    mute: Boolean
-    probability: Float
-    velocity_deviation: Float
-    release_velocity: Float
-  }
-
-  type ClipNotesPayload {
-    clip: Clip!
-    note_ids: [Int!]!
-  }
-
-  type Query {
-    live_set: Song!
-    live_app: Application!
-    """
-    The clip with this LOM id, or null if no object has it or the object is not
-    a Clip. The by-id queries never raise for a bad id.
-    """
-    clip(id: Int!): Clip
-    clip_slot(id: Int!): ClipSlot
-    track(id: Int!): Track
-    scene(id: Int!): Scene
-  }
-
-  """
-  Each <object>_set does one LOM set per properties item, in list order, then
-  reads the object back once. It stops at the first set that fails, and the
-  error names that item and the items already applied, which stay applied.
-  """
-  type Mutation {
-    song_set(id: Int!, properties: [SongSetInput!]!): Song
-    song_start_playing(id: Int!): Song
-    song_continue_playing(id: Int!): Song
-    song_stop_playing(id: Int!): Song
-    song_undo(id: Int!): Song
-    song_redo(id: Int!): Song
-    song_stop_all_clips(id: Int!, quantized: Boolean = true): Song
-    song_jump_by(id: Int!, beats: Float!): Song
-    song_capture_midi(id: Int!, destination: Int = 0): Song
-    song_create_midi_track(id: Int!, index: Int = -1): Song
-    song_create_scene(id: Int!, index: Int = -1): Song
-    song_tap_tempo(id: Int!): Song
-
-    song_view_set(id: Int!, properties: [SongViewSetInput!]!): SongView
-
-    track_set(id: Int!, properties: [TrackSetInput!]!): Track
-    track_stop_all_clips(id: Int!): Track
-    track_create_midi_clip(id: Int!, start_time: Float!, length: Float!): Track
-    track_delete_clip(id: Int!, clip: Int!): Track
-    track_duplicate_clip_slot(id: Int!, index: Int!): Track
-    track_duplicate_clip_to_arrangement(
-      id: Int!
-      clip: Int!
-      destination_time: Float!
-    ): Track
-    track_jump_in_running_session_clip(id: Int!, beats: Float!): Track
-
-    """
-    The LOM takes these optional arguments positionally, so launch_quantization
-    without record_length is rejected with an error naming the missing one.
-    """
-    clip_slot_fire(
-      id: Int!
-      record_length: Float
-      launch_quantization: Int
-    ): ClipSlot
-    clip_slot_stop(id: Int!): ClipSlot
-    clip_slot_create_clip(id: Int!, length: Float!): ClipSlot
-    clip_slot_delete_clip(id: Int!): ClipSlot
-    clip_slot_duplicate_clip_to(id: Int!, target_clip_slot: Int!): ClipSlot
-    clip_slot_set(id: Int!, properties: [ClipSlotSetInput!]!): ClipSlot
-
-    """
-    The LOM takes these optional arguments positionally, so
-    can_select_scene_on_launch without force_legato is rejected with an error
-    naming the missing one.
-    """
-    scene_fire(
-      id: Int!
-      force_legato: Boolean
-      can_select_scene_on_launch: Boolean
-    ): Scene
-    scene_set(id: Int!, properties: [SceneSetInput!]!): Scene
-
-    clip_set(id: Int!, properties: [ClipSetInput!]!): Clip
-    """
-    Adds notes and returns the ids Live assigned, in the order the notes were
-    given.
-    """
-    clip_add_new_notes(id: Int!, notes: [NoteInput!]!): ClipNotesPayload
-    """
-    Live silently ignores the entire list when any note_id in it is not in the
-    clip: no error, nothing changes, and the returned clip is unchanged. Check the
-    ids first with clip(id) { get_notes_by_id(note_ids: [...]) } if that matters,
-    and compare the returned notes with what you asked for.
-    """
-    clip_apply_note_modifications(id: Int!, notes: [NoteInput!]!): Clip
-    clip_fire(id: Int!): Clip
-    clip_stop(id: Int!): Clip
-    clip_select_all_notes(id: Int!): Clip
-    clip_select_notes_by_id(id: Int!, note_ids: [Int!]!): Clip
-    clip_deselect_all_notes(id: Int!): Clip
-    clip_remove_notes_by_id(id: Int!, note_ids: [Int!]!): Clip
-    clip_remove_notes_extended(
-      id: Int!
-      from_pitch: Int!
-      pitch_span: Int!
-      from_time: Float!
-      time_span: Float!
-    ): Clip
-    """
-    Omit destination_time to place the copies the way the GUI's Duplicate does:
-    every copy is shifted by the span of the selection, its last note end minus
-    its first note start. The shift is not snapped to the editor grid, and
-    copies landing past loop_end do not extend the clip's region.
-    """
-    clip_duplicate_notes_by_id(
-      id: Int!
-      note_ids: [Int!]!
-      destination_time: Float
-      transposition_amount: Int
-    ): Clip
-    clip_duplicate_region(
-      id: Int!
-      region_start: Float!
-      region_length: Float!
-      destination_time: Float!
-      pitch: Int = -1
-      transposition_amount: Int = 0
-    ): Clip
-    clip_duplicate_loop(id: Int!): Clip
-    clip_crop(id: Int!): Clip
-    """
-    Live's Quantize dialog in menu order: 0 = no quantization, 1 = 1/4,
-    2 = 1/8, 3 = 1/8T, 4 = 1/8 + 1/8T, 5 = 1/16, 6 = 1/16T, 7 = 1/16 + 1/16T,
-    8 = 1/32. Anything from 9 up is silently ignored, so an out-of-range grid
-    gives no error and an unquantized clip. Not the ClipView.grid_quantization
-    enum. Quantizing takes Song.swing_amount into account.
-    """
-    clip_quantize(id: Int!, quantization_grid: Int!, amount: Float!): Clip
-    """
-    Live's Quantize dialog in menu order: 0 = no quantization, 1 = 1/4,
-    2 = 1/8, 3 = 1/8T, 4 = 1/8 + 1/8T, 5 = 1/16, 6 = 1/16T, 7 = 1/16 + 1/16T,
-    8 = 1/32. Anything from 9 up is silently ignored, so an out-of-range grid
-    gives no error and an unquantized clip. Not the ClipView.grid_quantization
-    enum. Quantizing takes Song.swing_amount into account.
-    """
-    clip_quantize_pitch(
-      id: Int!
-      pitch: Int!
-      quantization_grid: Int!
-      amount: Float!
-    ): Clip
-    clip_scrub(id: Int!, beat_time: Float!): Clip
-    clip_stop_scrub(id: Int!): Clip
-    clip_move_playing_pos(id: Int!, beats: Float!): Clip
-    clip_set_fire_button_state(id: Int!, state: Boolean!): Clip
-
-    clip_view_set(id: Int!, properties: [ClipViewSetInput!]!): ClipView
-    clip_view_show_loop(id: Int!): ClipView
-  }
-`;
-
-/**
- * Symbol properties the LOM documents as possibly empty (Song.name and
- * Song.file_path on an unsaved Set, unnamed clips). The bridge only records a
- * property when `LiveAPI.get` yields exactly one value, and an empty symbol may
- * come back as an empty list, which would drop a `String!` field and fail the
- * whole query. Defaulting here keeps the field non-null.
- */
-function withStringDefaults(o, keys) {
-  return { ...o, ...Object.fromEntries(keys.map((k) => [k, o[k] ?? ""])) };
-}
-
-function getSong() {
-  return get(
-    "live_set",
-    [
-      "name",
-      "file_path",
-      "is_playing",
-      "tempo",
-      "signature_numerator",
-      "signature_denominator",
-      "current_song_time",
-      "start_time",
-      "last_event_time",
-      "song_length",
-      "loop",
-      "loop_start",
-      "loop_length",
-      "metronome",
-      "swing_amount",
-      "midi_recording_quantization",
-      "clip_trigger_quantization",
-      "root_note",
-      "scale_name",
-      "scale_mode",
-      "can_undo",
-      "can_redo",
-      "record_mode",
-      "session_record",
-      "overdub",
-      "arrangement_overdub",
-      "is_counting_in",
-      "can_capture_midi",
-    ],
-    ["scale_intervals"],
-    ["view", "master_track"],
-    ["tracks", "return_tracks", "visible_tracks", "scenes"],
-  ).then((o) => withStringDefaults(o, ["name", "file_path", "scale_name"]));
-}
-
-function getSongView(id) {
-  return get(id, ["draw_mode", "follow_song"], null, [
-    "detail_clip",
-    "selected_track",
-    "highlighted_clip_slot",
-    "selected_scene",
-  ]);
-}
-
-function getTrack(id) {
-  return get(
-    id,
-    [
-      "name",
-      "has_midi_input",
-      "has_audio_input",
-      "has_audio_output",
-      "has_midi_output",
-      "can_be_armed",
-      "arm",
-      "mute",
-      "solo",
-      "muted_via_solo",
-      "color",
-      "color_index",
-      "is_foldable",
-      "is_grouped",
-      "is_visible",
-      "is_frozen",
-      "fold_state",
-      "playing_slot_index",
-      "fired_slot_index",
-    ],
-    null,
-    ["group_track"],
-    ["clip_slots", "arrangement_clips"],
-  ).then((o) => withoutAbsentTrackMembers(withStringDefaults(o, ["name"])));
-}
-
-/**
- * Nulls the members the LOM does not give this kind of track. Live does not
- * report an absent member as missing or as an error: `LiveAPI.get` answers 1,
- * which arrives as `arm: true` on a track that cannot be armed and
- * `fold_state: 1` on one that does not fold. The capability flags read
- * correctly, so nullability is derived from them and from the track's path
- * rather than from the value itself. The master track is the one with no
- * mute or solo; neither it nor a return track has clip slots, so their slot
- * indexes are meaningless too.
- */
-function withoutAbsentTrackMembers(o) {
-  const isMaster = o.path?.endsWith("master_track") ?? false;
-  const hasSlots = o.clip_slots?.length > 0;
-  return {
-    ...o,
-    arm: o.can_be_armed ? o.arm : null,
-    mute: isMaster ? null : o.mute,
-    solo: isMaster ? null : o.solo,
-    fold_state: o.is_foldable ? o.fold_state : null,
-    playing_slot_index: hasSlots ? o.playing_slot_index : null,
-    fired_slot_index: hasSlots ? o.fired_slot_index : null,
-  };
-}
-
-function getClipSlot(id) {
-  return get(
-    id,
-    [
-      "has_clip",
-      "has_stop_button",
-      "is_playing",
-      "is_recording",
-      "is_triggered",
-      "playing_status",
-      "is_group_slot",
-      "will_record_on_start",
-      "color",
-    ],
-    null,
-    ["clip"],
-  );
-}
-
-function getScene(id) {
-  return get(
-    id,
-    [
-      "name",
-      "color",
-      "color_index",
-      "is_empty",
-      "is_triggered",
-      "tempo",
-      "tempo_enabled",
-      "time_signature_numerator",
-      "time_signature_denominator",
-      "time_signature_enabled",
-    ],
-    null,
-    null,
-    ["clip_slots"],
-  ).then((o) => withStringDefaults(o, ["name"]));
-}
-
-function getClip(id) {
-  return get(
-    id,
-    [
-      "name",
-      "color",
-      "color_index",
-      "is_arrangement_clip",
-      "is_session_clip",
-      "is_take_lane_clip",
-      "is_audio_clip",
-      "is_midi_clip",
-      "length",
-      "looping",
-      "loop_start",
-      "loop_end",
-      "start_marker",
-      "end_marker",
-      "position",
-      "start_time",
-      "end_time",
-      "signature_numerator",
-      "signature_denominator",
-      "muted",
-      "is_playing",
-      "is_recording",
-      "is_triggered",
-      "is_overdubbing",
-      "playing_position",
-      "launch_mode",
-      "launch_quantization",
-      "legato",
-      "velocity_amount",
-      "has_envelopes",
-      "has_groove",
-      "will_record_on_start",
-    ],
-    null,
-    ["view"],
-  ).then((o) => withStringDefaults(o, ["name"]));
-}
-
-function getClipView(id) {
-  return get(id, ["grid_quantization", "grid_is_triplet"]);
-}
-
-async function getApplication() {
-  const [o, major, minor, bugfix, version] = await Promise.all([
-    get("live_app"),
-    call("live_app", "get_major_version"),
-    call("live_app", "get_minor_version"),
-    call("live_app", "get_bugfix_version"),
-    call("live_app", "get_version_string"),
-  ]);
-  return {
-    ...o,
-    get_major_version: firstInt(major),
-    get_minor_version: firstInt(minor),
-    get_bugfix_version: firstInt(bugfix),
-    get_version_string: firstString(version),
-  };
-}
-
 function toLiveBool(value) {
   return value ? 1 : 0;
 }
@@ -1051,13 +240,13 @@ function midiOnly(fn) {
   return (parent, args) => (parent.is_midi_clip ? fn(parent, args) : null);
 }
 
-function byId(expectedType, fetch) {
+function byId(name) {
   return async (parent, args) => {
     const o = await get(args.id).catch((err) => {
       if (isInvalidId(err)) return null;
       throw err;
     });
-    return o?.type === expectedType ? fetch(args.id) : null;
+    return o?.type === name ? getObject(name, args.id) : null;
   };
 }
 
@@ -1078,154 +267,461 @@ function optionalPositional(name, values, argNames) {
       `liveql: ${name}: ${argNames[gap]} is required when a later optional argument is given`,
     );
   }
-  return given.map(toLiveValue);
+  return given;
 }
 
+/**
+ * GraphQL is the schema boundary for Live API type normalization.
+ *
+ * The Live Object Model documents many fields as `bool`, but Max's `LiveAPI`
+ * commonly returns those values as numeric `0` / `1`. We keep the Max bridge in
+ * `liveql-m4l.js` generic and expose those fields here as GraphQL `Boolean`
+ * where appropriate.
+ *
+ * In practice, Yoga/GraphQL coerces `0` -> `false` and `1` -> `true` for output
+ * fields typed as `Boolean`, so output boolean fields usually need no custom
+ * resolver logic.
+ *
+ * For boolean mutations, GraphQL inputs arrive as normal JavaScript booleans.
+ * Live property setters still expect the Max/Live representation, so mutation
+ * resolvers convert `true` / `false` to `1` / `0` before calling `LiveAPI.set`.
+ *
+ * Field, argument and mutation names mirror the LOM verbatim. The schema for
+ * the classes in `lom-overrides.js`'s `scope` is built here from `lom.json`,
+ * which `scripts/lom-parse.js` parses out of the LOM reference, plus the
+ * override rows for what the reference cannot say. Properties are nullable
+ * unless an override types them: a member is absent on some objects of its
+ * class (Track.arm on return and master tracks, ClipSlot.color outside Group
+ * Track slots), and the bridge leaves out every member the object's
+ * `LiveAPI.info` does not list, so an absent member resolves to null. A member
+ * typed by a class outside the scope, a doc type with no GraphQL mapping, an
+ * observe-only member and a function with an untyped parameter or a return
+ * value are left out unless an override row says how to expose them.
+ */
+const LOM = require("./lom.json");
+const OVERRIDES = require("./lom-overrides.js");
+
+const SCOPE = new Set(OVERRIDES.scope);
+const LOM_TYPES = {
+  bool: "Boolean",
+  int: "Int",
+  long: "Int",
+  float: "Float",
+  symbol: "String",
+  unicode: "String",
+};
+const FIELD_READERS = { Int: firstInt, String: firstString };
+const INFO_DESCRIPTION =
+  "Raw `LiveAPI.info`: id, type, description, and the children, properties\nand functions Live reports for this object, one per line, ending in `done`.\nRead only when selected.";
+const CHILD_INPUT_DESCRIPTION = "A child is set by its id, and 0 clears it.";
+
+const prefixOf = (name) =>
+  name.replaceAll(/(?<=[a-z])(?=[A-Z])/gu, "_").toLowerCase();
+const isObjectType = (type) =>
+  type === "live object" || type === "id" || type?.replaceAll(".", "") in LOM;
+const nullable = (type) => type.replace(/!$/u, "");
+const isList = (type) => type.startsWith("[");
+
+/**
+ * A documented parameter as a GraphQL argument, or null when the docs leave
+ * its name or type unresolved. An object parameter is an `Int` id sent as
+ * `id N`; an optional one is a nullable argument.
+ */
+function paramArg({ name, type, optional }) {
+  if (!/^[a-z][a-z0-9_]*$/u.test(name ?? "")) return null;
+  const id = isObjectType(type);
+  const base = id ? "Int" : LOM_TYPES[type];
+  return base ? { name, sdl: optional ? base : `${base}!`, id } : null;
+}
+
+const skipped = [];
+
+/**
+ * One class of the scope as the rows the SDL and the resolvers are built from:
+ * its readable children and properties in doc order, with each property's
+ * GraphQL type, and its functions as mutation arguments in LOM call order.
+ */
+function lomClass(name) {
+  const { children, properties, functions } = LOM[name];
+  const o = OVERRIDES.classes[name] ?? {};
+  const skip = (member, reason) => {
+    skipped.push(`${name}.${member}: ${reason}`);
+    return [];
+  };
+  return {
+    name,
+    prefix: prefixOf(name),
+    children: Object.entries(children).flatMap(
+      ([member, { type, list, access }]) => {
+        if (!access.includes("get")) return skip(member, "not readable");
+        if (!SCOPE.has(type)) return skip(member, `${type} is not in scope`);
+        return [
+          {
+            member,
+            type,
+            list,
+            settable: access.includes("set"),
+            ...o.children?.[member],
+          },
+        ];
+      },
+    ),
+    properties: Object.entries(properties).flatMap(
+      ([member, { type: docType, access }]) => {
+        const row = o.properties?.[member] ?? {};
+        const type = row.type ?? LOM_TYPES[docType];
+        if (!access.includes("get")) return skip(member, "not readable");
+        if (!type) return skip(member, `doc type ${docType} has no mapping`);
+        return [
+          {
+            member,
+            settable: access.includes("set"),
+            ...row,
+            type,
+          },
+        ];
+      },
+    ),
+    functions: Object.entries(functions).flatMap(
+      ([member, { params, returns }]) => {
+        const row = o.functions?.[member];
+        if (row?.custom) return [];
+        if (row?.skip) return skip(member, row.skip);
+        if (row?.field) return [{ member, field: row.field }];
+        if (!row && returns) return skip(member, `returns ${returns}`);
+        const args = row?.args
+          ? Object.entries(row.args).map(([argName, spec]) =>
+              typeof spec === "string"
+                ? { name: argName, sdl: spec }
+                : { name: argName, sdl: spec.type, id: spec.id },
+            )
+          : params.map(paramArg);
+        const unresolved = params.filter((_, i) => !args[i]);
+        if (unresolved.length > 0)
+          return skip(
+            member,
+            `unresolved parameter ${unresolved.map((p) => p.name ?? `[${p.type}]`).join(", ")}`,
+          );
+        return [{ member, args, description: row?.description }];
+      },
+    ),
+  };
+}
+
+const CLASSES = Object.fromEntries(
+  OVERRIDES.scope.map((name) => [name, lomClass(name)]),
+);
+Max.post(
+  `liveql: left out ${skipped.length} LOM members: ${skipped.join("; ")}`,
+);
+
+const description = (text, indent) =>
+  text
+    ? `${indent}"""\n${text
+        .split("\n")
+        .map((line) => `${indent}${line}`)
+        .join("\n")}\n${indent}"""\n`
+    : "";
+const field = (text, sdl) => `${description(text, "    ")}    ${sdl}\n`;
+
+function classSdl({ name, prefix, children, properties, functions }) {
+  const settable = [
+    ...children
+      .filter((c) => c.settable)
+      .map((c) => ({ ...c, inputType: "Int" })),
+    ...properties
+      .filter((p) => p.settable)
+      .map((p) => ({ ...p, inputType: nullable(p.type) })),
+  ];
+  const mutations = [
+    settable.length === 0
+      ? ""
+      : field(
+          null,
+          `${prefix}_set(id: Int!, properties: [${name}SetInput!]!): ${name}`,
+        ),
+    ...functions
+      .filter((f) => !f.field)
+      .map(({ member, args, description: text }) =>
+        field(
+          text,
+          `${prefix}_${member}(${["id: Int!", ...args.map((a) => `${a.name}: ${a.sdl}`)].join(", ")}): ${name}`,
+        ),
+      ),
+  ].join("");
+  return [
+    `  type ${name} {\n`,
+    field(null, "id: Int!"),
+    field(null, "path: String!"),
+    field(null, "type: String!"),
+    field(INFO_DESCRIPTION, "info: String!"),
+    ...children.map(({ member, type, list, index, description: text }) =>
+      list
+        ? `${index ? field(null, `${index}(index: Int!): ${type}`) : ""}${field(text, `${member}: [${type}!]`)}`
+        : field(text, `${member}: ${type}`),
+    ),
+    ...properties.map(({ member, type, description: text }) =>
+      field(text, `${member}: ${type}`),
+    ),
+    ...functions
+      .filter((f) => f.field)
+      .map(({ member, field: type }) => field(null, `${member}: ${type}`)),
+    "  }\n",
+    ...(settable.length === 0
+      ? []
+      : [
+          description(
+            children.some((c) => c.settable) && CHILD_INPUT_DESCRIPTION,
+            "  ",
+          ),
+          `  input ${name}SetInput @oneOf {\n`,
+          ...settable.map(({ member, inputType, inputDescription }) =>
+            field(inputDescription, `${member}: ${inputType}`),
+          ),
+          "  }\n",
+        ]),
+    mutations && `  extend type Mutation {\n${mutations}  }\n`,
+  ].join("");
+}
+
+/**
+ * Reads one object of a scope class with a single bridge `get` naming every
+ * member the class exposes. A property with an override `default` resolves to
+ * it when the read leaves it out: an empty symbol (Song.name and
+ * Song.file_path on an unsaved Set, an unnamed clip) may come back as an empty
+ * list, which the bridge drops, and the `String!` field would fail the whole
+ * query.
+ */
+function getObject(name, idOrPath) {
+  const { children, properties } = CLASSES[name];
+  const members = (rows) => rows.map((r) => r.member);
+  return get(
+    idOrPath,
+    members(properties.filter((p) => !isList(p.type))),
+    members(properties.filter((p) => isList(p.type))),
+    members(children.filter((c) => !c.list)),
+    members(children.filter((c) => c.list)),
+  ).then((o) => ({
+    ...o,
+    ...Object.fromEntries(
+      properties
+        .filter((p) => p.default !== undefined)
+        .map((p) => [p.member, o[p.member] ?? p.default]),
+    ),
+  }));
+}
+
+/**
+ * The LOM arguments of one generated function call, in call order: the
+ * positional rule applied, an object passed as `id N`, a list spread into
+ * separate atoms, booleans as 0 and 1.
+ */
+function callArgs(fieldName, params, args) {
+  return optionalPositional(
+    fieldName,
+    params.map((p) => args[p.name]),
+    params.map((p) => p.name),
+  ).flatMap((v, i) => (params[i].id ? idArg(v) : [v].flat().map(toLiveValue)));
+}
+
+function classResolvers({ name, prefix, children, properties, functions }) {
+  const read = (id) => getObject(name, id);
+  return {
+    type: {
+      info,
+      ...Object.fromEntries(
+        children.flatMap(({ member, type, list, index }) =>
+          list
+            ? [
+                [
+                  member,
+                  (parent) =>
+                    parent[member]?.map((id) => getObject(type, id)) ?? null,
+                ],
+                ...(index
+                  ? [
+                      [
+                        index,
+                        (parent, args) => {
+                          const id = parent[member]?.[args.index];
+                          return id === undefined ? null : getObject(type, id);
+                        },
+                      ],
+                    ]
+                  : []),
+              ]
+            : [
+                [
+                  member,
+                  (parent) =>
+                    parent[member] ? getObject(type, parent[member]) : null,
+                ],
+              ],
+        ),
+      ),
+      ...Object.fromEntries(
+        functions
+          .filter((f) => f.field)
+          .map(({ member, field: type }) => [
+            member,
+            async (parent) =>
+              FIELD_READERS[type.replace(/!$/u, "")](
+                await call(parent.id, member),
+              ),
+          ]),
+      ),
+    },
+    mutations: {
+      ...([...children, ...properties].some((m) => m.settable)
+        ? {
+            [`${prefix}_set`]: setter(
+              read,
+              new Set(children.filter((c) => c.settable).map((c) => c.member)),
+            ),
+          }
+        : {}),
+      ...Object.fromEntries(
+        functions
+          .filter((f) => !f.field)
+          .map(({ member, args }) => [
+            `${prefix}_${member}`,
+            async (parent, values, context, { fieldName }) => {
+              await call(
+                values.id,
+                member,
+                ...callArgs(fieldName, args, values),
+              );
+              return read(values.id);
+            },
+          ]),
+      ),
+    },
+  };
+}
+
+const generated = Object.fromEntries(
+  Object.values(CLASSES).map((c) => [c.name, classResolvers(c)]),
+);
+
+const typeDefs = /* GraphQL */ `
+  ${Object.values(CLASSES).map(classSdl).join("\n")}
+  extend type Clip {
+    """
+    Every note in the clip, sorted by start_time then pitch. Null on an audio
+    clip, as are the other three note fields.
+    """
+    get_all_notes_extended: NotesDictionary
+    """
+    The notes with these ids. Ids that are not in the clip are simply absent
+    from the result rather than an error, so a shorter list than you asked for
+    means some ids are stale.
+    """
+    get_notes_by_id(note_ids: [Int!]!): NotesDictionary
+    get_notes_extended(
+      from_pitch: Int!
+      pitch_span: Int!
+      from_time: Float!
+      time_span: Float!
+    ): NotesDictionary
+    get_selected_notes_extended: NotesDictionary
+  }
+
+  type Note {
+    note_id: Int!
+    pitch: Int!
+    start_time: Float!
+    duration: Float!
+    velocity: Float!
+    mute: Boolean!
+    probability: Float!
+    velocity_deviation: Float!
+    release_velocity: Float!
+  }
+
+  type NotesDictionary {
+    notes: [Note!]!
+  }
+
+  input NoteInput {
+    note_id: Int
+    pitch: Int
+    start_time: Float
+    duration: Float
+    velocity: Float
+    mute: Boolean
+    probability: Float
+    velocity_deviation: Float
+    release_velocity: Float
+  }
+
+  type ClipNotesPayload {
+    clip: Clip!
+    note_ids: [Int!]!
+  }
+
+  type Query {
+    live_set: Song!
+    live_app: Application!
+    """
+    The clip with this LOM id, or null if no object has it or the object is not
+    a Clip. The by-id queries never raise for a bad id.
+    """
+    clip(id: Int!): Clip
+    clip_slot(id: Int!): ClipSlot
+    track(id: Int!): Track
+    scene(id: Int!): Scene
+  }
+
+  """
+  Each <object>_set does one LOM set per properties item, in list order, then
+  reads the object back once. It stops at the first set that fails, and the
+  error names that item and the items already applied, which stay applied.
+  """
+  type Mutation {
+    """
+    Adds notes and returns the ids Live assigned, in the order the notes were
+    given.
+    """
+    clip_add_new_notes(id: Int!, notes: [NoteInput!]!): ClipNotesPayload
+    """
+    Live silently ignores the entire list when any note_id in it is not in the
+    clip: no error, nothing changes, and the returned clip is unchanged. Check the
+    ids first with clip(id) { get_notes_by_id(note_ids: [...]) } if that matters,
+    and compare the returned notes with what you asked for.
+    """
+    clip_apply_note_modifications(id: Int!, notes: [NoteInput!]!): Clip
+    """
+    Omit destination_time to place the copies the way the GUI's Duplicate does:
+    every copy is shifted by the span of the selection, its last note end minus
+    its first note start. The shift is not snapped to the editor grid, and
+    copies landing past loop_end do not extend the clip's region.
+    """
+    clip_duplicate_notes_by_id(
+      id: Int!
+      note_ids: [Int!]!
+      destination_time: Float
+      transposition_amount: Int
+    ): Clip
+  }
+`;
+
 const resolvers = {
+  ...Object.fromEntries(
+    Object.entries(generated).map(([name, r]) => [name, r.type]),
+  ),
   Query: {
-    live_set: getSong,
-    live_app: getApplication,
-    clip: byId("Clip", getClip),
-    clip_slot: byId("ClipSlot", getClipSlot),
-    track: byId("Track", getTrack),
-    scene: byId("Scene", getScene),
+    live_set: () => getObject("Song", "live_set"),
+    live_app: () => getObject("Application", "live_app"),
+    clip: byId("Clip"),
+    clip_slot: byId("ClipSlot"),
+    track: byId("Track"),
+    scene: byId("Scene"),
   },
   Mutation: {
-    song_start_playing: async (parent, args) => {
-      await call(args.id, "start_playing");
-      return getSong();
-    },
-    song_continue_playing: async (parent, args) => {
-      await call(args.id, "continue_playing");
-      return getSong();
-    },
-    song_stop_playing: async (parent, args) => {
-      await call(args.id, "stop_playing");
-      return getSong();
-    },
-    song_set: setter(getSong),
-    song_undo: async (parent, args) => {
-      await call(args.id, "undo");
-      return getSong();
-    },
-    song_redo: async (parent, args) => {
-      await call(args.id, "redo");
-      return getSong();
-    },
-    song_stop_all_clips: async (parent, args) => {
-      await call(args.id, "stop_all_clips", toLiveBool(args.quantized));
-      return getSong();
-    },
-    song_jump_by: async (parent, args) => {
-      await call(args.id, "jump_by", args.beats);
-      return getSong();
-    },
-    song_capture_midi: async (parent, args) => {
-      await call(args.id, "capture_midi", args.destination);
-      return getSong();
-    },
-    song_create_midi_track: async (parent, args) => {
-      await call(args.id, "create_midi_track", args.index);
-      return getSong();
-    },
-    song_create_scene: async (parent, args) => {
-      await call(args.id, "create_scene", args.index);
-      return getSong();
-    },
-    song_tap_tempo: async (parent, args) => {
-      await call(args.id, "tap_tempo");
-      return getSong();
-    },
-
-    song_view_set: setter(
-      getSongView,
-      new Set([
-        "selected_track",
-        "detail_clip",
-        "highlighted_clip_slot",
-        "selected_scene",
-      ]),
-    ),
-
-    track_set: setter(getTrack),
-    track_stop_all_clips: async (parent, args) => {
-      await call(args.id, "stop_all_clips");
-      return getTrack(args.id);
-    },
-    track_create_midi_clip: async (parent, args) => {
-      await call(args.id, "create_midi_clip", args.start_time, args.length);
-      return getTrack(args.id);
-    },
-    track_delete_clip: async (parent, args) => {
-      await call(args.id, "delete_clip", idArg(args.clip));
-      return getTrack(args.id);
-    },
-    track_duplicate_clip_slot: async (parent, args) => {
-      await call(args.id, "duplicate_clip_slot", args.index);
-      return getTrack(args.id);
-    },
-    track_duplicate_clip_to_arrangement: async (parent, args) => {
-      await call(
-        args.id,
-        "duplicate_clip_to_arrangement",
-        idArg(args.clip),
-        args.destination_time,
-      );
-      return getTrack(args.id);
-    },
-    track_jump_in_running_session_clip: async (parent, args) => {
-      await call(args.id, "jump_in_running_session_clip", args.beats);
-      return getTrack(args.id);
-    },
-
-    clip_slot_fire: async (parent, args) => {
-      await call(
-        args.id,
-        "fire",
-        ...optionalPositional(
-          "clip_slot_fire",
-          [args.record_length, args.launch_quantization],
-          ["record_length", "launch_quantization"],
-        ),
-      );
-      return getClipSlot(args.id);
-    },
-    clip_slot_stop: async (parent, args) => {
-      await call(args.id, "stop");
-      return getClipSlot(args.id);
-    },
-    clip_slot_create_clip: async (parent, args) => {
-      await call(args.id, "create_clip", args.length);
-      return getClipSlot(args.id);
-    },
-    clip_slot_delete_clip: async (parent, args) => {
-      await call(args.id, "delete_clip");
-      return getClipSlot(args.id);
-    },
-    clip_slot_duplicate_clip_to: async (parent, args) => {
-      await call(args.id, "duplicate_clip_to", idArg(args.target_clip_slot));
-      return getClipSlot(args.id);
-    },
-    clip_slot_set: setter(getClipSlot),
-
-    scene_fire: async (parent, args) => {
-      await call(
-        args.id,
-        "fire",
-        ...optionalPositional(
-          "scene_fire",
-          [args.force_legato, args.can_select_scene_on_launch],
-          ["force_legato", "can_select_scene_on_launch"],
-        ),
-      );
-      return getScene(args.id);
-    },
-    scene_set: setter(getScene),
-
-    clip_set: setter(getClip),
+    ...Object.assign({}, ...Object.values(generated).map((r) => r.mutations)),
     clip_add_new_notes: async (parent, args) => {
       const note_ids = await addNewNotes(args.id, args.notes);
-      return { clip: await getClip(args.id), note_ids };
+      return { clip: await getObject("Clip", args.id), note_ids };
     },
     clip_apply_note_modifications: async (parent, args) => {
       await call(
@@ -1233,42 +729,7 @@ const resolvers = {
         "apply_note_modifications",
         normalizeNotesDictionaryInput({ notes: args.notes }),
       );
-      return getClip(args.id);
-    },
-    clip_fire: async (parent, args) => {
-      await call(args.id, "fire");
-      return getClip(args.id);
-    },
-    clip_stop: async (parent, args) => {
-      await call(args.id, "stop");
-      return getClip(args.id);
-    },
-    clip_select_all_notes: async (parent, args) => {
-      await call(args.id, "select_all_notes");
-      return getClip(args.id);
-    },
-    clip_select_notes_by_id: async (parent, args) => {
-      await call(args.id, "select_notes_by_id", ...args.note_ids);
-      return getClip(args.id);
-    },
-    clip_deselect_all_notes: async (parent, args) => {
-      await call(args.id, "deselect_all_notes");
-      return getClip(args.id);
-    },
-    clip_remove_notes_by_id: async (parent, args) => {
-      await call(args.id, "remove_notes_by_id", ...args.note_ids);
-      return getClip(args.id);
-    },
-    clip_remove_notes_extended: async (parent, args) => {
-      await call(
-        args.id,
-        "remove_notes_extended",
-        args.from_pitch,
-        args.pitch_span,
-        args.from_time,
-        args.time_span,
-      );
-      return getClip(args.id);
+      return getObject("Clip", args.id);
     },
     /**
      * Dictionary form so `destination_time` and `transposition_amount` can be
@@ -1297,145 +758,11 @@ const resolvers = {
           ? {}
           : { transposition_amount }),
       });
-      return getClip(id);
+      return getObject("Clip", id);
     },
-    clip_duplicate_region: async (parent, args) => {
-      await call(
-        args.id,
-        "duplicate_region",
-        args.region_start,
-        args.region_length,
-        args.destination_time,
-        args.pitch,
-        args.transposition_amount,
-      );
-      return getClip(args.id);
-    },
-    clip_duplicate_loop: async (parent, args) => {
-      await call(args.id, "duplicate_loop");
-      return getClip(args.id);
-    },
-    clip_crop: async (parent, args) => {
-      await call(args.id, "crop");
-      return getClip(args.id);
-    },
-    /**
-     * The LOM documents no int mapping for `quantization_grid`. Measured in
-     * Live by quantizing notes off every grid and reading where they land, it
-     * is Live's Quantize dialog in menu order: 0 no quantization, 1 = 1/4,
-     * 2 = 1/8, 3 = 1/8T, 4 = 1/8 + 1/8T, 5 = 1/16, 6 = 1/16T,
-     * 7 = 1/16 + 1/16T, 8 = 1/32. Anything from 9 up is silently ignored, so a
-     * caller gets no error for an out-of-range grid, just an unquantized clip.
-     * This is NOT the Clip.View.grid_quantization enum, which takes 0-9.
-     */
-    clip_quantize: async (parent, args) => {
-      await call(args.id, "quantize", args.quantization_grid, args.amount);
-      return getClip(args.id);
-    },
-    clip_quantize_pitch: async (parent, args) => {
-      await call(
-        args.id,
-        "quantize_pitch",
-        args.pitch,
-        args.quantization_grid,
-        args.amount,
-      );
-      return getClip(args.id);
-    },
-    clip_scrub: async (parent, args) => {
-      await call(args.id, "scrub", args.beat_time);
-      return getClip(args.id);
-    },
-    clip_stop_scrub: async (parent, args) => {
-      await call(args.id, "stop_scrub");
-      return getClip(args.id);
-    },
-    clip_move_playing_pos: async (parent, args) => {
-      await call(args.id, "move_playing_pos", args.beats);
-      return getClip(args.id);
-    },
-    clip_set_fire_button_state: async (parent, args) => {
-      await call(args.id, "set_fire_button_state", toLiveBool(args.state));
-      return getClip(args.id);
-    },
-
-    /**
-     * The LOM says only "Get/set the grid quantization" for
-     * Clip.View.grid_quantization. It is Off plus the nine Fixed Grid entries,
-     * coarse to fine: 0 = Off (the
-     * editor's Snap to Grid unchecked), 1 = 8 Bars, 2 = 4 Bars, 3 = 2 Bars,
-     * 4 = 1 Bar, 5 = 1/2, 6 = 1/4, 7 = 1/8, 8 = 1/16, 9 = 1/32. Anything
-     * outside 0-9 is ignored and leaves the current value. 0, 5 and 9 were read
-     * directly off the grid label in Live's note editor; the rest follow from
-     * the count and the order of the menu. The menu's Adaptive
-     * Grid entries are not reachable through this property, and Triplet Grid is
-     * the separate grid_is_triplet bool. This enum is not the one
-     * `clip_quantize` takes.
-     */
-    clip_view_set: setter(getClipView),
-    clip_view_show_loop: async (parent, args) => {
-      await call(args.id, "show_loop");
-      return getClipView(args.id);
-    },
-  },
-  Application: { info },
-  Song: {
-    info,
-    view: (parent) => getSongView(parent.view),
-    track: (parent, args) => {
-      const id = parent.tracks[args.index];
-      return id === undefined ? null : getTrack(id);
-    },
-    tracks: (parent) => parent.tracks.map((id) => getTrack(id)),
-    return_tracks: (parent) => parent.return_tracks.map((id) => getTrack(id)),
-    visible_tracks: (parent) => parent.visible_tracks.map((id) => getTrack(id)),
-    master_track: (parent) => getTrack(parent.master_track),
-    scene: (parent, args) => {
-      const id = parent.scenes[args.index];
-      return id === undefined ? null : getScene(id);
-    },
-    scenes: (parent) => parent.scenes.map((id) => getScene(id)),
-  },
-  SongView: {
-    info,
-    detail_clip: (parent) =>
-      parent.detail_clip ? getClip(parent.detail_clip) : null,
-    selected_track: (parent) =>
-      parent.selected_track ? getTrack(parent.selected_track) : null,
-    highlighted_clip_slot: (parent) =>
-      parent.highlighted_clip_slot
-        ? getClipSlot(parent.highlighted_clip_slot)
-        : null,
-    selected_scene: (parent) =>
-      parent.selected_scene ? getScene(parent.selected_scene) : null,
-  },
-  Track: {
-    info,
-    group_track: (parent) =>
-      parent.group_track ? getTrack(parent.group_track) : null,
-    clip_slot: (parent, args) => {
-      const id = parent.clip_slots[args.index];
-      return id === undefined ? null : getClipSlot(id);
-    },
-    clip_slots: (parent) => parent.clip_slots.map((id) => getClipSlot(id)),
-    arrangement_clip: (parent, args) => {
-      const id = parent.arrangement_clips[args.index];
-      return id === undefined ? null : getClip(id);
-    },
-    arrangement_clips: (parent) =>
-      parent.arrangement_clips.map((id) => getClip(id)),
-  },
-  ClipSlot: {
-    info,
-    clip: (parent) => (parent.clip ? getClip(parent.clip) : null),
-  },
-  Scene: {
-    info,
-    clip_slots: (parent) => parent.clip_slots.map((id) => getClipSlot(id)),
   },
   Clip: {
-    info,
-    view: (parent) => getClipView(parent.view),
+    ...generated.Clip.type,
     get_all_notes_extended: midiOnly(async (parent) =>
       sortJsonNotesDictionary(await call(parent.id, "get_all_notes_extended")),
     ),
@@ -1451,7 +778,6 @@ const resolvers = {
       ),
     ),
   },
-  ClipView: { info },
 };
 
 const yoga = createYoga({

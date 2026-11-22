@@ -91,7 +91,7 @@ describe("clip", () => {
   });
 
   for (const { name, p } of [
-    { name: "an unknown property", p: [{ name: "x" }, { is_playing: true }] },
+    { name: "an unknown property", p: [{ name: "x" }, { length: 8 }] },
     { name: "a wrong type", p: [{ name: "x" }, { looping: "yes" }] },
     {
       name: "two keys in one item",

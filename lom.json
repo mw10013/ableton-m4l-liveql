@@ -1,0 +1,4861 @@
+{
+  "Application": {
+    "parent": null,
+    "children": {
+      "view": {
+        "type": "ApplicationView",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "control_surfaces": {
+        "type": "ControlSurface",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "properties": {
+      "current_dialog_button_count": {
+        "type": "int",
+        "access": [
+          "get"
+        ]
+      },
+      "current_dialog_message": {
+        "type": "symbol",
+        "access": [
+          "get"
+        ]
+      },
+      "open_dialog_count": {
+        "type": "int",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "average_process_usage": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "peak_process_usage": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "get_bugfix_version": {
+        "params": [],
+        "returns": "the 2 in Live 9.1.2."
+      },
+      "get_document": {
+        "params": [],
+        "returns": "the current Live Set."
+      },
+      "get_major_version": {
+        "params": [],
+        "returns": "the 9 in Live 9.1.2."
+      },
+      "get_minor_version": {
+        "params": [],
+        "returns": "the 1 in Live 9.1.2."
+      },
+      "get_version_string": {
+        "params": [],
+        "returns": "the text 9.1.2 in Live 9.1.2."
+      },
+      "press_current_dialog_button": {
+        "params": [
+          {
+            "name": "index",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      }
+    }
+  },
+  "ApplicationView": {
+    "parent": null,
+    "children": {},
+    "properties": {
+      "browse_mode": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "focused_document_view": {
+        "type": "unicode",
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "available_main_views": {
+        "params": [],
+        "returns": "list of symbols"
+      },
+      "focus_view": {
+        "params": [
+          {
+            "name": "view_name",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "hide_view": {
+        "params": [
+          {
+            "name": "view_name",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "is_view_visible": {
+        "params": [
+          {
+            "name": "view_name",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": "bool"
+      },
+      "scroll_view": {
+        "params": [
+          {
+            "name": "direction view_name modifier_pressed",
+            "type": null,
+            "optional": false
+          },
+          {
+            "name": "direction",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "modifier_pressed",
+            "type": "bool",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "show_view": {
+        "params": [
+          {
+            "name": "view_name",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "toggle_browse": {
+        "params": [],
+        "returns": null
+      },
+      "zoom_view": {
+        "params": [
+          {
+            "name": "direction view_name modifier_pressed",
+            "type": null,
+            "optional": false
+          },
+          {
+            "name": "direction",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "modifier_pressed",
+            "type": "bool",
+            "optional": false
+          },
+          {
+            "name": "view_name",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      }
+    }
+  },
+  "Chain": {
+    "parent": null,
+    "children": {
+      "devices": {
+        "type": "Device",
+        "list": false,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "mixer_device": {
+        "type": "ChainMixerDevice",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      }
+    },
+    "properties": {
+      "color": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "color_index": {
+        "type": "long",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "is_auto_colored": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "has_audio_input": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "has_audio_output": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "has_midi_input": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "has_midi_output": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "mute": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "muted_via_solo": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "name": {
+        "type": "unicode",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "solo": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "delete_device": {
+        "params": [
+          {
+            "name": "index",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "insert_device": {
+        "params": [
+          {
+            "name": "device_name",
+            "type": "symbol",
+            "optional": false
+          },
+          {
+            "name": "target_index",
+            "type": "int",
+            "optional": true
+          }
+        ],
+        "returns": null
+      }
+    }
+  },
+  "ChainMixerDevice": {
+    "parent": null,
+    "children": {
+      "sends": {
+        "type": "DeviceParameter",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "chain_activator": {
+        "type": "DeviceParameter",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "panning": {
+        "type": "DeviceParameter",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "volume": {
+        "type": "DeviceParameter",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      }
+    },
+    "properties": {},
+    "functions": {}
+  },
+  "Clip": {
+    "parent": null,
+    "children": {
+      "view": {
+        "type": "ClipView",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "groove": {
+        "type": "Groove",
+        "list": false,
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "properties": {
+      "available_warp_modes": {
+        "type": "list",
+        "access": [
+          "get"
+        ]
+      },
+      "color": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "color_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "end_marker": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "end_time": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "gain": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "gain_display_string": {
+        "type": "symbol",
+        "access": [
+          "get"
+        ]
+      },
+      "file_path": {
+        "type": "symbol",
+        "access": [
+          "get"
+        ]
+      },
+      "has_envelopes": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "has_groove": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "is_session_clip": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "is_arrangement_clip": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "is_take_lane_clip": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "is_audio_clip": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "is_midi_clip": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "is_overdubbing": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "is_playing": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set"
+        ]
+      },
+      "is_recording": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "is_triggered": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "launch_mode": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "launch_quantization": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "legato": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "length": {
+        "type": "float",
+        "access": [
+          "get"
+        ]
+      },
+      "loop_end": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "loop_jump": {
+        "type": "bang",
+        "access": [
+          "observe"
+        ]
+      },
+      "loop_start": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "looping": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "muted": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "name": {
+        "type": "symbol",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "notes": {
+        "type": "bang",
+        "access": [
+          "observe"
+        ]
+      },
+      "warp_markers": {
+        "type": "dict/bang",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "pitch_coarse": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "pitch_fine": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "playing_position": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "playing_status": {
+        "type": "bang",
+        "access": [
+          "observe"
+        ]
+      },
+      "position": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "ram_mode": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "sample_length": {
+        "type": "int",
+        "access": [
+          "get"
+        ]
+      },
+      "sample_rate": {
+        "type": "float",
+        "access": [
+          "get"
+        ]
+      },
+      "signature_denominator": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "signature_numerator": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "start_marker": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "start_time": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "velocity_amount": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "warp_mode": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "warping": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "will_record_on_start": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      }
+    },
+    "functions": {
+      "add_new_notes": {
+        "params": [
+          {
+            "name": "dictionary",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": "a list of note IDs of the added notes."
+      },
+      "add_warp_marker": {
+        "params": [],
+        "returns": null
+      },
+      "apply_note_modifications": {
+        "params": [
+          {
+            "name": "dictionary",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "clear_all_envelopes": {
+        "params": [],
+        "returns": null
+      },
+      "clear_envelope": {
+        "params": [
+          {
+            "name": "device_parameter",
+            "type": "id",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "crop": {
+        "params": [],
+        "returns": null
+      },
+      "deselect_all_notes": {
+        "params": [],
+        "returns": null
+      },
+      "duplicate_loop": {
+        "params": [],
+        "returns": null
+      },
+      "duplicate_notes_by_id": {
+        "params": [
+          {
+            "name": "list",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "duplicate_region": {
+        "params": [
+          {
+            "name": "region_start",
+            "type": "float/int",
+            "optional": false
+          },
+          {
+            "name": "region_length",
+            "type": "float/int",
+            "optional": false
+          },
+          {
+            "name": "destination_time",
+            "type": "float/int",
+            "optional": false
+          },
+          {
+            "name": "pitch",
+            "type": "int",
+            "optional": true
+          },
+          {
+            "name": "transposition_amount",
+            "type": "int",
+            "optional": true
+          }
+        ],
+        "returns": null
+      },
+      "fire": {
+        "params": [],
+        "returns": null
+      },
+      "get_all_notes_extended": {
+        "params": [
+          {
+            "name": "dict",
+            "type": "dict",
+            "optional": true
+          }
+        ],
+        "returns": "a dictionary of all of the notes in the clip, regardless of where they are positioned with respect to the start/end markers and the loop start/loop end, as a list of note dictionaries. Each note dictionary consists of the following key-value pairs:"
+      },
+      "get_notes_by_id": {
+        "params": [
+          {
+            "name": "list",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": "a dictionary of notes associated with the provided IDs, as a list of note dictionaries. Each note dictionary consists of the following key-value pairs:"
+      },
+      "get_notes_extended": {
+        "params": [
+          {
+            "name": "from_pitch",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "pitch_span",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "from_time",
+            "type": "float",
+            "optional": false
+          },
+          {
+            "name": "time_span",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": "a dictionary of notes that have their start times in the given area, as a list of note dictionaries. Each note dictionary consists of the following key-value pairs:"
+      },
+      "get_selected_notes_extended": {
+        "params": [
+          {
+            "name": "dict",
+            "type": "dict",
+            "optional": true
+          }
+        ],
+        "returns": "a dictionary of the selected notes in the clip, as a list of note dictionaries. Each note dictionary consists of the following key-value pairs:"
+      },
+      "move_playing_pos": {
+        "params": [
+          {
+            "name": "beats",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "move_warp_marker": {
+        "params": [
+          {
+            "name": "beat_time",
+            "type": "float",
+            "optional": false
+          },
+          {
+            "name": "beat_time_distance",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "quantize": {
+        "params": [
+          {
+            "name": "quantization_grid",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "amount",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "quantize_pitch": {
+        "params": [
+          {
+            "name": "pitch",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "quantization_grid",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "amount",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "remove_notes_by_id": {
+        "params": [
+          {
+            "name": "list",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "remove_notes_extended": {
+        "params": [
+          {
+            "name": "from_pitch",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "pitch_span",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "from_time",
+            "type": "float",
+            "optional": false
+          },
+          {
+            "name": "time_span",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "remove_warp_marker": {
+        "params": [
+          {
+            "name": "beat_time",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "scrub": {
+        "params": [
+          {
+            "name": "beat_time",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "select_all_notes": {
+        "params": [],
+        "returns": null
+      },
+      "select_notes_by_id": {
+        "params": [
+          {
+            "name": "list",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "set_fire_button_state": {
+        "params": [
+          {
+            "name": "state",
+            "type": "bool",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "stop": {
+        "params": [],
+        "returns": null
+      },
+      "stop_scrub": {
+        "params": [],
+        "returns": null
+      }
+    }
+  },
+  "ClipView": {
+    "parent": null,
+    "children": {},
+    "properties": {
+      "grid_is_triplet": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set"
+        ]
+      },
+      "grid_quantization": {
+        "type": "int",
+        "access": [
+          "get",
+          "set"
+        ]
+      }
+    },
+    "functions": {
+      "hide_envelope": {
+        "params": [],
+        "returns": null
+      },
+      "select_envelope_parameter": {
+        "params": [
+          {
+            "name": null,
+            "type": "DeviceParameter",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "show_envelope": {
+        "params": [],
+        "returns": null
+      },
+      "show_loop": {
+        "params": [],
+        "returns": null
+      }
+    }
+  },
+  "ClipSlot": {
+    "parent": null,
+    "children": {
+      "clip": {
+        "type": "Clip",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      }
+    },
+    "properties": {
+      "color": {
+        "type": "long",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "color_index": {
+        "type": "long",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "controls_other_clips": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "has_clip": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "has_stop_button": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "is_group_slot": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "is_playing": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "is_recording": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "is_triggered": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "playing_status": {
+        "type": "int",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "will_record_on_start": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      }
+    },
+    "functions": {
+      "create_audio_clip": {
+        "params": [
+          {
+            "name": "path",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "create_clip": {
+        "params": [
+          {
+            "name": "length",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "delete_clip": {
+        "params": [],
+        "returns": null
+      },
+      "duplicate_clip_to": {
+        "params": [
+          {
+            "name": "target_clip_slot",
+            "type": "ClipSlot",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "fire": {
+        "params": [
+          {
+            "name": "record_length",
+            "type": null,
+            "optional": true
+          },
+          {
+            "name": "launch_quantization",
+            "type": null,
+            "optional": true
+          }
+        ],
+        "returns": null
+      },
+      "set_fire_button_state": {
+        "params": [
+          {
+            "name": "state",
+            "type": "bool",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "stop": {
+        "params": [],
+        "returns": null
+      }
+    }
+  },
+  "CompressorDevice": {
+    "parent": "Device",
+    "children": {},
+    "properties": {
+      "available_input_routing_channels": {
+        "type": "dict",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "available_input_routing_types": {
+        "type": "dict",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "input_routing_channel": {
+        "type": "dict",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "input_routing_type": {
+        "type": "dict",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "ControlSurface": {
+    "parent": null,
+    "children": {},
+    "properties": {
+      "pad_layout": {
+        "type": "symbol",
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "get_control": {
+        "params": [
+          {
+            "name": "name",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": "the control with the given name."
+      },
+      "get_control_names": {
+        "params": [],
+        "returns": "the list of all control names."
+      },
+      "grab_control": {
+        "params": [
+          {
+            "name": "control",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "grab_midi": {
+        "params": [],
+        "returns": null
+      },
+      "register_midi_control": {
+        "params": [
+          {
+            "name": "name",
+            "type": "symbol",
+            "optional": false
+          },
+          {
+            "name": "status",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "number",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": "the LOM ID associated with the control."
+      },
+      "release_control": {
+        "params": [
+          {
+            "name": "control",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "release_midi": {
+        "params": [],
+        "returns": null
+      },
+      "send_midi": {
+        "params": [
+          {
+            "name": "midi_message",
+            "type": "list of int",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "send_receive_sysex": {
+        "params": [
+          {
+            "name": "sysex_message",
+            "type": "list of int",
+            "optional": false
+          },
+          {
+            "name": "timeout",
+            "type": "symbol, int",
+            "optional": false
+          }
+        ],
+        "returns": null
+      }
+    }
+  },
+  "CuePoint": {
+    "parent": null,
+    "children": {},
+    "properties": {
+      "name": {
+        "type": "symbol",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "time": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "jump": {
+        "params": [],
+        "returns": null
+      }
+    }
+  },
+  "Device": {
+    "parent": null,
+    "children": {
+      "parameters": {
+        "type": "DeviceParameter",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "view": {
+        "type": "DeviceView",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      }
+    },
+    "properties": {
+      "can_have_chains": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "can_have_drum_pads": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "class_display_name": {
+        "type": "symbol",
+        "access": [
+          "get"
+        ]
+      },
+      "class_name": {
+        "type": "symbol",
+        "access": [
+          "get"
+        ]
+      },
+      "is_active": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "name": {
+        "type": "symbol",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "type": {
+        "type": "int",
+        "access": [
+          "get"
+        ]
+      },
+      "latency_in_samples": {
+        "type": "int",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "latency_in_ms": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "can_compare_ab": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "is_using_compare_preset_b": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "store_chosen_bank": {
+        "params": [
+          {
+            "name": "script_index",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "bank_index",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "save_preset_to_compare_ab_slot": {
+        "params": [],
+        "returns": null
+      }
+    }
+  },
+  "DeviceView": {
+    "parent": null,
+    "children": {},
+    "properties": {
+      "is_collapsed": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "DeviceIO": {
+    "parent": null,
+    "children": {},
+    "properties": {
+      "available_routing_channels": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "available_routing_types": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "default_external_routing_channel_is_none": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set"
+        ]
+      },
+      "routing_channel": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "routing_type": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "DeviceParameter": {
+    "parent": null,
+    "children": {},
+    "properties": {
+      "automation_state": {
+        "type": "int",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "default_value": {
+        "type": "float",
+        "access": [
+          "get"
+        ]
+      },
+      "is_enabled": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "is_quantized": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "max": {
+        "type": "float",
+        "access": [
+          "get"
+        ]
+      },
+      "min": {
+        "type": "float",
+        "access": [
+          "get"
+        ]
+      },
+      "name": {
+        "type": "symbol",
+        "access": [
+          "get"
+        ]
+      },
+      "original_name": {
+        "type": "symbol",
+        "access": [
+          "get"
+        ]
+      },
+      "state": {
+        "type": "int",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "value": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "display_value": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "value_items": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      }
+    },
+    "functions": {
+      "re_enable_automation": {
+        "params": [],
+        "returns": null
+      },
+      "str_for_value": {
+        "params": [
+          {
+            "name": "value",
+            "type": "float",
+            "optional": false
+          },
+          {
+            "name": null,
+            "type": "symbol",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "__str__": {
+        "params": [],
+        "returns": "symbol"
+      }
+    }
+  },
+  "DriftDevice": {
+    "parent": "Device",
+    "children": {},
+    "properties": {
+      "mod_matrix_filter_source_1_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mod_matrix_filter_source_1_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "mod_matrix_filter_source_2_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mod_matrix_filter_source_2_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "mod_matrix_lfo_source_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mod_matrix_lfo_source_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "mod_matrix_pitch_source_1_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mod_matrix_pitch_source_1_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "mod_matrix_pitch_source_2_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mod_matrix_pitch_source_2_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "mod_matrix_shape_source_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mod_matrix_shape_source_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "mod_matrix_source_1_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mod_matrix_source_1_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "mod_matrix_source_2_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mod_matrix_source_2_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "mod_matrix_source_3_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mod_matrix_source_3_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "mod_matrix_target_1_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mod_matrix_target_1_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "mod_matrix_target_2_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mod_matrix_target_2_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "mod_matrix_target_3_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mod_matrix_target_3_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "pitch_bend_range": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "voice_count_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "voice_count_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "voice_mode_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "voice_mode_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "DrumCellDevice": {
+    "parent": "Device",
+    "children": {},
+    "properties": {
+      "gain": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "DrumChain": {
+    "parent": "Chain",
+    "children": {},
+    "properties": {
+      "in_note": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "out_note": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "choke_group": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "DrumPad": {
+    "parent": null,
+    "children": {
+      "chains": {
+        "type": "Chain",
+        "list": false,
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "properties": {
+      "mute": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "name": {
+        "type": "symbol",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "note": {
+        "type": "int",
+        "access": [
+          "get"
+        ]
+      },
+      "solo": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "delete_all_chains": {
+        "params": [],
+        "returns": null
+      }
+    }
+  },
+  "Eq8Device": {
+    "parent": "Device",
+    "children": {},
+    "properties": {
+      "edit_mode": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "global_mode": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "oversample": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "Eq8DeviceView": {
+    "parent": "DeviceView",
+    "children": {},
+    "properties": {
+      "selected_band": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "Groove": {
+    "parent": null,
+    "children": {},
+    "properties": {
+      "base": {
+        "type": "int",
+        "access": [
+          "get",
+          "set"
+        ]
+      },
+      "name": {
+        "type": "symbol",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "quantization_amount": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "random_amount": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "timing_amount": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "velocity_amount": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "GroovePool": {
+    "parent": null,
+    "children": {
+      "grooves": {
+        "type": "Groove",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "properties": {},
+    "functions": {}
+  },
+  "HybridReverbDevice": {
+    "parent": "Device",
+    "children": {},
+    "properties": {
+      "ir_attack_time": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "ir_category_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "ir_category_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "ir_decay_time": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "ir_file_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "ir_file_list": {
+        "type": "StringVector",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "ir_size_factor": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "ir_time_shaping_on": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "LooperDevice": {
+    "parent": "Device",
+    "children": {},
+    "properties": {
+      "loop_length": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "overdub_after_record": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "record_length_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "record_length_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "tempo": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "clear": {
+        "params": [],
+        "returns": null
+      },
+      "double_speed": {
+        "params": [],
+        "returns": null
+      },
+      "half_speed": {
+        "params": [],
+        "returns": null
+      },
+      "double_length": {
+        "params": [],
+        "returns": null
+      },
+      "half_length": {
+        "params": [],
+        "returns": null
+      },
+      "record": {
+        "params": [],
+        "returns": null
+      },
+      "overdub": {
+        "params": [],
+        "returns": null
+      },
+      "play": {
+        "params": [],
+        "returns": null
+      },
+      "stop": {
+        "params": [],
+        "returns": null
+      },
+      "undo": {
+        "params": [],
+        "returns": null
+      },
+      "export_to_clip_slot": {
+        "params": [
+          {
+            "name": "clip_slot",
+            "type": "ClipSlot",
+            "optional": false
+          }
+        ],
+        "returns": null
+      }
+    }
+  },
+  "MaxDevice": {
+    "parent": "Device",
+    "children": {
+      "audio_inputs": {
+        "type": "DeviceIO",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "audio_outputs": {
+        "type": "DeviceIO",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "midi_inputs": {
+        "type": "DeviceIO",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "midi_outputs": {
+        "type": "DeviceIO",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "properties": {},
+    "functions": {
+      "get_bank_count": {
+        "params": [],
+        "returns": "int"
+      },
+      "get_bank_name": {
+        "params": [
+          {
+            "name": "bank_index",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": "list of symbols"
+      },
+      "get_bank_parameters": {
+        "params": [
+          {
+            "name": "bank_index",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": "list of ints"
+      }
+    }
+  },
+  "MeldDevice": {
+    "parent": "Device",
+    "children": {},
+    "properties": {
+      "selected_engine": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "unison_voices": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mono_poly": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "poly_voices": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "MixerDevice": {
+    "parent": null,
+    "children": {
+      "sends": {
+        "type": "DeviceParameter",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "cue_volume": {
+        "type": "DeviceParameter",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "crossfader": {
+        "type": "DeviceParameter",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "left_split_stereo": {
+        "type": "DeviceParameter",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "panning": {
+        "type": "DeviceParameter",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "right_split_stereo": {
+        "type": "DeviceParameter",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "song_tempo": {
+        "type": "DeviceParameter",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "track_activator": {
+        "type": "DeviceParameter",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "volume": {
+        "type": "DeviceParameter",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      }
+    },
+    "properties": {
+      "crossfade_assign": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "panning_mode": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "PluginDevice": {
+    "parent": "Device",
+    "children": {},
+    "properties": {
+      "is_editor_open": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "presets": {
+        "type": "StringVector",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "selected_preset_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "RackDevice": {
+    "parent": "Device",
+    "children": {
+      "chain_selector": {
+        "type": "DeviceParameter",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "chains": {
+        "type": "Chain",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "drum_pads": {
+        "type": "DrumPad",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "return_chains": {
+        "type": "Chain",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "visible_drum_pads": {
+        "type": "DrumPad",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "properties": {
+      "can_show_chains": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "has_drum_pads": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "has_macro_mappings": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "is_showing_chains": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "variation_count": {
+        "type": "int",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "selected_variation_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set"
+        ]
+      },
+      "visible_macro_count": {
+        "type": "int",
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "copy_pad": {
+        "params": [
+          {
+            "name": "source_index",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "destination_index",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "add_macro": {
+        "params": [],
+        "returns": null
+      },
+      "insert_chain": {
+        "params": [
+          {
+            "name": "index",
+            "type": "int",
+            "optional": true
+          }
+        ],
+        "returns": null
+      },
+      "remove_macro": {
+        "params": [],
+        "returns": null
+      },
+      "randomize_macros": {
+        "params": [],
+        "returns": null
+      },
+      "store_variation": {
+        "params": [],
+        "returns": null
+      },
+      "recall_selected_variation": {
+        "params": [],
+        "returns": null
+      },
+      "recall_last_used_variation": {
+        "params": [],
+        "returns": null
+      },
+      "delete_selected_variation": {
+        "params": [],
+        "returns": null
+      }
+    }
+  },
+  "RackDeviceView": {
+    "parent": "DeviceView",
+    "children": {
+      "selected_drum_pad": {
+        "type": "DrumPad",
+        "list": false,
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "selected_chain": {
+        "type": "Chain",
+        "list": false,
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "properties": {
+      "drum_pads_scroll_position": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "is_showing_chain_devices": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "RoarDevice": {
+    "parent": "Device",
+    "children": {},
+    "properties": {
+      "routing_mode_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "routing_mode_list": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "env_listen": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "Sample": {
+    "parent": null,
+    "children": {},
+    "properties": {
+      "beats_granulation_resolution": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "beats_transient_envelope": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "beats_transient_loop_mode": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "complex_pro_envelope": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "complex_pro_formants": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "end_marker": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "file_path": {
+        "type": "unicode",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "gain": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "length": {
+        "type": "int",
+        "access": [
+          "get"
+        ]
+      },
+      "sample_rate": {
+        "type": "int",
+        "access": [
+          "get"
+        ]
+      },
+      "slices": {
+        "type": "list of int",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "slicing_sensitivity": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "start_marker": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "texture_flux": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "texture_grain_size": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "tones_grain_size": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "warp_markers": {
+        "type": "dict/bang",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "warp_mode": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "warping": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "slicing_style": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "slicing_beat_division": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "slicing_region_count": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "gain_display_string": {
+        "params": [],
+        "returns": "list of symbols"
+      },
+      "insert_slice": {
+        "params": [
+          {
+            "name": "slice_time",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "move_slice": {
+        "params": [
+          {
+            "name": "source_time",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "destination_time",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "remove_slice": {
+        "params": [
+          {
+            "name": "slice_time",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "clear_slices": {
+        "params": [],
+        "returns": null
+      },
+      "reset_slices": {
+        "params": [],
+        "returns": null
+      }
+    }
+  },
+  "Scene": {
+    "parent": null,
+    "children": {
+      "clip_slots": {
+        "type": "ClipSlot",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "properties": {
+      "color": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "color_index": {
+        "type": "long",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "is_empty": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "is_triggered": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "name": {
+        "type": "symbol",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "tempo": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "tempo_enabled": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "time_signature_numerator": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "time_signature_denominator": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "time_signature_enabled": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "fire": {
+        "params": [
+          {
+            "name": "force_legato",
+            "type": "bool",
+            "optional": true
+          },
+          {
+            "name": "can_select_scene_on_launch",
+            "type": "bool",
+            "optional": true
+          }
+        ],
+        "returns": null
+      },
+      "fire_as_selected": {
+        "params": [
+          {
+            "name": "force_legato",
+            "type": "bool",
+            "optional": true
+          }
+        ],
+        "returns": null
+      },
+      "set_fire_button_state": {
+        "params": [
+          {
+            "name": "state",
+            "type": "bool",
+            "optional": false
+          }
+        ],
+        "returns": null
+      }
+    }
+  },
+  "ShifterDevice": {
+    "parent": "Device",
+    "children": {},
+    "properties": {
+      "pitch_bend_range": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "pitch_mode_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "SimplerDevice": {
+    "parent": "Device",
+    "children": {
+      "sample": {
+        "type": "Sample",
+        "list": false,
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "properties": {
+      "can_warp_as": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "can_warp_double": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "can_warp_half": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "multi_sample_mode": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "pad_slicing": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "playback_mode": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "playing_position": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "playing_position_enabled": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "retrigger": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "slicing_playback_mode": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "voices": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "crop": {
+        "params": [],
+        "returns": null
+      },
+      "guess_playback_length": {
+        "params": [],
+        "returns": "float"
+      },
+      "reverse": {
+        "params": [],
+        "returns": null
+      },
+      "warp_as": {
+        "params": [
+          {
+            "name": "beats",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "warp_double": {
+        "params": [],
+        "returns": null
+      },
+      "warp_half": {
+        "params": [],
+        "returns": null
+      },
+      "replace_sample": {
+        "params": [
+          {
+            "name": "file_path",
+            "type": "symbol",
+            "optional": false
+          }
+        ],
+        "returns": null
+      }
+    }
+  },
+  "SimplerDeviceView": {
+    "parent": "DeviceView",
+    "children": {},
+    "properties": {
+      "selected_slice": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "Song": {
+    "parent": null,
+    "children": {
+      "cue_points": {
+        "type": "CuePoint",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "return_tracks": {
+        "type": "Track",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "scenes": {
+        "type": "Scene",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "tracks": {
+        "type": "Track",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "visible_tracks": {
+        "type": "Track",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "master_track": {
+        "type": "Track",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "view": {
+        "type": "SongView",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "groove_pool": {
+        "type": "GroovePool",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "tuning_system": {
+        "type": "TuningSystem",
+        "list": false,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "appointed_device": {
+        "type": "Device",
+        "list": false,
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "properties": {
+      "arrangement_overdub": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "back_to_arranger": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "can_capture_midi": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "can_jump_to_next_cue": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "can_jump_to_prev_cue": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "can_redo": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "can_undo": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "clip_trigger_quantization": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "count_in_duration": {
+        "type": "int",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "current_song_time": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "exclusive_arm": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "exclusive_solo": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "file_path": {
+        "type": "symbol",
+        "access": [
+          "get"
+        ]
+      },
+      "groove_amount": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "is_ableton_link_enabled": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "is_ableton_link_start_stop_sync_enabled": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "is_counting_in": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "is_playing": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "last_event_time": {
+        "type": "float",
+        "access": [
+          "get"
+        ]
+      },
+      "loop": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "loop_length": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "loop_start": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "metronome": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "midi_recording_quantization": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "name": {
+        "type": "symbol",
+        "access": [
+          "get"
+        ]
+      },
+      "nudge_down": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "nudge_up": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "tempo_follower_enabled": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "overdub": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "punch_in": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "punch_out": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "re_enable_automation_enabled": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "record_mode": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "root_note": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "scale_intervals": {
+        "type": "list",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "scale_mode": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "scale_name": {
+        "type": "unicode",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "select_on_launch": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "session_automation_record": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "session_record": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "session_record_status": {
+        "type": "int",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "signature_denominator": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "signature_numerator": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "song_length": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "start_time": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "swing_amount": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "tempo": {
+        "type": "float",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "capture_and_insert_scene": {
+        "params": [],
+        "returns": null
+      },
+      "capture_midi": {
+        "params": [
+          {
+            "name": "destination",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "continue_playing": {
+        "params": [],
+        "returns": null
+      },
+      "create_audio_track": {
+        "params": [
+          {
+            "name": "index",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "create_midi_track": {
+        "params": [
+          {
+            "name": "index",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "create_return_track": {
+        "params": [],
+        "returns": null
+      },
+      "create_scene": {
+        "params": [
+          {
+            "name": "index",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": "The new scene"
+      },
+      "delete_scene": {
+        "params": [
+          {
+            "name": "index",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "delete_track": {
+        "params": [
+          {
+            "name": "index",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "delete_return_track": {
+        "params": [
+          {
+            "name": "index",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "duplicate_scene": {
+        "params": [
+          {
+            "name": "index",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "duplicate_track": {
+        "params": [
+          {
+            "name": "index",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "find_device_position": {
+        "params": [
+          {
+            "name": "device",
+            "type": "live object",
+            "optional": false
+          },
+          {
+            "name": "target",
+            "type": "live object",
+            "optional": false
+          },
+          {
+            "name": "target position",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": "int"
+      },
+      "force_link_beat_time": {
+        "params": [],
+        "returns": null
+      },
+      "get_beats_loop_length": {
+        "params": [],
+        "returns": "symbol"
+      },
+      "get_beats_loop_start": {
+        "params": [],
+        "returns": "symbol"
+      },
+      "get_current_beats_song_time": {
+        "params": [],
+        "returns": "symbol"
+      },
+      "get_current_smpte_song_time": {
+        "params": [
+          {
+            "name": "format",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": "_hours:min:sec_"
+      },
+      "is_cue_point_selected": {
+        "params": [],
+        "returns": "bool 1 = the current Arrangement playback position is at a cue point"
+      },
+      "jump_by": {
+        "params": [
+          {
+            "name": "beats",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "jump_to_next_cue": {
+        "params": [],
+        "returns": null
+      },
+      "jump_to_prev_cue": {
+        "params": [],
+        "returns": null
+      },
+      "move_device": {
+        "params": [
+          {
+            "name": "device",
+            "type": "live object",
+            "optional": false
+          },
+          {
+            "name": "target",
+            "type": "live object",
+            "optional": false
+          },
+          {
+            "name": "target position",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": "int"
+      },
+      "play_selection": {
+        "params": [],
+        "returns": null
+      },
+      "re_enable_automation": {
+        "params": [],
+        "returns": null
+      },
+      "redo": {
+        "params": [],
+        "returns": null
+      },
+      "scrub_by": {
+        "params": [
+          {
+            "name": "beats",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "set_or_delete_cue": {
+        "params": [],
+        "returns": null
+      },
+      "start_playing": {
+        "params": [],
+        "returns": null
+      },
+      "stop_all_clips": {
+        "params": [
+          {
+            "name": "quantized",
+            "type": null,
+            "optional": true
+          }
+        ],
+        "returns": null
+      },
+      "stop_playing": {
+        "params": [],
+        "returns": null
+      },
+      "tap_tempo": {
+        "params": [],
+        "returns": null
+      },
+      "trigger_session_record": {
+        "params": [
+          {
+            "name": "record_length",
+            "type": null,
+            "optional": true
+          }
+        ],
+        "returns": null
+      },
+      "undo": {
+        "params": [],
+        "returns": null
+      }
+    }
+  },
+  "SongView": {
+    "parent": null,
+    "children": {
+      "detail_clip": {
+        "type": "Clip",
+        "list": false,
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "highlighted_clip_slot": {
+        "type": "ClipSlot",
+        "list": false,
+        "access": [
+          "get",
+          "set"
+        ]
+      },
+      "mod_mapping_device": {
+        "type": "Device",
+        "list": false,
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mod_mapping_parameter": {
+        "type": "DeviceParameter",
+        "list": false,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "selected_chain": {
+        "type": "Chain",
+        "list": false,
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "selected_parameter": {
+        "type": "DeviceParameter",
+        "list": false,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "selected_scene": {
+        "type": "Scene",
+        "list": false,
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "selected_track": {
+        "type": "Track",
+        "list": false,
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "properties": {
+      "draw_mode": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "follow_song": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "select_device": {
+        "params": [
+          {
+            "name": "id NN",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      }
+    }
+  },
+  "SpectralResonatorDevice": {
+    "parent": "Device",
+    "children": {},
+    "properties": {
+      "frequency_dial_mode": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "midi_gate": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mod_mode": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mono_poly": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "pitch_mode": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "pitch_bend_range": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "polyphony": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "TakeLane": {
+    "parent": null,
+    "children": {
+      "arrangement_clips": {
+        "type": "Clip",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "properties": {
+      "name": {
+        "type": "symbol",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "create_audio_clip": {
+        "params": [
+          {
+            "name": "file_path",
+            "type": "symbol",
+            "optional": false
+          },
+          {
+            "name": "start_time",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "create_midi_clip": {
+        "params": [
+          {
+            "name": "start_time",
+            "type": "float",
+            "optional": false
+          },
+          {
+            "name": "length",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": null
+      }
+    }
+  },
+  "Track": {
+    "parent": null,
+    "children": {
+      "take_lanes": {
+        "type": "TakeLane",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "clip_slots": {
+        "type": "ClipSlot",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "arrangement_clips": {
+        "type": "Clip",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "devices": {
+        "type": "Device",
+        "list": true,
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "group_track": {
+        "type": "Track",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "mixer_device": {
+        "type": "MixerDevice",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      },
+      "view": {
+        "type": "TrackView",
+        "list": false,
+        "access": [
+          "get"
+        ]
+      }
+    },
+    "properties": {
+      "arm": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "available_input_routing_channels": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "available_input_routing_types": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "available_output_routing_channels": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "available_output_routing_types": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "back_to_arranger": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "can_be_armed": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "can_be_frozen": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "can_show_chains": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "color": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "color_index": {
+        "type": "long",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "fired_slot_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "fold_state": {
+        "type": "int",
+        "access": [
+          "get",
+          "set"
+        ]
+      },
+      "has_audio_input": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "has_audio_output": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "has_midi_input": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "has_midi_output": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "implicit_arm": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "input_meter_left": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "input_meter_level": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "input_meter_right": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "input_routing_channel": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "input_routing_type": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "is_foldable": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "is_frozen": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "is_grouped": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "is_part_of_selection": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "is_showing_chains": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "is_visible": {
+        "type": "bool",
+        "access": [
+          "get"
+        ]
+      },
+      "mute": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "muted_via_solo": {
+        "type": "bool",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "name": {
+        "type": "symbol",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "output_meter_left": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "output_meter_level": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "output_meter_right": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "performance_impact": {
+        "type": "float",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "output_routing_channel": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "output_routing_type": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "playing_slot_index": {
+        "type": "int",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "solo": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "create_audio_clip": {
+        "params": [
+          {
+            "name": "file_path",
+            "type": "symbol",
+            "optional": false
+          },
+          {
+            "name": "position",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "create_midi_clip": {
+        "params": [
+          {
+            "name": "start_time",
+            "type": "float",
+            "optional": false
+          },
+          {
+            "name": "length",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "create_take_lane": {
+        "params": [],
+        "returns": null
+      },
+      "delete_clip": {
+        "params": [
+          {
+            "name": "clip",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "delete_device": {
+        "params": [
+          {
+            "name": "index",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "duplicate_clip_slot": {
+        "params": [
+          {
+            "name": "index",
+            "type": null,
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "duplicate_clip_to_arrangement": {
+        "params": [
+          {
+            "name": "clip",
+            "type": null,
+            "optional": false
+          },
+          {
+            "name": "destination_time",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "insert_device": {
+        "params": [
+          {
+            "name": "device_name",
+            "type": "symbol",
+            "optional": false
+          },
+          {
+            "name": "target_index",
+            "type": "int",
+            "optional": true
+          }
+        ],
+        "returns": null
+      },
+      "jump_in_running_session_clip": {
+        "params": [
+          {
+            "name": "beats",
+            "type": "float",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "stop_all_clips": {
+        "params": [],
+        "returns": null
+      }
+    }
+  },
+  "TrackView": {
+    "parent": null,
+    "children": {
+      "selected_device": {
+        "type": "Device",
+        "list": false,
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "properties": {
+      "device_insert_mode": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "is_collapsed": {
+        "type": "bool",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "select_instrument": {
+        "params": [],
+        "returns": "bool 0 = there are no devices to select"
+      }
+    }
+  },
+  "TuningSystem": {
+    "parent": null,
+    "children": {},
+    "properties": {
+      "name": {
+        "type": "symbol",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "pseudo_octave_in_cents": {
+        "type": "float",
+        "access": [
+          "get"
+        ]
+      },
+      "lowest_note": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "highest_note": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "reference_pitch": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "note_tunings": {
+        "type": "dictionary",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      }
+    },
+    "functions": {}
+  },
+  "WavetableDevice": {
+    "parent": "Device",
+    "children": {},
+    "properties": {
+      "filter_routing": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "mono_poly": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "oscillator_1_effect_mode": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "oscillator_2_effect_mode": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "oscillator_1_wavetable_category": {
+        "type": null,
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "oscillator_2_wavetable_category": {
+        "type": null,
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "oscillator_1_wavetable_index": {
+        "type": null,
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "oscillator_2_wavetable_index": {
+        "type": null,
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "oscillator_1_wavetables": {
+        "type": "StringVector",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "oscillator_2_wavetables": {
+        "type": "StringVector",
+        "access": [
+          "get",
+          "observe"
+        ]
+      },
+      "oscillator_wavetable_categories": {
+        "type": "StringVector",
+        "access": [
+          "get"
+        ]
+      },
+      "poly_voices": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "unison_mode": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "unison_voice_count": {
+        "type": "int",
+        "access": [
+          "get",
+          "set",
+          "observe"
+        ]
+      },
+      "visible_modulation_target_names": {
+        "type": "StringVector",
+        "access": [
+          "get",
+          "observe"
+        ]
+      }
+    },
+    "functions": {
+      "add_parameter_to_modulation_matrix": {
+        "params": [
+          {
+            "name": "parameter_to_add",
+            "type": "DeviceParameter",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "get_modulation_target_parameter_name": {
+        "params": [
+          {
+            "name": "index",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "get_modulation_value": {
+        "params": [
+          {
+            "name": "modulation_target_index",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "modulation_source_index",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "is_parameter_modulatable": {
+        "params": [
+          {
+            "name": "parameter",
+            "type": "DeviceParameter",
+            "optional": false
+          }
+        ],
+        "returns": null
+      },
+      "set_modulation_value": {
+        "params": [
+          {
+            "name": "modulation_target_index",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "modulation_source_index",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "returns": null
+      }
+    }
+  }
+}

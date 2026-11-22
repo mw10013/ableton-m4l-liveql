@@ -15,7 +15,15 @@ export default defineConfig({
   fmt: {
     sortImports: true,
     printWidth: 80,
-    ignorePatterns: ["docs/**", "refs/**", "dist/**"],
+    // lom.json and schema.graphql are written by pnpm lom:parse and pnpm schema:print, and a test
+    // compares schema.graphql byte for byte with the schema it prints.
+    ignorePatterns: [
+      "docs/**",
+      "refs/**",
+      "dist/**",
+      "lom.json",
+      "schema.graphql",
+    ],
   },
   lint: {
     plugins: ["eslint", "typescript", "unicorn", "oxc"],

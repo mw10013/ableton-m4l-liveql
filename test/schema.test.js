@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const { describe, it, before } = require("node:test");
 const fs = require("node:fs");
 const path = require("node:path");
+const { printSchema } = require("graphql");
 const { createServer } = require("./helpers/server");
 
 const LOM_DIR = path.join(__dirname, "..", "..", "m4l-docs", "apiref", "lom");
@@ -74,6 +75,19 @@ describe("schema", () => {
     ]) {
       assert.ok(schema.getType(name), `missing type ${name}`);
     }
+  });
+
+  /**
+   * `schema.graphql` is what a client generates its types from, so it has to
+   * be the schema the device builds. Vite+'s `vp check` has no step for a
+   * custom check, so the gate lives here.
+   */
+  it("matches the committed schema.graphql", () => {
+    assert.equal(
+      fs.readFileSync(path.join(__dirname, "..", "schema.graphql"), "utf8"),
+      `${printSchema(schema)}\n`,
+      "schema.graphql is stale: run pnpm schema:print",
+    );
   });
 
   it("gives every LOM object type the bridge's id, path and type", () => {

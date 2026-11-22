@@ -9,6 +9,8 @@ LiveQL runs as a Max for Live device with two components:
 - A **Max JS script** that talks directly to the LOM via LiveAPI
 - A **Node.js server** (via Node for Max) that serves a GraphQL API on `http://localhost:5100/graphql`
 
+The schema mirrors the LOM. `liveql-n4m.js` builds it when it starts from `lom.json`, which `pnpm lom:parse` parses out of the LOM reference docs, plus the hand-written rows in `lom-overrides.js` for what the docs cannot say. `schema.graphql` is the printed result (`pnpm schema:print`), committed for client codegen and review diffs. Properties are nullable: a member an object lacks, such as `arm` on the master track, reads as null.
+
 External clients send GraphQL queries and mutations over HTTP. The Node server translates these into LOM operations, executes them through the Max layer, and returns the results as JSON. A mutation does exactly the LOM operations the client listed, in order, with nothing added, followed by the readback its selection set needs; orchestration is the client's job. Several mutations can be sent in one document as aliased fields, and they run serially in order.
 
 ## Setup
@@ -52,7 +54,8 @@ worktree tests its own scripts and the committed Set is never saved over. Each w
 Accessibility permission for the app running it (System Settings → Privacy & Security → Accessibility);
 without it, click Don't Save by hand.
 Edits to `liveql-n4m.js` restart the server (`@watch 1`) and edits to `liveql-m4l.js` reload the `v8`
-script (`autowatch = 1`), so the device rarely needs reloading.
+script (`autowatch = 1`), so the device rarely needs reloading. Edits to `lom.json` or `lom-overrides.js`
+do not restart the server; reload the device.
 
 ## Productionizing the device
 
@@ -66,7 +69,7 @@ hand to someone else. Your dev tree and dev device are never touched.
    pnpm build:dist
    ```
 
-   Copies the device and both scripts into `dist/`, then installs a production-only `node_modules` there
+   Copies the device, both scripts, `lom.json` and `lom-overrides.js` into `dist/`, then installs a production-only `node_modules` there
    (drops typescript, effect, @types/node — 139 MB to 19 MB). Most of what is left is `graphql` itself,
    11 MB of it, since v17 ships a separate `__dev__` build alongside the production one.
 
@@ -82,6 +85,8 @@ with `node_modules` in a folder registered in the project's search path with **E
 `docs/vignettes/03_n4m_projects_devices.maxvig.xml` in the Node for Max package that ships with Max.
 
 ## What you can query
+
+A summary; `schema.graphql` has every field, argument and mutation.
 
 **Song state** — Transport, tempo, time signature, arrangement loop, metronome, swing, record and overdub state, scale (`root_note`, `scale_name`, `scale_intervals`), undo/redo availability, and the song view: selected track, selected scene, highlighted clip slot, detail clip. `live_app` reports the Live version.
 

@@ -28,12 +28,12 @@ describe("song", () => {
   /**
    * Live answers 1 for a member a track does not have rather than reporting it
    * missing, so every one of these would read as a confident lie - arm true on
-   * a track that cannot be armed - if the resolver trusted the value instead of
-   * the capability flags.
+   * a track that cannot be armed - if the bridge read a member the track's
+   * info does not list.
    */
   it("resolves the members Live omits on the master track as null", async () => {
     const { data } = await gql(
-      "{ live_set { master_track { name can_be_armed arm mute solo fold_state playing_slot_index fired_slot_index clip_slots { id } } } }",
+      "{ live_set { master_track { name can_be_armed arm mute solo fold_state playing_slot_index fired_slot_index clip_slots { id } arrangement_clips { id } } } }",
     );
     assert.deepEqual(data.live_set.master_track, {
       name: "Master",
@@ -45,6 +45,7 @@ describe("song", () => {
       playing_slot_index: null,
       fired_slot_index: null,
       clip_slots: [],
+      arrangement_clips: null,
     });
   });
 
@@ -171,6 +172,23 @@ describe("song", () => {
     ]);
     assert.deepEqual(lom.setsOf("loop"), [["set", 1, "loop", 1]]);
     assert.deepEqual(lom.setsOf("metronome"), [["set", 1, "metronome", 0]]);
+  });
+
+  it("calls a function the docs type with its arguments in LOM order", async () => {
+    const { data } = await gql(
+      'mutation { track_create_audio_clip(id: 11, position: 4, file_path: "/a.wav") { id } song_scrub_by(id: 1, beats: -2) { id } }',
+    );
+    assert.deepEqual(data, {
+      track_create_audio_clip: { id: 11 },
+      song_scrub_by: { id: 1 },
+    });
+    assert.deepEqual(
+      lom.log.filter(([action]) => action === "call"),
+      [
+        ["call", 11, "create_audio_clip", "/a.wav", 4],
+        ["call", 1, "scrub_by", -2],
+      ],
+    );
   });
 
   it("names the action, the property and the target in a failure", async () => {

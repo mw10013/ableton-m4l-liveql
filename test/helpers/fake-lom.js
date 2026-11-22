@@ -1,8 +1,9 @@
 /**
  * A fake Live Object Model that implements the wire contract of
- * `liveql-m4l.js`, not Live's semantics. The four `get` loops, the `id 0` and
- * `"id"` token handling and the empty-list-for-an-absent-member behaviour are
- * mirrored here exactly; anything else (marker constraints, note id
+ * `liveql-m4l.js`, not Live's semantics. The four `get` loops, skipping a
+ * member the object's `info` does not list (an object's members are its
+ * `props` keys), the `id 0` and `"id"` token handling and the
+ * empty-list-for-an-empty-member behaviour are mirrored here exactly; anything else (marker constraints, note id
  * assignment) is a convenience for a named test and is not a claim about what
  * Live does. A change to the bridge's shape means a change here.
  */
@@ -73,8 +74,9 @@ const asList = (v) =>
 const isChildId = (v) =>
   v !== "id" && v !== 0 && v !== "" && v !== undefined && v !== null;
 
-function trackProps(overrides) {
-  return {
+/** A track's props, less the `absent` members, which its `info` leaves out. */
+function trackProps(overrides, absent = []) {
+  const props = {
     name: ["Track"],
     has_midi_input: [1],
     has_audio_input: [0],
@@ -91,7 +93,6 @@ function trackProps(overrides) {
     is_grouped: [0],
     is_visible: [1],
     is_frozen: [0],
-    fold_state: [0],
     playing_slot_index: [-1],
     fired_slot_index: [-1],
     group_track: ["id", 0],
@@ -99,6 +100,9 @@ function trackProps(overrides) {
     arrangement_clips: [],
     ...overrides,
   };
+  return Object.fromEntries(
+    Object.entries(props).filter(([k]) => !absent.includes(k)),
+  );
 }
 
 function clipSlotProps(overrides) {
@@ -159,7 +163,8 @@ function clipProps(overrides) {
 /**
  * One MIDI track (10) with a clip slot holding MIDI clip 40, one audio track
  * (11) holding arrangement clip 50, a return track (13) and a master track (12)
- * missing the members the LOM documents as absent there. Song.View's
+ * missing the members Live's `info` leaves out there. None of them is a Group
+ * Track, so none has a fold_state. Song.View's
  * `highlighted_clip_slot` is `id 0` so the bridge's null child is covered.
  */
 function defaultObjects() {
@@ -200,39 +205,35 @@ function defaultObjects() {
       }),
     },
     /**
-     * Live does not report a member the master track lacks as missing: it
-     * answers 1, which is why these read as the junk they do in the Set. The
-     * resolvers null them from can_be_armed and the path instead.
+     * Live's `info` for the master track and a return track leaves out the
+     * members they lack, as measured in the fixture Set; `LiveAPI.get` would
+     * answer 1 for each, which is why the bridge never asks.
      */
     12: {
       id: 12,
       path: "live_set master_track",
       type: "Track",
-      props: trackProps({
-        name: ["Master"],
-        can_be_armed: [0],
-        arm: [1],
-        mute: [1],
-        solo: [1],
-        fold_state: [1],
-        playing_slot_index: [1],
-        fired_slot_index: [1],
-        clip_slots: "",
-      }),
+      props: trackProps(
+        { name: ["Master"], can_be_armed: [0], clip_slots: "" },
+        [
+          "arm",
+          "mute",
+          "solo",
+          "muted_via_solo",
+          "playing_slot_index",
+          "fired_slot_index",
+          "arrangement_clips",
+        ],
+      ),
     },
     13: {
       id: 13,
       path: "live_set return_tracks 0",
       type: "Track",
-      props: trackProps({
-        name: ["A Return"],
-        can_be_armed: [0],
-        arm: [1],
-        fold_state: [1],
-        playing_slot_index: [1],
-        fired_slot_index: [1],
-        clip_slots: "",
-      }),
+      props: trackProps(
+        { name: ["A Return"], can_be_armed: [0], clip_slots: "" },
+        ["arm", "playing_slot_index", "fired_slot_index", "arrangement_clips"],
+      ),
     },
     20: {
       id: 20,
@@ -354,17 +355,18 @@ function createLom() {
   const get = (params) => {
     const o = resolve(params.idOrPath);
     const out = { id: o.id, path: o.path, type: o.type };
-    for (const k of params.propertyKeysSingle ?? []) {
+    const listed = (keys) => (keys ?? []).filter((k) => k in o.props);
+    for (const k of listed(params.propertyKeysSingle)) {
       const arr = asList(read(o, k));
       if (arr.length === 1) out[k] = arr[0];
     }
-    for (const k of params.propertyKeysMultiple ?? [])
+    for (const k of listed(params.propertyKeysMultiple))
       out[k] = asList(read(o, k));
-    for (const k of params.childKeysSingle ?? []) {
+    for (const k of listed(params.childKeysSingle)) {
       const id = asList(read(o, k))[1];
       out[k] = isChildId(id) ? id : null;
     }
-    for (const k of params.childKeysMultiple ?? [])
+    for (const k of listed(params.childKeysMultiple))
       out[k] = asList(read(o, k)).filter(isChildId);
     return out;
   };
