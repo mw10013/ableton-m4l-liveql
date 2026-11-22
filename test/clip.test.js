@@ -12,8 +12,14 @@ function recordActions(lom) {
   const actions = [];
   const { exec } = lom;
   lom.exec = (params) => {
-    actions.push(`${params.action} ${params.property ?? ""}`.trim());
-    return exec(params);
+    const from = lom.log.length;
+    const result = exec(params);
+    actions.push(
+      ...(params.action === "set"
+        ? lom.log.slice(from).map((entry) => `set ${entry[2]}`)
+        : [params.action]),
+    );
+    return result;
   };
   return actions;
 }

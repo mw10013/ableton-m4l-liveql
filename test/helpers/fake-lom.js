@@ -658,12 +658,20 @@ function createLom() {
     ].join("\n");
   };
 
-  const set = (params) => {
-    const o = resolve(params.idOrPath);
-    log.push(["set", o.id, params.property, params.value]);
-    guardMarkers(o.props, params.property, params.value);
-    o.props[params.property] = [params.value];
-    return null;
+  const set = ({ idOrPath, properties }) => {
+    let applied = 0;
+    try {
+      const o = resolve(idOrPath);
+      for (const [property, value] of properties) {
+        log.push(["set", o.id, property, value]);
+        guardMarkers(o.props, property, value);
+        o.props[property] = [value];
+        applied += 1;
+      }
+      return { applied };
+    } catch (err) {
+      return { applied, message: String(err) };
+    }
   };
 
   const call = (params) => {

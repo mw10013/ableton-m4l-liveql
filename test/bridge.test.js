@@ -115,3 +115,47 @@ describe("bridge get batching", () => {
     assert.equal(data.live_set.tempo, 120);
   });
 });
+
+describe("bridge set", () => {
+  let gql, lom, messages;
+  beforeEach(() => {
+    ({ gql, lom } = createServer());
+    messages = [];
+    const { exec } = lom;
+    lom.exec = (params) => {
+      messages.push(params.action);
+      return exec(params);
+    };
+  });
+
+  it("sends a whole properties list as one set, then one get", async () => {
+    const { data, errors } = await gql(
+      `mutation { song_set(id: 1, properties: [{ tempo: 90 }, { loop: true }, { metronome: true }]) { tempo loop metronome } }`,
+    );
+    assert.equal(errors, undefined);
+    assert.deepEqual(data.song_set, { tempo: 90, loop: true, metronome: true });
+    assert.deepEqual(messages, ["set", "get"]);
+    assert.deepEqual(lom.setOrder(), ["tempo", "loop", "metronome"]);
+  });
+
+  it("stops at a failed item, keeping the ones before it", async () => {
+    const response = await gql(
+      `mutation { clip_set(id: 40, properties: [{ name: "x" }, { start_marker: 6 }, { looping: false }]) { name } }`,
+    );
+    assert.equal(
+      errorMessage(response),
+      "liveql: set start_marker on 40: Cannot be set behind the end marker; clip_set stopped at properties[1], applied: properties[0] name",
+    );
+    assert.deepEqual(messages, ["set"]);
+    assert.deepEqual(lom.setOrder(), ["name", "start_marker"]);
+    assert.deepEqual(lom.objects[40].props.name, ["x"]);
+  });
+
+  it("sends no set for an empty properties list", async () => {
+    const { data } = await gql(
+      "mutation { song_set(id: 1, properties: []) { tempo } }",
+    );
+    assert.equal(data.song_set.tempo, 120);
+    assert.deepEqual(messages, ["get"]);
+  });
+});

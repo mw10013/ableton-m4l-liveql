@@ -232,14 +232,32 @@ function info(...parts) {
   }
 }
 
+/**
+ * Sets each `[property, value]` of `properties` on one object, in order, and
+ * stops at the first that throws. One message carries the whole list because
+ * each exchange with `node.script` waits about 10.5 ms for Max's main-thread
+ * tick (measured in Live 12.4.6), against about 1 ms for the set itself. It
+ * succeeds with `{ applied }`, the count applied, and a failure is `{ applied,
+ * message }` too, with `applied` the index of the item that failed, since Live
+ * keeps the ones before it; a bad id fails item 0.
+ */
 function set(...parts) {
   let actionId = null;
   try {
     const params = JSON.parse(parts.join(""));
     actionId = params.actionId;
-    const live = getLive(params.idOrPath);
-    const data = live.set(params.property, params.value);
-    outletSuccessfulResult(actionId, data);
+    let applied = 0;
+    let message;
+    try {
+      const live = getLive(params.idOrPath);
+      for (const [property, value] of params.properties) {
+        live.set(property, value);
+        applied += 1;
+      }
+    } catch (err) {
+      message = err.toString();
+    }
+    outletSuccessfulResult(actionId, { applied, message });
   } catch (err) {
     outletFailedResult(actionId, err);
   }

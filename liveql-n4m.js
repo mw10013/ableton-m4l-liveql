@@ -78,15 +78,6 @@ function flushReads() {
     );
 }
 
-async function set(id, property, value) {
-  return exec({
-    action: "set",
-    idOrPath: id,
-    property,
-    value,
-  });
-}
-
 async function call(id, ...args) {
   return exec({
     action: "call",
@@ -108,8 +99,8 @@ const actionResultHandlers = new Map();
  * property or function, and the target id are all still in hand, so a GraphQL
  * error reads `liveql: set loop_end on 42: ...` instead of just Live's text.
  */
-function describeAction({ action, idOrPath, property, args, reads }) {
-  const subject = property ?? args?.[0];
+function describeAction({ action, idOrPath, properties, args, reads }) {
+  const subject = properties?.map(([p]) => p).join(", ") ?? args?.[0];
   return `${action}${subject === undefined ? "" : ` ${subject}`} on ${idOrPath ?? reads.map((r) => r.idOrPath).join(", ")}`;
 }
 
@@ -239,28 +230,41 @@ function isInvalidId(err) {
 
 /**
  * The resolver for `<object>_set`. Each `properties` item is `@oneOf`, so it
- * has exactly one key, and is one LOM `set` sent in list order, its value
+ * has exactly one key, and is one LOM `set` in list order, its value
  * passed through the member's `encoders` entry or as a Live value. A child is
  * set by id, and `0` becomes `id 0`, the LOM's empty child; a dictionary is
- * set as the JSON string Live reads it as. The first failed set
- * stops the list, because later items may depend on it (a marker is only valid
- * against its partner), and the error names that item and the ones already
- * applied, since Live keeps them. The object is read once, after the last set.
+ * set as the JSON string Live reads it as. The whole list goes to `v8` as one
+ * message, because every bridge exchange waits about 10.5 ms for Max's
+ * main-thread tick (measured in Live 12.4.6) while a set itself takes about
+ * 1 ms, so a 40-item list costs 2 ticks with its readback instead of 41.
+ * `v8` stops at the first failed set, because later items may depend on it (a
+ * marker is only valid against its partner), and answers how many it applied;
+ * the error names the failed item and the ones before it, since Live keeps
+ * them. An empty list sends no set. The object is read once, after the last set.
  */
 function setter(read, encoders) {
   return async (parent, { id, properties }, context, info) => {
-    const applied = [];
-    for (const [index, item] of properties.entries()) {
+    const items = properties.map((item) => {
       const [[property, value]] = Object.entries(item);
-      try {
-        await set(id, property, (encoders.get(property) ?? toLiveValue)(value));
-      } catch (err) {
+      return [property, (encoders.get(property) ?? toLiveValue)(value)];
+    });
+    if (items.length > 0) {
+      const { applied, message } = await exec({
+        action: "set",
+        idOrPath: id,
+        properties: items,
+      });
+      if (message !== undefined)
         throw new Error(
-          `${err.message}; ${info.fieldName} stopped at properties[${index}], applied: ${applied.join(", ") || "none"}`,
-          { cause: err },
+          `liveql: set ${items[applied][0]} on ${id}: ${message}; ${info.fieldName} stopped at properties[${applied}], applied: ${
+            applied === 0
+              ? "none"
+              : items
+                  .slice(0, applied)
+                  .map(([property], i) => `properties[${i}] ${property}`)
+                  .join(", ")
+          }`,
         );
-      }
-      applied.push(`properties[${index}] ${property}`);
     }
     return read(id, info);
   };
