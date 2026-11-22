@@ -555,7 +555,7 @@ describe("live", { skip: SKIP }, () => {
   });
 
   it("resolves return and master tracks, with their absent members as null", async () => {
-    const TRACK = `id name type mute solo arm playing_slot_index fired_slot_index fold_state
+    const TRACK = `id name mute solo arm playing_slot_index fired_slot_index fold_state
       group_track { id } clip_slots { id } arrangement_clips { id }`;
     const { live_set } = await data(
       `{ live_set { return_tracks { ${TRACK} } master_track { ${TRACK} } } }`,
@@ -677,6 +677,29 @@ describe("live", { skip: SKIP }, () => {
       d: null,
       e: null,
     });
+  });
+
+  /**
+   * Device's `type` is the LOM's DeviceType int, read under the same name as
+   * the bridge's `LiveAPI.type`, so this also proves the class name still
+   * picks `__typename`.
+   */
+  it("reads each device's DeviceType int beside its subclass", async () => {
+    const { live_set } = await data(
+      "{ live_set { tracks { devices { cls: __typename class_name type } } } }",
+    );
+    const devices = live_set.tracks.flatMap((t) => t.devices);
+    assert.deepEqual(
+      ["MxDeviceMidiEffect", "InstrumentVector", "Eq8", "AuPluginDevice"].map(
+        (c) => devices.find((d) => d.class_name === c),
+      ),
+      [
+        { cls: "MaxDevice", class_name: "MxDeviceMidiEffect", type: 4 },
+        { cls: "WavetableDevice", class_name: "InstrumentVector", type: 1 },
+        { cls: "Eq8Device", class_name: "Eq8", type: 2 },
+        { cls: "PluginDevice", class_name: "AuPluginDevice", type: 2 },
+      ],
+    );
   });
 
   /**

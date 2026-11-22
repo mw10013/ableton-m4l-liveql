@@ -185,16 +185,24 @@ describe("schema", () => {
     );
   });
 
-  it("gives every LOM object type the bridge's id, path and type", () => {
+  it("gives every LOM object type the bridge's id and path, and only devices a type", () => {
     for (const name of LOM_OBJECT_TYPES) {
-      const fields = schema.getType(name).getFields();
+      const type = schema.getType(name);
+      const fields = type.getFields();
       assert.equal(String(fields.id.type), "Int!", `${name}.id`);
       assert.equal(
         String(fields.path.type),
         name === "TuningSystem" ? "String" : "String!",
         `${name}.path`,
       );
-      assert.equal(String(fields.type.type), "String!", `${name}.type`);
+      assert.equal(
+        fields.type && String(fields.type.type),
+        name === "Device" ||
+          type.getInterfaces().some((i) => i.name === "Device")
+          ? "Int"
+          : undefined,
+        `${name}.type is Device's DeviceType int or absent`,
+      );
     }
   });
 

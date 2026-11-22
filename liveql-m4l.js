@@ -116,11 +116,15 @@ function get(json) {
      * `path` and `unquotedpath` with null though the LOM documents
      * `live_set tuning_system` (Live 12.4.6). The bridge passes the null on,
      * and the class's override types its `path` nullable.
+     *
+     * `liveApiType` is `LiveAPI.type`, the class name the server resolves
+     * types by. It is camelCase so no LOM member, all snake_case, can
+     * overwrite it: Device's own `type` property, the DeviceType int, would.
      */
     const o = {
       id: Number(live.id), // LOM says this should be number instead of string
       path: live.unquotedpath,
-      type: live.type,
+      liveApiType: live.type,
     };
     const keys = [
       params.propertyKeysSingle,

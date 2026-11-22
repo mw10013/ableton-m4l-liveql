@@ -262,7 +262,7 @@ function byId(name) {
       if (isInvalidId(err)) return null;
       throw err;
     });
-    return o && isA(o.type.replaceAll(".", ""), name)
+    return o && isA(o.liveApiType.replaceAll(".", ""), name)
       ? getObject(name, args.id, info)
       : null;
   };
@@ -643,7 +643,6 @@ function objectSdl({
     `  ${isInterface ? "interface" : "type"} ${name}${parent ? ` implements ${parent}` : ""} {\n`,
     field(null, "id: Int!"),
     field(null, `path: ${pathType}`),
-    field(null, "type: String!"),
     field(INFO_DESCRIPTION, "info: String!"),
     ...children.map(({ member, type, list, index, description: text }) =>
       list
@@ -802,8 +801,8 @@ function callArgs(fieldName, params, args) {
 }
 
 /**
- * An interface resolves to the subclass named by the bridge's `type`, which
- * is `LiveAPI.type` and so the LOM class (`SimplerDevice`, and `RackDevice`
+ * An interface resolves to the subclass named by the bridge's `liveApiType`,
+ * which is `LiveAPI.type` and so the LOM class (`SimplerDevice`, and `RackDevice`
  * for both an Instrument and a Drum Rack), or to `Generic<Class>` for the
  * class itself or a subclass outside the scope. Every device's view answers
  * `LiveAPI.type` with a bare `View`, which names no class, so such an object
@@ -822,7 +821,7 @@ function objectResolvers({
     const subclasses = subclassesOf(name);
     return {
       __resolveType: (o) => {
-        const type = o.type.replaceAll(".", "");
+        const type = o.liveApiType.replaceAll(".", "");
         return (
           subclasses.find((c) =>
             type in LOM ? c.name === type : ownMembers(c).some((m) => m in o),
@@ -977,8 +976,8 @@ const RESOLVER_MEMBERS = {
  * hand-written resolver its `RESOLVER_MEMBERS`. On an interface, `__typename`
  * needs every subclass's own members, because `__resolveType` picks a view's
  * subclass by which of them the read holds. Any other field (`id`, `path`,
- * `type`, `info`, a function field) needs none: the bridge always sends `id`,
- * `path` and `type`, and the rest only use `id`. One family's classes never
+ * `info`, a function field) needs none: the bridge always sends `id` and
+ * `path`, and the rest only use `id`. One family's classes never
  * name a member two ways (`mergeRows` throws), so a field name means one
  * member across an interface and all its implementations.
  */

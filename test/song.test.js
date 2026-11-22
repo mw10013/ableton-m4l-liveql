@@ -118,10 +118,10 @@ describe("song", () => {
 
   it("reads the application version through call", async () => {
     const { data } = await gql(
-      "{ live_app { type get_major_version get_minor_version get_bugfix_version get_version_string } }",
+      "{ live_app { __typename get_major_version get_minor_version get_bugfix_version get_version_string } }",
     );
     assert.deepEqual(data.live_app, {
-      type: "Application",
+      __typename: "Application",
       get_major_version: 12,
       get_minor_version: 3,
       get_bugfix_version: 5,
@@ -131,11 +131,11 @@ describe("song", () => {
 
   it("resolves a by-id query only when the id is of the expected type", async () => {
     const { data, errors } = await gql(
-      "{ a: clip(id: 40) { type } b: clip(id: 10) { id } c: track(id: 999) { id } d: clip_slot(id: 20) { has_clip } e: scene(id: 30) { is_empty } }",
+      "{ a: clip(id: 40) { __typename } b: clip(id: 10) { id } c: track(id: 999) { id } d: clip_slot(id: 20) { has_clip } e: scene(id: 30) { is_empty } }",
     );
     assert.equal(errors, undefined);
     assert.deepEqual(data, {
-      a: { type: "Clip" },
+      a: { __typename: "Clip" },
       b: null,
       c: null,
       d: { has_clip: true },

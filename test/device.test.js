@@ -13,28 +13,40 @@ describe("device", () => {
   it("resolves a device to its LOM subclass, and a plain one to GenericDevice", async () => {
     const { data } = await gql(DEVICES);
     assert.deepEqual(data.track.devices, [
-      {
-        __typename: "SimplerDevice",
-        id: 60,
-        type: "SimplerDevice",
-        name: "Simpler",
-      },
-      { __typename: "GenericDevice", id: 61, type: "Device", name: "Operator" },
+      { __typename: "SimplerDevice", id: 60, type: 1, name: "Simpler" },
+      { __typename: "GenericDevice", id: 61, type: 1, name: "Operator" },
     ]);
   });
 
   /**
-   * The LOM's DeviceType int is also named `type`; reading it would overwrite
-   * the bridge's `type`, which is what picks the concrete GraphQL type.
+   * The LOM's DeviceType int is also named `type`. The bridge sends
+   * `LiveAPI.type` under its own key, so reading the int leaves the concrete
+   * GraphQL type intact.
    */
-  it("reads every device with one get that, for __typename, names each subclass's own members but not type", async () => {
+  it("reads every device with one get that names type and, for __typename, each subclass's own members", async () => {
     await gql(DEVICES);
     const reads = lom.gets.filter((g) => g.idOrPath === 60);
     assert.equal(reads.length, 1);
     const keys = reads[0].propertyKeysSingle;
-    for (const k of ["name", "voices", "variation_count", "edit_mode"])
+    for (const k of ["type", "name", "voices", "variation_count", "edit_mode"])
       assert.ok(keys.includes(k), `reads ${k}`);
-    assert.ok(!keys.includes("type"));
+  });
+
+  it("reads the DeviceType int of every kind of device, by id too", async () => {
+    const { data } = await gql(
+      "{ live_set { master_track { devices { __typename type } } } a: device(id: 66) { __typename type } }",
+    );
+    assert.deepEqual(data, {
+      live_set: {
+        master_track: {
+          devices: [
+            { __typename: "PluginDevice", type: 2 },
+            { __typename: "MaxDevice", type: 2 },
+          ],
+        },
+      },
+      a: { __typename: "ShifterDevice", type: 2 },
+    });
   });
 
   it("gives a subclass the Device members it inherits", async () => {
@@ -152,7 +164,7 @@ describe("device", () => {
     assert.deepEqual(data.track.devices, [
       {
         __typename: "ShifterDevice",
-        type: "ShifterDevice",
+        type: 2,
         class_name: "Shifter",
         pitch_bend_range: 2,
         pitch_mode_index: 0,
@@ -257,18 +269,17 @@ describe("device", () => {
    */
   it("resolves a device's view to its subclass by the members its info lists", async () => {
     const { data } = await gql(
-      "{ track(id: 10) { devices { view { __typename type is_collapsed ... on SimplerDeviceView { selected_slice } } } } }",
+      "{ track(id: 10) { devices { view { __typename is_collapsed ... on SimplerDeviceView { selected_slice } } } } }",
     );
     assert.deepEqual(
       data.track.devices.map((d) => d.view),
       [
         {
           __typename: "SimplerDeviceView",
-          type: "View",
           is_collapsed: false,
           selected_slice: -1,
         },
-        { __typename: "GenericDeviceView", type: "View", is_collapsed: false },
+        { __typename: "GenericDeviceView", is_collapsed: false },
       ],
     );
   });

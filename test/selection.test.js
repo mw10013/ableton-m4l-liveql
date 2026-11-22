@@ -19,15 +19,15 @@ describe("selection-driven reads", () => {
 
   it("asks the bridge only for the selected members, by field name not alias", async () => {
     const { data } = await gql(
-      "{ live_set { bpm: tempo id tracks { label: name type } } }",
+      "{ live_set { bpm: tempo id tracks { label: name __typename } } }",
     );
     assert.equal(data.live_set.bpm, 120);
     assert.deepEqual(readsOf("live_set"), [["tempo", "tracks"]]);
     assert.deepEqual(readsOf(10), [["name"]]);
   });
 
-  it("asks for nothing beyond id, path and type when no member is selected", async () => {
-    await gql("{ live_set { id path type info } }");
+  it("asks for nothing beyond id and path when no member is selected", async () => {
+    await gql("{ live_set { id path info } }");
     assert.deepEqual(readsOf("live_set"), [[]]);
   });
 

@@ -165,7 +165,8 @@ function clipProps(overrides) {
 
 /**
  * A device's props. Every device's `info` lists the LOM's `type` property, the
- * DeviceType int, which shares its name with the bridge's `type`.
+ * DeviceType int (1 = instrument, 2 = audio_effect), which shares its name with
+ * the fixture's `type`, the object's `LiveAPI.type`.
  */
 function deviceProps(overrides) {
   return {
@@ -322,6 +323,7 @@ function defaultObjects() {
       props: deviceProps({
         can_have_chains: [1],
         class_display_name: ["Audio Effect Rack"],
+        type: [2],
         class_name: ["AudioEffectGroupDevice"],
         name: ["Audio Effect Rack"],
         chains: ["id", 80],
@@ -340,6 +342,7 @@ function defaultObjects() {
       type: "Device",
       props: deviceProps({
         class_display_name: ["Saturator"],
+        type: [2],
         class_name: ["Saturator"],
         name: ["Saturator"],
       }),
@@ -392,6 +395,7 @@ function defaultObjects() {
       type: "ShifterDevice",
       props: deviceProps({
         class_display_name: ["Shifter"],
+        type: [2],
         class_name: ["Shifter"],
         name: ["Shifter"],
         pitch_bend_range: [2],
@@ -404,6 +408,7 @@ function defaultObjects() {
       type: "PluginDevice",
       props: deviceProps({
         class_display_name: ["AUDelay"],
+        type: [2],
         class_name: ["AuPluginDevice"],
         name: ["AUDelay"],
         is_editor_open: [0],
@@ -417,6 +422,7 @@ function defaultObjects() {
       type: "MaxDevice",
       props: deviceProps({
         class_display_name: ["Max Audio Effect"],
+        type: [2],
         class_name: ["MxDeviceAudioEffect"],
         name: ["Max Audio Effect"],
         audio_inputs: ["id", 72],
@@ -614,7 +620,7 @@ function createLom() {
   const get = (params) => {
     const o = resolve(params.idOrPath);
     gets.push(params);
-    const out = { id: o.id, path: o.path, type: o.type };
+    const out = { id: o.id, path: o.path, liveApiType: o.type };
     const listed = (keys) => (keys ?? []).filter((k) => k in o.props);
     for (const k of listed(params.propertyKeysSingle)) {
       const arr = asList(read(o, k));

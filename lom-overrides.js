@@ -433,7 +433,8 @@ module.exports = {
             "Null when can_compare_ab is false: such a device's info leaves it out.",
         },
         type: {
-          skip: "the bridge's type field is LiveAPI.type, which this int would overwrite, and class_name and __typename identify the device",
+          description:
+            "0 = undefined, 1 = instrument, 2 = audio_effect, 4 = midi_effect.",
         },
       },
     },
