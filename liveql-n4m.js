@@ -164,7 +164,7 @@ const typeDefs = /* GraphQL */ `
     scenes: [Scene!]!
   }
 
-  input SongPropertiesInput {
+  input SongSetInput @oneOf {
     tempo: Float
     signature_numerator: Int
     signature_denominator: Int
@@ -198,7 +198,14 @@ const typeDefs = /* GraphQL */ `
     follow_song: Boolean!
   }
 
-  input SongViewPropertiesInput {
+  """
+  A child is set by its id, and 0 clears it.
+  """
+  input SongViewSetInput @oneOf {
+    selected_track: Int
+    detail_clip: Int
+    highlighted_clip_slot: Int
+    selected_scene: Int
     draw_mode: Boolean
     follow_song: Boolean
   }
@@ -254,7 +261,7 @@ const typeDefs = /* GraphQL */ `
     arrangement_clips: [Clip!]!
   }
 
-  input TrackPropertiesInput {
+  input TrackSetInput @oneOf {
     name: String
     arm: Boolean
     mute: Boolean
@@ -283,6 +290,10 @@ const typeDefs = /* GraphQL */ `
     color: Int
   }
 
+  input ClipSlotSetInput @oneOf {
+    has_stop_button: Boolean
+  }
+
   type Scene {
     id: Int!
     path: String!
@@ -300,7 +311,7 @@ const typeDefs = /* GraphQL */ `
     clip_slots: [ClipSlot!]!
   }
 
-  input ScenePropertiesInput {
+  input SceneSetInput @oneOf {
     name: String
     color: Int
     color_index: Int
@@ -368,14 +379,34 @@ const typeDefs = /* GraphQL */ `
     get_selected_notes_extended: NotesDictionary
   }
 
-  input ClipPropertiesInput {
+  input ClipSetInput @oneOf {
     name: String
     signature_numerator: Int
     signature_denominator: Int
     looping: Boolean
+    """
+    Live drops a loop_start set past the current loop_end without raising.
+    Order the items so start stays <= end, and compare the returned clip with
+    what you asked for.
+    """
     loop_start: Float
+    """
+    Live drops a loop_end set before the current loop_start without raising.
+    Order the items so start stays <= end, and compare the returned clip with
+    what you asked for.
+    """
     loop_end: Float
+    """
+    Live drops a start_marker set past the current end_marker without raising.
+    Order the items so start stays <= end, and compare the returned clip with
+    what you asked for.
+    """
     start_marker: Float
+    """
+    Live drops an end_marker set before the current start_marker without
+    raising. Order the items so start stays <= end, and compare the returned
+    clip with what you asked for.
+    """
     end_marker: Float
     position: Float
     muted: Boolean
@@ -406,7 +437,7 @@ const typeDefs = /* GraphQL */ `
     grid_is_triplet: Boolean!
   }
 
-  input ClipViewPropertiesInput {
+  input ClipViewSetInput @oneOf {
     grid_quantization: Int
     grid_is_triplet: Boolean
   }
@@ -457,11 +488,16 @@ const typeDefs = /* GraphQL */ `
     scene(id: Int!): Scene
   }
 
+  """
+  Each <object>_set does one LOM set per properties item, in list order, then
+  reads the object back once. It stops at the first set that fails, and the
+  error names that item and the items already applied, which stay applied.
+  """
   type Mutation {
+    song_set(id: Int!, properties: [SongSetInput!]!): Song
     song_start_playing(id: Int!): Song
     song_continue_playing(id: Int!): Song
     song_stop_playing(id: Int!): Song
-    song_set_properties(id: Int!, properties: SongPropertiesInput!): Song
     song_undo(id: Int!): Song
     song_redo(id: Int!): Song
     song_stop_all_clips(id: Int!, quantized: Boolean = true): Song
@@ -471,19 +507,9 @@ const typeDefs = /* GraphQL */ `
     song_create_scene(id: Int!, index: Int = -1): Song
     song_tap_tempo(id: Int!): Song
 
-    song_view_set_properties(
-      id: Int!
-      properties: SongViewPropertiesInput!
-    ): SongView
-    song_view_set_detail_clip(id: Int!, detail_clip: Int!): SongView
-    song_view_set_selected_track(id: Int!, selected_track: Int!): SongView
-    song_view_set_highlighted_clip_slot(
-      id: Int!
-      highlighted_clip_slot: Int!
-    ): SongView
-    song_view_set_selected_scene(id: Int!, selected_scene: Int!): SongView
+    song_view_set(id: Int!, properties: [SongViewSetInput!]!): SongView
 
-    track_set_properties(id: Int!, properties: TrackPropertiesInput!): Track
+    track_set(id: Int!, properties: [TrackSetInput!]!): Track
     track_stop_all_clips(id: Int!): Track
     track_create_midi_clip(id: Int!, start_time: Float!, length: Float!): Track
     track_delete_clip(id: Int!, clip: Int!): Track
@@ -508,7 +534,7 @@ const typeDefs = /* GraphQL */ `
     clip_slot_create_clip(id: Int!, length: Float!): ClipSlot
     clip_slot_delete_clip(id: Int!): ClipSlot
     clip_slot_duplicate_clip_to(id: Int!, target_clip_slot: Int!): ClipSlot
-    clip_slot_set_has_stop_button(id: Int!, has_stop_button: Boolean!): ClipSlot
+    clip_slot_set(id: Int!, properties: [ClipSlotSetInput!]!): ClipSlot
 
     """
     The LOM takes these optional arguments positionally, so
@@ -520,18 +546,9 @@ const typeDefs = /* GraphQL */ `
       force_legato: Boolean
       can_select_scene_on_launch: Boolean
     ): Scene
-    scene_set_properties(id: Int!, properties: ScenePropertiesInput!): Scene
+    scene_set(id: Int!, properties: [SceneSetInput!]!): Scene
 
-    """
-    Writes several Clip properties in one call as a plain sequence of set, in
-    a fixed key order: scalars, then loop_start, loop_end, start_marker,
-    end_marker, position. Nothing is read first and nothing is reordered. Live
-    drops a start set past the current end, and an end set before the current
-    start, without raising; write markers one per mutation in the order that
-    keeps start <= end, and compare the returned clip with what you asked for.
-    Sending both markers in one batch gets whatever the fixed order gives.
-    """
-    clip_set_properties(id: Int!, properties: ClipPropertiesInput!): Clip
+    clip_set(id: Int!, properties: [ClipSetInput!]!): Clip
     """
     Adds notes and returns the ids Live assigned, in the order the notes were
     given.
@@ -605,10 +622,7 @@ const typeDefs = /* GraphQL */ `
     clip_move_playing_pos(id: Int!, beats: Float!): Clip
     clip_set_fire_button_state(id: Int!, state: Boolean!): Clip
 
-    clip_view_set_properties(
-      id: Int!
-      properties: ClipViewPropertiesInput!
-    ): ClipView
+    clip_view_set(id: Int!, properties: [ClipViewSetInput!]!): ClipView
     clip_view_show_loop(id: Int!): ClipView
   }
 `;
@@ -842,7 +856,7 @@ function toLiveValue(value) {
  * `id N`, the form `live.object` and `live.path` exchange. The v8 `LiveAPI`
  * accepts a single string for that pair when constructing (`new LiveAPI("id 12")`,
  * which `liveql-m4l.js` already relies on), so the same string form is used for
- * arguments. Confirmed in Live for `set` (`song_view_set_detail_clip`); if a
+ * arguments. Confirmed in Live for `set` (`song_view_set` with `detail_clip`); if a
  * child setter is ever rejected, the alternative to try is the two-atom form
  * `["id", id]`, and this is the only place to change.
  */
@@ -890,34 +904,36 @@ function isInvalidId(err) {
   return err.message.includes("Invalid live id or path");
 }
 
-async function setProperties(id, properties, keys) {
-  for (const k of keys.filter((k) => properties[k] !== undefined)) {
-    await set(id, k, toLiveValue(properties[k]));
-  }
+/**
+ * The resolver for `<object>_set`. Each `properties` item is `@oneOf`, so it
+ * has exactly one key, and is one LOM `set` sent in list order. A child is set
+ * by id, and `0` becomes `id 0`, the LOM's empty child. The first failed set
+ * stops the list, because later items may depend on it (a marker is only valid
+ * against its partner), and the error names that item and the ones already
+ * applied, since Live keeps them. The object is read once, after the last set.
+ */
+function setter(read, children = new Set()) {
+  return async (parent, { id, properties }, context, { fieldName }) => {
+    const applied = [];
+    for (const [index, item] of properties.entries()) {
+      const [[property, value]] = Object.entries(item);
+      try {
+        await set(
+          id,
+          property,
+          children.has(property) ? idArg(value) : toLiveValue(value),
+        );
+      } catch (err) {
+        throw new Error(
+          `${err.message}; ${fieldName} stopped at properties[${index}], applied: ${applied.join(", ") || "none"}`,
+          { cause: err },
+        );
+      }
+      applied.push(`properties[${index}] ${property}`);
+    }
+    return read(id);
+  };
 }
-
-const CLIP_SCALAR_KEYS = [
-  "name",
-  "signature_numerator",
-  "signature_denominator",
-  "looping",
-  "muted",
-  "color",
-  "color_index",
-  "launch_mode",
-  "launch_quantization",
-  "legato",
-  "velocity_amount",
-];
-
-const CLIP_PROPERTY_KEYS = [
-  ...CLIP_SCALAR_KEYS,
-  "loop_start",
-  "loop_end",
-  "start_marker",
-  "end_marker",
-  "position",
-];
 
 function normalizeNoteInput(note) {
   if (note.mute === undefined) {
@@ -1035,30 +1051,7 @@ const resolvers = {
       await call(args.id, "stop_playing");
       return getSong();
     },
-    song_set_properties: async (parent, args) => {
-      await setProperties(args.id, args.properties, [
-        "tempo",
-        "signature_numerator",
-        "signature_denominator",
-        "current_song_time",
-        "start_time",
-        "loop",
-        "loop_length",
-        "loop_start",
-        "metronome",
-        "swing_amount",
-        "midi_recording_quantization",
-        "clip_trigger_quantization",
-        "root_note",
-        "scale_name",
-        "scale_mode",
-        "record_mode",
-        "session_record",
-        "overdub",
-        "arrangement_overdub",
-      ]);
-      return getSong();
-    },
+    song_set: setter(getSong),
     song_undo: async (parent, args) => {
       await call(args.id, "undo");
       return getSong();
@@ -1092,46 +1085,17 @@ const resolvers = {
       return getSong();
     },
 
-    song_view_set_properties: async (parent, args) => {
-      await setProperties(args.id, args.properties, [
-        "draw_mode",
-        "follow_song",
-      ]);
-      return getSongView(args.id);
-    },
-    song_view_set_detail_clip: async (parent, args) => {
-      await set(args.id, "detail_clip", idArg(args.detail_clip));
-      return getSongView(args.id);
-    },
-    song_view_set_selected_track: async (parent, args) => {
-      await set(args.id, "selected_track", idArg(args.selected_track));
-      return getSongView(args.id);
-    },
-    song_view_set_highlighted_clip_slot: async (parent, args) => {
-      await set(
-        args.id,
+    song_view_set: setter(
+      getSongView,
+      new Set([
+        "selected_track",
+        "detail_clip",
         "highlighted_clip_slot",
-        idArg(args.highlighted_clip_slot),
-      );
-      return getSongView(args.id);
-    },
-    song_view_set_selected_scene: async (parent, args) => {
-      await set(args.id, "selected_scene", idArg(args.selected_scene));
-      return getSongView(args.id);
-    },
+        "selected_scene",
+      ]),
+    ),
 
-    track_set_properties: async (parent, args) => {
-      await setProperties(args.id, args.properties, [
-        "name",
-        "arm",
-        "mute",
-        "solo",
-        "color",
-        "color_index",
-        "fold_state",
-      ]);
-      return getTrack(args.id);
-    },
+    track_set: setter(getTrack),
     track_stop_all_clips: async (parent, args) => {
       await call(args.id, "stop_all_clips");
       return getTrack(args.id);
@@ -1190,10 +1154,7 @@ const resolvers = {
       await call(args.id, "duplicate_clip_to", idArg(args.target_clip_slot));
       return getClipSlot(args.id);
     },
-    clip_slot_set_has_stop_button: async (parent, args) => {
-      await set(args.id, "has_stop_button", toLiveBool(args.has_stop_button));
-      return getClipSlot(args.id);
-    },
+    clip_slot_set: setter(getClipSlot),
 
     scene_fire: async (parent, args) => {
       await call(
@@ -1207,24 +1168,9 @@ const resolvers = {
       );
       return getScene(args.id);
     },
-    scene_set_properties: async (parent, args) => {
-      await setProperties(args.id, args.properties, [
-        "name",
-        "color",
-        "color_index",
-        "tempo_enabled",
-        "tempo",
-        "time_signature_enabled",
-        "time_signature_numerator",
-        "time_signature_denominator",
-      ]);
-      return getScene(args.id);
-    },
+    scene_set: setter(getScene),
 
-    clip_set_properties: async (parent, args) => {
-      await setProperties(args.id, args.properties, CLIP_PROPERTY_KEYS);
-      return getClip(args.id);
-    },
+    clip_set: setter(getClip),
     clip_add_new_notes: async (parent, args) => {
       const note_ids = await addNewNotes(args.id, args.notes);
       return { clip: await getClip(args.id), note_ids };
@@ -1374,13 +1320,7 @@ const resolvers = {
      * the separate grid_is_triplet bool. This enum is not the one
      * `clip_quantize` takes.
      */
-    clip_view_set_properties: async (parent, args) => {
-      await setProperties(args.id, args.properties, [
-        "grid_quantization",
-        "grid_is_triplet",
-      ]);
-      return getClipView(args.id);
-    },
+    clip_view_set: setter(getClipView),
     clip_view_show_loop: async (parent, args) => {
       await call(args.id, "show_loop");
       return getClipView(args.id);

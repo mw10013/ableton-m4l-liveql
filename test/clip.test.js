@@ -2,11 +2,21 @@ const assert = require("node:assert/strict");
 const { describe, it, beforeEach } = require("node:test");
 const { createServer, errorMessage } = require("./helpers/server");
 
-const SET_PROPERTIES = `mutation ($p: ClipPropertiesInput!) {
-  clip_set_properties(id: 40, properties: $p) {
-    looping loop_start loop_end start_marker end_marker position
+const CLIP_SET = `mutation ($p: [ClipSetInput!]!) {
+  clip_set(id: 40, properties: $p) {
+    name looping loop_start loop_end start_marker end_marker
   }
 }`;
+
+function recordActions(lom) {
+  const actions = [];
+  const { exec } = lom;
+  lom.exec = (params) => {
+    actions.push(`${params.action} ${params.property ?? ""}`.trim());
+    return exec(params);
+  };
+  return actions;
+}
 
 describe("clip", () => {
   let gql, lom;
@@ -14,56 +24,106 @@ describe("clip", () => {
     ({ gql, lom } = createServer());
   });
 
-  it("sets every given key once, in the fixed key order, without reading first", async () => {
-    const { data, errors } = await gql(SET_PROPERTIES, {
-      p: {
-        position: 2,
-        end_marker: 8,
-        start_marker: 1,
-        loop_end: 8,
-        loop_start: 1,
-        looping: false,
-        name: "x",
-      },
+  it("sets each item in list order, then reads the clip back once", async () => {
+    const actions = recordActions(lom);
+    const { data, errors } = await gql(CLIP_SET, {
+      p: [
+        { end_marker: 8 },
+        { start_marker: 6 },
+        { name: "x" },
+        { looping: false },
+      ],
     });
     assert.equal(errors, undefined);
-    assert.deepEqual(
-      lom.log.map(([action]) => action).filter((a) => a !== "set"),
-      [],
-    );
-    assert.deepEqual(lom.setOrder(), [
-      "name",
-      "looping",
-      "loop_start",
-      "loop_end",
-      "start_marker",
-      "end_marker",
-      "position",
+    assert.deepEqual(actions, [
+      "set end_marker",
+      "set start_marker",
+      "set name",
+      "set looping",
+      "get",
     ]);
-    assert.deepEqual(data.clip_set_properties, {
+    assert.deepEqual(lom.setsOf("looping"), [["set", 40, "looping", 0]]);
+    assert.deepEqual(data.clip_set, {
+      name: "x",
       looping: false,
-      loop_start: 1,
-      loop_end: 8,
-      start_marker: 1,
+      loop_start: 0,
+      loop_end: 4,
+      start_marker: 6,
       end_marker: 8,
-      position: 2,
     });
   });
 
-  it("surfaces a marker Live rejects with the property that was refused", async () => {
-    const response = await gql(SET_PROPERTIES, { p: { start_marker: 6 } });
-    assert.equal(response.data.clip_set_properties, null);
+  it("sets the same property twice when the list names it twice", async () => {
+    const { errors } = await gql(CLIP_SET, {
+      p: [{ name: "a" }, { name: "b" }],
+    });
+    assert.equal(errors, undefined);
+    assert.deepEqual(lom.setsOf("name"), [
+      ["set", 40, "name", "a"],
+      ["set", 40, "name", "b"],
+    ]);
+  });
+
+  it("stops at the first failed set, naming it and what was applied, with no readback", async () => {
+    const actions = recordActions(lom);
+    const response = await gql(CLIP_SET, {
+      p: [
+        { name: "x" },
+        { looping: false },
+        { start_marker: 6 },
+        { end_marker: 8 },
+      ],
+    });
+    assert.equal(response.data.clip_set, null);
     assert.equal(
       errorMessage(response),
-      "liveql: set start_marker on 40: Cannot be set behind the end marker",
+      "liveql: set start_marker on 40: Cannot be set behind the end marker; clip_set stopped at properties[2], applied: properties[0] name, properties[1] looping",
     );
+    assert.deepEqual(actions, ["set name", "set looping", "set start_marker"]);
+  });
+
+  it("says nothing was applied when the first set fails", async () => {
+    const response = await gql(CLIP_SET, { p: [{ start_marker: 6 }] });
+    assert.equal(
+      errorMessage(response),
+      "liveql: set start_marker on 40: Cannot be set behind the end marker; clip_set stopped at properties[0], applied: none",
+    );
+  });
+
+  for (const { name, p } of [
+    { name: "an unknown property", p: [{ name: "x" }, { is_playing: true }] },
+    { name: "a wrong type", p: [{ name: "x" }, { looping: "yes" }] },
+    {
+      name: "two keys in one item",
+      p: [{ name: "x" }, { name: "y", looping: true }],
+    },
+    { name: "no key in an item", p: [{ name: "x" }, {}] },
+    { name: "a null value", p: [{ name: "x" }, { name: null }] },
+    { name: "a null item", p: [{ name: "x" }, null] },
+  ])
+    it(`rejects ${name} before any LOM call`, async () => {
+      const response = await gql(CLIP_SET, { p });
+      assert.equal(response.data, undefined);
+      assert.ok(response.errors?.length > 0);
+      assert.deepEqual(lom.log, []);
+    });
+
+  it("rejects two keys in an inline item before any LOM call", async () => {
+    const response = await gql(
+      'mutation { clip_set(id: 40, properties: [{ name: "x", looping: true }]) { id } }',
+    );
+    assert.match(
+      errorMessage(response),
+      /exactly one field must be specified/u,
+    );
+    assert.deepEqual(lom.log, []);
   });
 
   it("reads the clip view and writes its properties", async () => {
     const { data } = await gql(
-      "mutation { clip_view_set_properties(id: 41, properties: { grid_quantization: 5, grid_is_triplet: true }) { grid_quantization grid_is_triplet } }",
+      "mutation { clip_view_set(id: 41, properties: [{ grid_quantization: 5 }, { grid_is_triplet: true }]) { grid_quantization grid_is_triplet } }",
     );
-    assert.deepEqual(data.clip_view_set_properties, {
+    assert.deepEqual(data.clip_view_set, {
       grid_quantization: 5,
       grid_is_triplet: true,
     });

@@ -9,7 +9,7 @@ LiveQL runs as a Max for Live device with two components:
 - A **Max JS script** that talks directly to the LOM via LiveAPI
 - A **Node.js server** (via Node for Max) that serves a GraphQL API on `http://localhost:5100/graphql`
 
-External clients send GraphQL queries and mutations over HTTP. The Node server translates these into LOM operations, executes them through the Max layer, and returns the results as JSON. Every mutation is exactly one LOM operation, a `set` or a `call`, followed by the readback its selection set needs; orchestration is the client's job. Several mutations can be sent in one document as aliased fields, and they run serially in order.
+External clients send GraphQL queries and mutations over HTTP. The Node server translates these into LOM operations, executes them through the Max layer, and returns the results as JSON. A mutation does exactly the LOM operations the client listed, in order, with nothing added, followed by the readback its selection set needs; orchestration is the client's job. Several mutations can be sent in one document as aliased fields, and they run serially in order.
 
 ## Setup
 
@@ -89,7 +89,7 @@ with `node_modules` in a folder registered in the project's search path with **E
 
 **Playback** — Start, continue, and stop the song; stop all clips; jump; undo and redo; capture MIDI; create MIDI tracks and scenes; fire and stop clip slots, scenes and clips.
 
-**Properties** — `song_set_properties`, `track_set_properties`, `scene_set_properties`, `clip_set_properties`, `clip_view_set_properties` and `song_view_set_properties` batch property writes. Keys are written in a fixed order with no read first; Live drops a marker that would cross its partner without raising, so write markers one per mutation in the order that keeps start before end and compare the returned clip with what you asked for. Song view setters push a clip into Live's Detail View or select a track, scene or slot.
+**Properties** — `song_set`, `song_view_set`, `track_set`, `clip_slot_set`, `scene_set`, `clip_set` and `clip_view_set` take an ordered list of one-key items, such as `properties: [{ loop_end: 8 }, { loop_start: 4 }]`. Each item is one LOM `set`, sent in list order with no read first, and the object is read back once at the end. The first failed set stops the list; the error names that item and the items already applied, which stay applied. Live drops a marker that would cross its partner without raising, so order marker items to keep start before end and compare the returned clip with what you asked for. Song view children (`detail_clip`, `selected_track`, `selected_scene`, `highlighted_clip_slot`) take an object id, and `0` clears the child.
 
 **Clips** — Create an empty MIDI clip in a slot or the arrangement, delete, duplicate to a slot or the arrangement, crop, duplicate loop, scrub.
 
@@ -136,7 +136,7 @@ curl -s http://localhost:5100/graphql \
 # then use that id here
 curl -s http://localhost:5100/graphql \
   -H 'Content-Type: application/json' \
-  -d '{"query":"mutation { clip_set_properties(id: 39, properties: { looping: false }) { id looping } }"}' | jq .
+  -d '{"query":"mutation { clip_set(id: 39, properties: [{ looping: false }]) { id looping } }"}' | jq .
 
 # refetch a clip by id, then add notes and get the ids Live assigned
 curl -s http://localhost:5100/graphql \

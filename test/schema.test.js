@@ -123,7 +123,7 @@ describe("schema", () => {
       const property = operation.startsWith("set_") ? operation.slice(4) : null;
       assert.ok(
         names.size === 0 ||
-          operation === "set_properties" ||
+          operation === "set" ||
           INVENTED_MUTATIONS.has(operation) ||
           names.has(operation) ||
           names.has(property),

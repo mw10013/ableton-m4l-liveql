@@ -142,25 +142,32 @@ describe("song", () => {
     });
   });
 
-  it("sets a child with the id N atom pair", async () => {
+  it("sets a child with the id N atom pair, and clears it with id 0", async () => {
     const { data } = await gql(
-      "mutation { song_view_set_detail_clip(id: 2, detail_clip: 40) { id } }",
+      "mutation { song_view_set(id: 2, properties: [{ detail_clip: 40 }, { selected_scene: 0 }, { follow_song: true }]) { id } }",
     );
-    assert.equal(data.song_view_set_detail_clip.id, 2);
-    assert.deepEqual(lom.log, [["set", 2, "detail_clip", "id 40"]]);
+    assert.equal(data.song_view_set.id, 2);
+    assert.deepEqual(
+      lom.log.filter(([action]) => action === "set"),
+      [
+        ["set", 2, "detail_clip", "id 40"],
+        ["set", 2, "selected_scene", "id 0"],
+        ["set", 2, "follow_song", 1],
+      ],
+    );
   });
 
-  it("writes song properties in the resolver's order, booleans as 0 and 1", async () => {
+  it("writes song properties in list order, booleans as 0 and 1", async () => {
     const { data } = await gql(
-      "mutation { song_set_properties(id: 1, properties: { loop_start: 4, loop_length: 8, loop: true, metronome: false, tempo: 90 }) { tempo } }",
+      "mutation { song_set(id: 1, properties: [{ loop_start: 4 }, { loop_length: 8 }, { loop: true }, { metronome: false }, { tempo: 90 }]) { tempo } }",
     );
-    assert.equal(data.song_set_properties.tempo, 90);
+    assert.equal(data.song_set.tempo, 90);
     assert.deepEqual(lom.setOrder(), [
-      "tempo",
-      "loop",
-      "loop_length",
       "loop_start",
+      "loop_length",
+      "loop",
       "metronome",
+      "tempo",
     ]);
     assert.deepEqual(lom.setsOf("loop"), [["set", 1, "loop", 1]]);
     assert.deepEqual(lom.setsOf("metronome"), [["set", 1, "metronome", 0]]);
@@ -168,12 +175,12 @@ describe("song", () => {
 
   it("names the action, the property and the target in a failure", async () => {
     const response = await gql(
-      "mutation { song_set_properties(id: 999, properties: { tempo: 90 }) { id } }",
+      "mutation { song_set(id: 999, properties: [{ tempo: 90 }]) { id } }",
     );
-    assert.equal(response.data.song_set_properties, null);
+    assert.equal(response.data.song_set, null);
     assert.equal(
       errorMessage(response),
-      "liveql: set tempo on 999: Invalid live id or path: 999",
+      "liveql: set tempo on 999: Invalid live id or path: 999; song_set stopped at properties[0], applied: none",
     );
   });
 });
