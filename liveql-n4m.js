@@ -147,6 +147,10 @@ function firstString(data) {
   return Array.isArray(v) ? String(v[0] ?? "") : String(v ?? "");
 }
 
+function firstNumber(data) {
+  return Number([parseMaybeJson(data)].flat()[0] ?? 0);
+}
+
 function isInvalidId(err) {
   return err.message.includes("Invalid live id or path");
 }
@@ -315,7 +319,19 @@ const LOM_TYPES = {
   StringVector: "[String!]",
   unicode: "String",
 };
-const FIELD_READERS = { Int: firstInt, String: firstString };
+/**
+ * How what `LiveAPI.call` answers reads as the GraphQL type of a function's
+ * value. Live answers a scalar either alone or as a one-item list, depending
+ * on the function, so each reader takes both; a bool comes back as 0 or 1.
+ */
+const READERS = {
+  Int: firstInt,
+  Float: firstNumber,
+  Boolean: (data) => firstNumber(data) !== 0,
+  String: firstString,
+  "[Int!]": toIntList,
+  "[String!]": (data) => [parseMaybeJson(data)].flat().map(String),
+};
 const INFO_DESCRIPTION =
   "Raw `LiveAPI.info`: id, type, description, and the children, properties\nand functions Live reports for this object, one per line, ending in `done`.\nRead only when selected.";
 const CHILD_INPUT_DESCRIPTION = "A child is set by its id, and 0 clears it.";
@@ -464,7 +480,6 @@ function lomClass(name) {
         const row = o.functions?.[member];
         if (row?.custom) return [];
         if (row?.skip) return skip(member, row.skip);
-        if (row?.field) return [{ member, field: row.field }];
         if (!row && returns) return skip(member, `returns ${returns}`);
         const args = row?.args
           ? Object.entries(row.args).map(([argName, spec]) =>
@@ -479,7 +494,15 @@ function lomClass(name) {
             member,
             `unresolved parameter ${unresolved.map((p) => p.name ?? `[${p.type}]`).join(", ")}`,
           );
-        return [{ member, args, description: row?.description }];
+        return [
+          {
+            member,
+            args,
+            field: row?.field,
+            returns: row?.returns,
+            description: row?.description,
+          },
+        ];
       },
     ),
   };
@@ -580,6 +603,22 @@ const description = (text, indent) =>
         .join("\n")}\n${indent}"""\n`
     : "";
 const field = (text, sdl) => `${description(text, "    ")}    ${sdl}\n`;
+const argsSdl = (args) =>
+  args.length === 0
+    ? ""
+    : `(${args.map((a) => `${a.name}: ${a.sdl}`).join(", ")})`;
+
+/**
+ * The type a function mutation returns when the LOM function answers a value
+ * (`Song.move_device`, `TrackView.select_instrument`): the object read back
+ * under its mutation prefix, and Live's answer under the function's name, the
+ * way a function exposed as a field is named.
+ */
+const payloadOf = (name, member) =>
+  `${name}${member
+    .split("_")
+    .map((w) => `${w[0].toUpperCase()}${w.slice(1)}`)
+    .join("")}Payload`;
 
 function objectSdl({
   name,
@@ -606,7 +645,9 @@ function objectSdl({
     ),
     ...functions
       .filter((f) => f.field)
-      .map(({ member, field: type }) => field(null, `${member}: ${type}`)),
+      .map(({ member, args, field: type, description: text }) =>
+        field(text, `${member}${argsSdl(args)}: ${type}`),
+      ),
     "  }\n",
   ].join("");
 }
@@ -637,10 +678,10 @@ function mutationSdl({ name, prefix, children, properties, functions }) {
         ),
     ...functions
       .filter((f) => !f.field)
-      .map(({ member, args, description: text }) =>
+      .map(({ member, args, returns, description: text }) =>
         field(
           text,
-          `${prefix}_${member}(${["id: Int!", ...args.map((a) => `${a.name}: ${a.sdl}`)].join(", ")}): ${name}`,
+          `${prefix}_${member}${argsSdl([{ name: "id", sdl: "Int!" }, ...args])}: ${returns ? payloadOf(name, member) : name}`,
         ),
       ),
   ].join("");
@@ -659,6 +700,12 @@ function mutationSdl({ name, prefix, children, properties, functions }) {
           "  }\n",
         ]),
     mutations && `  extend type Mutation {\n${mutations}  }\n`,
+    ...functions
+      .filter((f) => f.returns)
+      .map(
+        ({ member, returns }) =>
+          `  type ${payloadOf(name, member)} {\n${field(null, `${prefix}: ${name}!`)}${field(null, `${member}: ${returns}`)}  }\n`,
+      ),
   ].join("");
 }
 
@@ -717,6 +764,18 @@ function getObject(name, idOrPath, { fieldNodes, fragments }) {
         .map((p) => [p.member, o[p.member] ?? p.default]),
     ),
   }));
+}
+
+/**
+ * A LOM function's answer as the GraphQL type its override row gives: an
+ * object of the scope, answered as the `id N` pair (`get_document`), is read
+ * through the field's own selection, and `id 0` is null.
+ */
+function functionValue(type, data, info) {
+  const name = nullable(type);
+  if (!(name in CLASSES)) return READERS[name](data);
+  const id = firstInt(data);
+  return id ? getObject(name, id, info) : null;
 }
 
 /**
@@ -808,15 +867,34 @@ function objectResolvers({
     ...Object.fromEntries(
       functions
         .filter((f) => f.field)
-        .map(({ member, field: type }) => [
+        .map(({ member, args, field: type }) => [
           member,
-          async (parent) =>
-            FIELD_READERS[type.replace(/!$/u, "")](
-              await call(parent.id, member),
+          async (parent, values, context, info) =>
+            functionValue(
+              type,
+              await call(
+                parent.id,
+                member,
+                ...callArgs(info.fieldName, args, values),
+              ),
+              info,
             ),
         ]),
     ),
   };
+}
+
+function payloadResolvers({ name, prefix, functions }) {
+  return functions
+    .filter((f) => f.returns)
+    .map(({ member, returns }) => [
+      payloadOf(name, member),
+      {
+        [prefix]: ({ id }, args, context, info) => getObject(name, id, info),
+        [member]: ({ data }, args, context, info) =>
+          functionValue(returns, data, info),
+      },
+    ]);
 }
 
 function classMutations({ name, prefix, children, properties, functions }) {
@@ -841,15 +919,15 @@ function classMutations({ name, prefix, children, properties, functions }) {
     ...Object.fromEntries(
       functions
         .filter((f) => !f.field)
-        .map(({ member, args }) => [
+        .map(({ member, args, returns }) => [
           `${prefix}_${member}`,
           async (parent, values, context, info) => {
-            await call(
+            const data = await call(
               values.id,
               member,
               ...callArgs(info.fieldName, args, values),
             );
-            return read(values.id, info);
+            return returns ? { id: values.id, data } : read(values.id, info);
           },
         ]),
     ),
@@ -1083,6 +1161,7 @@ const resolvers = {
       .flatMap(objectTypesOf)
       .map((t) => [t.name, objectResolvers(t)]),
   ),
+  ...Object.fromEntries(Object.values(CLASSES).flatMap(payloadResolvers)),
   Query: {
     live_set: (parent, args, context, info) =>
       getObject("Song", "live_set", info),

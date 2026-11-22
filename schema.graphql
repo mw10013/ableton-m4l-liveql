@@ -16,6 +16,7 @@ type Application {
   average_process_usage: Float
   peak_process_usage: Float
   get_bugfix_version: Int!
+  get_document: Song!
   get_major_version: Int!
   get_minor_version: Int!
   get_version_string: String!
@@ -35,7 +36,7 @@ type Mutation {
   song_create_audio_track(id: Int!, index: Int = -1): Song
   song_create_midi_track(id: Int!, index: Int = -1): Song
   song_create_return_track(id: Int!): Song
-  song_create_scene(id: Int!, index: Int = -1): Song
+  song_create_scene(id: Int!, index: Int = -1): SongCreateScenePayload
   song_delete_scene(id: Int!, index: Int!): Song
   song_delete_track(id: Int!, index: Int!): Song
   song_delete_return_track(id: Int!, index: Int!): Song
@@ -45,6 +46,7 @@ type Mutation {
   song_jump_by(id: Int!, beats: Float!): Song
   song_jump_to_next_cue(id: Int!): Song
   song_jump_to_prev_cue(id: Int!): Song
+  song_move_device(id: Int!, device: Int!, target: Int!, target_position: Int!): SongMoveDevicePayload
   song_play_selection(id: Int!): Song
   song_re_enable_automation(id: Int!): Song
   song_redo(id: Int!): Song
@@ -184,6 +186,9 @@ type Mutation {
   application_view_toggle_browse(id: Int!): ApplicationView
   application_view_zoom_view(id: Int!, direction: Int!, view_name: String!, modifier_pressed: Boolean!): ApplicationView
   track_view_set(id: Int!, properties: [TrackViewSetInput!]!): TrackView
+
+  """false when the track has no device to select."""
+  track_view_select_instrument(id: Int!): TrackViewSelectInstrumentPayload
   take_lane_set(id: Int!, properties: [TakeLaneSetInput!]!): TakeLane
   take_lane_create_audio_clip(id: Int!, file_path: String!, start_time: Float!): TakeLane
   take_lane_create_midi_clip(id: Int!, start_time: Float!, length: Float!): TakeLane
@@ -324,6 +329,17 @@ type Song {
   start_time: Float
   swing_amount: Float
   tempo: Float
+  find_device_position(device: Int!, target: Int!, target_position: Int!): Int!
+  get_beats_loop_length: String!
+  get_beats_loop_start: String!
+  get_current_beats_song_time: String!
+
+  """
+  format: 0 = the frame position shows milliseconds, 1 = Smpte24,
+  2 = Smpte25, 3 = Smpte30, 4 = Smpte30Drop, 5 = Smpte29.
+  """
+  get_current_smpte_song_time(format: Int!): String!
+  is_cue_point_selected: Boolean!
 }
 
 input SongSetInput @oneOf {
@@ -357,6 +373,16 @@ input SongSetInput @oneOf {
   start_time: Float
   swing_amount: Float
   tempo: Float
+}
+
+type SongCreateScenePayload {
+  song: Song!
+  create_scene: Scene!
+}
+
+type SongMoveDevicePayload {
+  song: Song!
+  move_device: Int!
 }
 
 type SongView {
@@ -830,6 +856,7 @@ type SimplerDevice implements Device {
   retrigger: Boolean
   slicing_playback_mode: Int
   voices: Int
+  guess_playback_length: Float!
 }
 
 input SimplerDeviceSetInput @oneOf {
@@ -924,6 +951,9 @@ type WavetableDevice implements Device {
   unison_mode: Int
   unison_voice_count: Int
   visible_modulation_target_names: [String!]
+  get_modulation_target_parameter_name(index: Int!): String!
+  get_modulation_value(modulation_target_index: Int!, modulation_source_index: Int!): Float!
+  is_parameter_modulatable(parameter: Int!): Boolean!
 }
 
 input WavetableDeviceSetInput @oneOf {
@@ -1005,6 +1035,11 @@ type MaxDevice implements Device {
 
   """Null when can_compare_ab is false: such a device's info leaves it out."""
   is_using_compare_preset_b: Boolean
+  get_bank_count: Int!
+  get_bank_name(bank_index: Int!): String!
+
+  """-1 marks an empty slot. Bank index -1 is the Best of bank."""
+  get_bank_parameters(bank_index: Int!): [Int!]!
 }
 
 type DeviceParameter {
@@ -1034,6 +1069,7 @@ type DeviceParameter {
   Null when is_quantized is false: such a parameter's info leaves it out.
   """
   value_items: [String!]
+  str_for_value(value: Float!): String!
 }
 
 input DeviceParameterSetInput @oneOf {
@@ -1173,6 +1209,8 @@ type ApplicationView {
   info: String!
   browse_mode: Boolean
   focused_document_view: String
+  available_main_views: [String!]!
+  is_view_visible(view_name: String!): Boolean!
 }
 
 type TrackView {
@@ -1199,6 +1237,11 @@ input TrackViewSetInput @oneOf {
   """
   device_insert_mode: Int
   is_collapsed: Boolean
+}
+
+type TrackViewSelectInstrumentPayload {
+  track_view: TrackView!
+  select_instrument: Boolean!
 }
 
 type TakeLane {
@@ -1394,6 +1437,7 @@ type Sample {
   slicing_style: Int
   slicing_beat_division: Int
   slicing_region_count: Int
+  gain_display_string: String!
 }
 
 input SampleSetInput @oneOf {

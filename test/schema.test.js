@@ -64,6 +64,9 @@ const MUTATION_PREFIX = {
   Clip: "clip",
   ClipView: "clip_view",
   ClipNotesPayload: "clip",
+  SongCreateScenePayload: "song",
+  SongMoveDevicePayload: "song",
+  TrackViewSelectInstrumentPayload: "track_view",
   Device: "device",
   SimplerDevice: "simpler_device",
   RackDevice: "rack_device",
@@ -97,7 +100,18 @@ const MUTATION_PREFIX = {
   DeviceIO: "device_io",
   CompressorDevice: "compressor_device",
 };
-const INVENTED_FIELDS = new Set(["id", "info", "properties", "input"]);
+/**
+ * `song` and `track_view` are mutation prefixes, naming the object a payload
+ * reads back.
+ */
+const INVENTED_FIELDS = new Set([
+  "id",
+  "info",
+  "properties",
+  "input",
+  "song",
+  "track_view",
+]);
 /**
  * Keys of the TuningSystem dictionaries, named verbatim as Live returns them:
  * the docs describe those dictionaries only in prose.
@@ -113,7 +127,8 @@ const INVENTED_MUTATIONS = new Set(["write_notes", "replace_notes"]);
 /**
  * The LOM vocabulary as the reference docs spell it: `### name` headings cover
  * properties, children and functions, and inline code spans cover function
- * parameters (`` `record_length (optional)` ``). The docs are a shared reference
+ * parameters (`` `record_length (optional)` ``), a name of several words with
+ * its spaces as underscores (`` `target position` ``). The docs are a shared reference
  * beside this checkout, so the tests that consume this skip themselves when it
  * has not been fetched.
  */
@@ -128,9 +143,9 @@ function lomNames() {
     ))
       names.add(groups.name);
     for (const { groups } of text.matchAll(
-      /`(?<name>[a-z][a-z0-9_]*)(?: \(optional\))?`/gu,
+      /`(?<name>[a-z][a-z0-9_ ]*?)(?: \(optional\))?`/gu,
     ))
-      names.add(groups.name);
+      names.add(groups.name.replaceAll(" ", "_"));
   }
   return names;
 }

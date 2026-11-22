@@ -22,9 +22,12 @@
  * - `functions.<name>`: `args`, the GraphQL arguments in LOM call order, each
  *   an SDL type with an optional default or `{ type, id: true }` for an object
  *   passed by id, replacing what the docs give; `description`; `field`, the
- *   GraphQL type of a function exposed as a lazily called field instead of a
- *   mutation; `custom`, a function `liveql-n4m.js` writes by hand; `skip`, why
- *   a function is left out.
+ *   GraphQL type of a function that only reads, exposed as a lazily called
+ *   field with the same arguments instead of a mutation; `returns`, the
+ *   GraphQL type of what a function with a side effect answers, which its
+ *   mutation returns in a `<Class><Function>Payload` beside the object read
+ *   back; `custom`, a function `liveql-n4m.js` writes by hand; `skip`, why a
+ *   function is left out.
  * - `drift.<name>`: where Live's `info` disagrees with the docs for a member
  *   (undocumented, absent from every object, or another type), as the `test:live`
  *   drift check prints it. The schema builder ignores it; the row records that
@@ -88,6 +91,7 @@ module.exports = {
         get_minor_version: { field: "Int!" },
         get_bugfix_version: { field: "Int!" },
         get_version_string: { field: "String!" },
+        get_document: { field: "Song!" },
         press_current_dialog_button: { args: { index: "Int!" } },
       },
     },
@@ -122,13 +126,38 @@ module.exports = {
         capture_midi: { args: { destination: "Int = 0" } },
         create_audio_track: { args: { index: "Int = -1" } },
         create_midi_track: { args: { index: "Int = -1" } },
-        create_scene: { args: { index: "Int = -1" } },
+        create_scene: { args: { index: "Int = -1" }, returns: "Scene!" },
         delete_track: { args: { index: "Int!" } },
         delete_return_track: { args: { index: "Int!" } },
         delete_scene: { args: { index: "Int!" } },
         duplicate_scene: { args: { index: "Int!" } },
         duplicate_track: { args: { index: "Int!" } },
         trigger_session_record: { args: { record_length: "Float" } },
+        find_device_position: {
+          args: {
+            device: { type: "Int!", id: true },
+            target: { type: "Int!", id: true },
+            target_position: "Int!",
+          },
+          field: "Int!",
+        },
+        move_device: {
+          args: {
+            device: { type: "Int!", id: true },
+            target: { type: "Int!", id: true },
+            target_position: "Int!",
+          },
+          returns: "Int!",
+        },
+        get_beats_loop_length: { field: "String!" },
+        get_beats_loop_start: { field: "String!" },
+        get_current_beats_song_time: { field: "String!" },
+        get_current_smpte_song_time: {
+          field: "String!",
+          description:
+            "format: 0 = the frame position shows milliseconds, 1 = Smpte24,\n2 = Smpte25, 3 = Smpte30, 4 = Smpte30Drop, 5 = Smpte29.",
+        },
+        is_cue_point_selected: { field: "Boolean!" },
       },
     },
     SongView: {
@@ -400,6 +429,9 @@ module.exports = {
         },
       },
     },
+    SimplerDevice: {
+      functions: { guess_playback_length: { field: "Float!" } },
+    },
     RackDevice: {
       drift: {
         is_using_compare_preset_b:
@@ -410,6 +442,16 @@ module.exports = {
       drift: {
         is_using_compare_preset_b:
           "documented as a property, in no MaxDevice's info (Live 12.4.6); absent because no fixture Max device can_compare_ab",
+      },
+      functions: {
+        get_bank_count: { field: "Int!" },
+        /** Documented as a list of symbols, Live answers one string: `Bank 1`. */
+        get_bank_name: { field: "String!" },
+        get_bank_parameters: {
+          field: "[Int!]!",
+          description:
+            "-1 marks an empty slot. Bank index -1 is the Best of bank.",
+        },
       },
     },
     PluginDevice: {
@@ -426,15 +468,9 @@ module.exports = {
         oscillator_2_wavetable_index: { type: "Int" },
       },
       functions: {
-        get_modulation_target_parameter_name: {
-          skip: "returns a symbol the docs describe only in prose",
-        },
-        get_modulation_value: {
-          skip: "returns a value the docs describe only in prose",
-        },
-        is_parameter_modulatable: {
-          skip: "returns a bool the docs describe only in prose",
-        },
+        get_modulation_target_parameter_name: { field: "String!" },
+        get_modulation_value: { field: "Float!" },
+        is_parameter_modulatable: { field: "Boolean!" },
         /**
          * The docs list only the two indices. Live takes the amount as a third
          * argument: measured in Live 12.4.6, setting 0.25 reads back 0.25
@@ -458,6 +494,16 @@ module.exports = {
         value_items: {
           description:
             "Null when is_quantized is false: such a parameter's info leaves it out.",
+        },
+      },
+      functions: {
+        str_for_value: { args: { value: "Float!" }, field: "String!" },
+        /**
+         * Measured in Live 12.4.6: `__str__` and `str_for_value` of the
+         * parameter's own value answer the same string (`-9.0 dB`, `0.0 %`).
+         */
+        __str__: {
+          skip: "GraphQL reserves names that start with __, and str_for_value(value) answers the same string for the parameter's value",
         },
       },
     },
@@ -485,6 +531,8 @@ module.exports = {
           "undocumented, info lists a child Application (Live 12.4.6)",
       },
       functions: {
+        available_main_views: { field: "[String!]!" },
+        is_view_visible: { args: { view_name: "String!" }, field: "Boolean!" },
         focus_view: { args: { view_name: "String!" } },
         hide_view: { args: { view_name: "String!" } },
         show_view: { args: { view_name: "String!" } },
@@ -511,6 +559,12 @@ module.exports = {
         device_insert_mode: "documented as int, info says bool (Live 12.4.6)",
         selected_device:
           "documented as Device, info types it by the selected device's class, such as SpectralResonatorDevice (Live 12.4.6)",
+      },
+      functions: {
+        select_instrument: {
+          returns: "Boolean!",
+          description: "false when the track has no device to select.",
+        },
       },
       properties: {
         device_insert_mode: {
@@ -559,6 +613,7 @@ module.exports = {
       properties: {
         slices: { type: "[Int!]" },
       },
+      functions: { gain_display_string: { field: "String!" } },
     },
     CuePoint: {
       drift: {

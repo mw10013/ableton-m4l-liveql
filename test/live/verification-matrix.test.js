@@ -796,14 +796,15 @@ describe("live", { skip: SKIP }, () => {
   });
 
   /**
-   * The functions whose parameters the docs leave untyped, called on tracks,
-   * return tracks and scenes made for the purpose and deleted afterwards, so
-   * the fixture's own are back as they were. `trigger_session_record` and
+   * The functions whose parameters the docs leave untyped or that answer a
+   * value, called on the fixture's objects where they only read, and
+   * otherwise on tracks, return tracks and scenes made for the purpose and
+   * deleted afterwards, so the fixture's own are back as they were. `trigger_session_record` and
    * `press_current_dialog_button` are not called: the first records into
    * whichever track is armed, and the second only means something while Live
    * shows a dialog.
    */
-  describe("functions whose parameters the docs leave untyped", () => {
+  describe("functions whose parameters the docs leave untyped or that answer a value", () => {
     const LISTS = "id tracks { id } return_tracks { id } scenes { id }";
     let original;
     const ids = (list) => list.map((o) => o.id);
@@ -931,9 +932,17 @@ describe("live", { skip: SKIP }, () => {
         ).track.view.selected_device.id,
         compressor,
       );
+      const modulation = async (mutation) =>
+        (
+          await data(
+            `${mutation} { wavetable: track(id: ${track}) { devices { ... on WavetableDevice { get_modulation_value(modulation_target_index: 0, modulation_source_index: 1) } } } }`,
+          )
+        ).wavetable.devices[0].get_modulation_value;
+      assert.equal(await modulation(""), 0);
       await data(
         `mutation { wavetable_device_set_modulation_value(id: ${wavetable}, modulation_target_index: 0, modulation_source_index: 1, value: 0.25) { id } }`,
       );
+      assert.equal(await modulation(""), 0.25);
       assert.deepEqual(
         ids(
           (
@@ -943,6 +952,142 @@ describe("live", { skip: SKIP }, () => {
           ).track_delete_device.devices,
         ),
         [wavetable],
+      );
+    });
+
+    it("returns Live's answer to move_device, select_instrument and create_scene beside the read-back object", async () => {
+      const song = original.id;
+      const track = await newTrack("midi");
+      const empty = await newTrack("midi");
+      const inserted = await data(
+        `mutation { a: track_insert_device(id: ${track}, device_name: "Wavetable") { id } b: track_insert_device(id: ${track}, device_name: "Compressor") { id } c: track_insert_device(id: ${track}, device_name: "Reverb") { devices { id } } }`,
+      );
+      const [wavetable, compressor, reverb] = ids(inserted.c.devices);
+      const { song_move_device } = await data(
+        `mutation { song_move_device(id: ${song}, device: ${reverb}, target: ${track}, target_position: 1) { move_device song { id } } }`,
+      );
+      assert.deepEqual(song_move_device, {
+        move_device: 1,
+        song: { id: song },
+      });
+      assert.deepEqual(
+        ids(
+          (await data(`{ track(id: ${track}) { devices { id } } }`)).track
+            .devices,
+        ),
+        [wavetable, reverb, compressor],
+      );
+      const views = await data(
+        `{ a: track(id: ${track}) { view { id } } b: track(id: ${empty}) { view { id } } }`,
+      );
+      const select = async (id) =>
+        (
+          await data(
+            `mutation { track_view_select_instrument(id: ${id}) { select_instrument track_view { selected_device { id } } } }`,
+          )
+        ).track_view_select_instrument;
+      assert.deepEqual(await select(views.a.view.id), {
+        select_instrument: true,
+        track_view: { selected_device: { id: wavetable } },
+      });
+      assert.deepEqual(await select(views.b.view.id), {
+        select_instrument: false,
+        track_view: { selected_device: null },
+      });
+      const { song_create_scene } = await data(
+        `mutation { song_create_scene(id: ${song}) { create_scene { id } song { scenes { id } } } }`,
+      );
+      assert.equal(
+        song_create_scene.create_scene.id,
+        song_create_scene.song.scenes.at(-1).id,
+      );
+    });
+
+    it("reads the functions that only read as fields", async () => {
+      const { live_app, live_set } = await data(`{
+        live_app { get_document { id } view { available_main_views is_view_visible(view_name: "Browser") } }
+        live_set {
+          id get_beats_loop_length get_beats_loop_start get_current_beats_song_time
+          get_current_smpte_song_time(format: 0) is_cue_point_selected
+          tracks { id devices {
+            cls: __typename id
+            parameters { id value }
+            ... on SimplerDevice { guess_playback_length sample { gain_display_string } }
+            ... on MaxDevice { get_bank_count get_bank_name(bank_index: 0) get_bank_parameters(bank_index: 0) }
+            ... on WavetableDevice { get_modulation_target_parameter_name(index: 0) get_modulation_value(modulation_target_index: 0, modulation_source_index: 0) }
+          } }
+        }
+      }`);
+      assert.equal(live_app.get_document.id, live_set.id);
+      assert.deepEqual(live_app.view.available_main_views, [
+        "Browser",
+        "Arranger",
+        "Session",
+        "Detail",
+        "Detail/Clip",
+        "Detail/DeviceChain",
+      ]);
+      assert.equal(typeof live_app.view.is_view_visible, "boolean");
+      for (const f of [
+        "get_beats_loop_length",
+        "get_beats_loop_start",
+        "get_current_beats_song_time",
+      ])
+        assert.match(live_set[f], /^\d+\.\d+\.\d+\.\d+$/u, f);
+      assert.match(live_set.get_current_smpte_song_time, /^\d+:\d+:\d+:\d+$/u);
+      assert.equal(typeof live_set.is_cue_point_selected, "boolean");
+      const devices = live_set.tracks.flatMap((t) =>
+        t.devices.map((d) => ({ ...d, track: t.id })),
+      );
+      const of = (typename) => devices.find((d) => d.cls === typename);
+      const simpler = of("SimplerDevice");
+      assert.equal(typeof simpler.guess_playback_length, "number");
+      assert.match(simpler.sample.gain_display_string, / dB$/u);
+      const max = of("MaxDevice");
+      assert.ok(Number.isInteger(max.get_bank_count));
+      assert.equal(typeof max.get_bank_name, "string");
+      assert.ok(max.get_bank_parameters.every(Number.isInteger));
+      record(
+        "MaxDevice banks",
+        JSON.stringify({ ...max, parameters: undefined }),
+      );
+      const wavetable = of("WavetableDevice");
+      assert.equal(
+        typeof wavetable.get_modulation_target_parameter_name,
+        "string",
+      );
+      assert.equal(typeof wavetable.get_modulation_value, "number");
+      const [parameter] = wavetable.parameters.slice(-1);
+      const { track: read } = await data(
+        `{ track(id: ${wavetable.track}) { devices { ... on WavetableDevice { is_parameter_modulatable(parameter: ${parameter.id}) parameters { id str_for_value(value: ${parameter.value}) } } } } }`,
+      );
+      const own = read.devices.find((d) => "is_parameter_modulatable" in d);
+      assert.equal(typeof own.is_parameter_modulatable, "boolean");
+      const str = own.parameters.find(
+        (p) => p.id === parameter.id,
+      ).str_for_value;
+      assert.equal(typeof str, "string");
+      record(
+        "Wavetable last parameter",
+        `${parameter.value} is ${JSON.stringify(str)}, modulatable ${own.is_parameter_modulatable}`,
+      );
+      const eq8 = of("Eq8Device");
+      const before = live_set.tracks.find((t) => t.id === eq8.track).devices;
+      assert.ok(
+        Number.isInteger(
+          (
+            await data(
+              `{ live_set { find_device_position(device: ${eq8.id}, target: ${wavetable.track}, target_position: 0) } }`,
+            )
+          ).live_set.find_device_position,
+        ),
+      );
+      assert.deepEqual(
+        ids(
+          (await data(`{ track(id: ${eq8.track}) { devices { id } } }`)).track
+            .devices,
+        ),
+        ids(before),
       );
     });
   });
