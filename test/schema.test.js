@@ -55,6 +55,7 @@ const LOM_OBJECT_TYPES = [
   "DeviceIO",
 ];
 const MUTATION_PREFIX = {
+  Application: "application",
   Song: "song",
   SongView: "song_view",
   Track: "track",

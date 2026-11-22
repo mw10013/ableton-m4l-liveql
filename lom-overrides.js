@@ -88,6 +88,7 @@ module.exports = {
         get_minor_version: { field: "Int!" },
         get_bugfix_version: { field: "Int!" },
         get_version_string: { field: "String!" },
+        press_current_dialog_button: { args: { index: "Int!" } },
       },
     },
     Song: {
@@ -119,14 +120,23 @@ module.exports = {
       functions: {
         stop_all_clips: { args: { quantized: "Boolean = true" } },
         capture_midi: { args: { destination: "Int = 0" } },
+        create_audio_track: { args: { index: "Int = -1" } },
         create_midi_track: { args: { index: "Int = -1" } },
         create_scene: { args: { index: "Int = -1" } },
         delete_track: { args: { index: "Int!" } },
+        delete_return_track: { args: { index: "Int!" } },
+        delete_scene: { args: { index: "Int!" } },
+        duplicate_scene: { args: { index: "Int!" } },
+        duplicate_track: { args: { index: "Int!" } },
+        trigger_session_record: { args: { record_length: "Float" } },
       },
     },
     SongView: {
       drift: {
         canonical_parent: "undocumented, info lists a child Song (Live 12.4.6)",
+      },
+      functions: {
+        select_device: { args: { device: { type: "Int!", id: true } } },
       },
     },
     Track: {
@@ -218,6 +228,7 @@ module.exports = {
           description:
             "An unknown device_name, or an instrument on a track that already holds one,\nis dropped without an error. Compare the returned devices with what you asked\nfor.",
         },
+        delete_device: { args: { index: "Int!" } },
         duplicate_clip_slot: { args: { index: "Int!" } },
         duplicate_clip_to_arrangement: {
           args: {
@@ -246,6 +257,7 @@ module.exports = {
           description:
             "The LOM takes these optional arguments positionally, so launch_quantization\nwithout record_length is rejected with an error naming the missing one.",
         },
+        create_audio_clip: { args: { path: "String!" } },
         create_clip: { args: { length: "Float!" } },
       },
     },
@@ -366,6 +378,11 @@ module.exports = {
             "Live's Triplet Grid toggle, which the grid_quantization enum has no values for.",
         },
       },
+      functions: {
+        select_envelope_parameter: {
+          args: { parameter: { type: "Int!", id: true } },
+        },
+      },
     },
     Device: {
       drift: {
@@ -418,8 +435,17 @@ module.exports = {
         is_parameter_modulatable: {
           skip: "returns a bool the docs describe only in prose",
         },
+        /**
+         * The docs list only the two indices. Live takes the amount as a third
+         * argument: measured in Live 12.4.6, setting 0.25 reads back 0.25
+         * through `get_modulation_value`.
+         */
         set_modulation_value: {
-          skip: "the docs list no parameter for the amount to set",
+          args: {
+            modulation_target_index: "Int!",
+            modulation_source_index: "Int!",
+            value: "Float!",
+          },
         },
       },
     },

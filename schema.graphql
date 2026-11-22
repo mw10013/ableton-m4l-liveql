@@ -21,6 +21,233 @@ type Application {
   get_version_string: String!
 }
 
+"""
+Each <object>_set does one LOM set per properties item, in list order, then
+reads the object back once. It stops at the first set that fails, and the
+error names that item and the items already applied, which stay applied.
+"""
+type Mutation {
+  application_press_current_dialog_button(id: Int!, index: Int!): Application
+  song_set(id: Int!, properties: [SongSetInput!]!): Song
+  song_capture_and_insert_scene(id: Int!): Song
+  song_capture_midi(id: Int!, destination: Int = 0): Song
+  song_continue_playing(id: Int!): Song
+  song_create_audio_track(id: Int!, index: Int = -1): Song
+  song_create_midi_track(id: Int!, index: Int = -1): Song
+  song_create_return_track(id: Int!): Song
+  song_create_scene(id: Int!, index: Int = -1): Song
+  song_delete_scene(id: Int!, index: Int!): Song
+  song_delete_track(id: Int!, index: Int!): Song
+  song_delete_return_track(id: Int!, index: Int!): Song
+  song_duplicate_scene(id: Int!, index: Int!): Song
+  song_duplicate_track(id: Int!, index: Int!): Song
+  song_force_link_beat_time(id: Int!): Song
+  song_jump_by(id: Int!, beats: Float!): Song
+  song_jump_to_next_cue(id: Int!): Song
+  song_jump_to_prev_cue(id: Int!): Song
+  song_play_selection(id: Int!): Song
+  song_re_enable_automation(id: Int!): Song
+  song_redo(id: Int!): Song
+  song_scrub_by(id: Int!, beats: Float!): Song
+  song_set_or_delete_cue(id: Int!): Song
+  song_start_playing(id: Int!): Song
+  song_stop_all_clips(id: Int!, quantized: Boolean = true): Song
+  song_stop_playing(id: Int!): Song
+  song_tap_tempo(id: Int!): Song
+  song_trigger_session_record(id: Int!, record_length: Float): Song
+  song_undo(id: Int!): Song
+  song_view_set(id: Int!, properties: [SongViewSetInput!]!): SongView
+  song_view_select_device(id: Int!, device: Int!): SongView
+  track_set(id: Int!, properties: [TrackSetInput!]!): Track
+  track_create_audio_clip(id: Int!, file_path: String!, position: Float!): Track
+  track_create_midi_clip(id: Int!, start_time: Float!, length: Float!): Track
+  track_create_take_lane(id: Int!): Track
+
+  """
+  A take lane's clip is left in place without an error. Compare the returned
+  clips with what you asked for.
+  """
+  track_delete_clip(id: Int!, clip: Int!): Track
+  track_delete_device(id: Int!, index: Int!): Track
+  track_duplicate_clip_slot(id: Int!, index: Int!): Track
+  track_duplicate_clip_to_arrangement(id: Int!, clip: Int!, destination_time: Float!): Track
+
+  """
+  An unknown device_name, or an instrument on a track that already holds one,
+  is dropped without an error. Compare the returned devices with what you asked
+  for.
+  """
+  track_insert_device(id: Int!, device_name: String!, target_index: Int): Track
+  track_jump_in_running_session_clip(id: Int!, beats: Float!): Track
+  track_stop_all_clips(id: Int!): Track
+  clip_slot_set(id: Int!, properties: [ClipSlotSetInput!]!): ClipSlot
+  clip_slot_create_audio_clip(id: Int!, path: String!): ClipSlot
+  clip_slot_create_clip(id: Int!, length: Float!): ClipSlot
+  clip_slot_delete_clip(id: Int!): ClipSlot
+  clip_slot_duplicate_clip_to(id: Int!, target_clip_slot: Int!): ClipSlot
+
+  """
+  The LOM takes these optional arguments positionally, so launch_quantization
+  without record_length is rejected with an error naming the missing one.
+  """
+  clip_slot_fire(id: Int!, record_length: Float, launch_quantization: Int): ClipSlot
+  clip_slot_set_fire_button_state(id: Int!, state: Boolean!): ClipSlot
+  clip_slot_stop(id: Int!): ClipSlot
+  scene_set(id: Int!, properties: [SceneSetInput!]!): Scene
+
+  """
+  The LOM takes these optional arguments positionally, so
+  can_select_scene_on_launch without force_legato is rejected with an error
+  naming the missing one.
+  """
+  scene_fire(id: Int!, force_legato: Boolean, can_select_scene_on_launch: Boolean): Scene
+  scene_fire_as_selected(id: Int!, force_legato: Boolean): Scene
+  scene_set_fire_button_state(id: Int!, state: Boolean!): Scene
+  clip_set(id: Int!, properties: [ClipSetInput!]!): Clip
+  clip_clear_all_envelopes(id: Int!): Clip
+  clip_clear_envelope(id: Int!, device_parameter: Int!): Clip
+  clip_crop(id: Int!): Clip
+  clip_deselect_all_notes(id: Int!): Clip
+  clip_duplicate_loop(id: Int!): Clip
+  clip_duplicate_region(id: Int!, region_start: Float!, region_length: Float!, destination_time: Float!, pitch: Int = -1, transposition_amount: Int = 0): Clip
+  clip_fire(id: Int!): Clip
+  clip_move_playing_pos(id: Int!, beats: Float!): Clip
+  clip_move_warp_marker(id: Int!, beat_time: Float!, beat_time_distance: Float!): Clip
+
+  """
+  Live's Quantize dialog in menu order: 0 = no quantization, 1 = 1/4,
+  2 = 1/8, 3 = 1/8T, 4 = 1/8 + 1/8T, 5 = 1/16, 6 = 1/16T, 7 = 1/16 + 1/16T,
+  8 = 1/32. Anything from 9 up is silently ignored, so an out-of-range grid
+  gives no error and an unquantized clip. Not the ClipView.grid_quantization
+  enum. Quantizing takes Song.swing_amount into account.
+  """
+  clip_quantize(id: Int!, quantization_grid: Int!, amount: Float!): Clip
+
+  """
+  Live's Quantize dialog in menu order: 0 = no quantization, 1 = 1/4,
+  2 = 1/8, 3 = 1/8T, 4 = 1/8 + 1/8T, 5 = 1/16, 6 = 1/16T, 7 = 1/16 + 1/16T,
+  8 = 1/32. Anything from 9 up is silently ignored, so an out-of-range grid
+  gives no error and an unquantized clip. Not the ClipView.grid_quantization
+  enum. Quantizing takes Song.swing_amount into account.
+  """
+  clip_quantize_pitch(id: Int!, pitch: Int!, quantization_grid: Int!, amount: Float!): Clip
+  clip_remove_notes_by_id(id: Int!, note_ids: [Int!]!): Clip
+  clip_remove_notes_extended(id: Int!, from_pitch: Int!, pitch_span: Int!, from_time: Float!, time_span: Float!): Clip
+  clip_remove_warp_marker(id: Int!, beat_time: Float!): Clip
+  clip_scrub(id: Int!, beat_time: Float!): Clip
+  clip_select_all_notes(id: Int!): Clip
+  clip_select_notes_by_id(id: Int!, note_ids: [Int!]!): Clip
+  clip_set_fire_button_state(id: Int!, state: Boolean!): Clip
+  clip_stop(id: Int!): Clip
+  clip_stop_scrub(id: Int!): Clip
+  clip_view_set(id: Int!, properties: [ClipViewSetInput!]!): ClipView
+  clip_view_hide_envelope(id: Int!): ClipView
+  clip_view_select_envelope_parameter(id: Int!, parameter: Int!): ClipView
+  clip_view_show_envelope(id: Int!): ClipView
+  clip_view_show_loop(id: Int!): ClipView
+  device_set(id: Int!, properties: [DeviceSetInput!]!): Device
+  device_store_chosen_bank(id: Int!, script_index: Int!, bank_index: Int!): Device
+  device_save_preset_to_compare_ab_slot(id: Int!): Device
+  simpler_device_set(id: Int!, properties: [SimplerDeviceSetInput!]!): SimplerDevice
+  simpler_device_crop(id: Int!): SimplerDevice
+  simpler_device_reverse(id: Int!): SimplerDevice
+  simpler_device_warp_as(id: Int!, beats: Int!): SimplerDevice
+  simpler_device_warp_double(id: Int!): SimplerDevice
+  simpler_device_warp_half(id: Int!): SimplerDevice
+  simpler_device_replace_sample(id: Int!, file_path: String!): SimplerDevice
+  rack_device_set(id: Int!, properties: [RackDeviceSetInput!]!): RackDevice
+  rack_device_copy_pad(id: Int!, source_index: Int!, destination_index: Int!): RackDevice
+  rack_device_add_macro(id: Int!): RackDevice
+  rack_device_insert_chain(id: Int!, index: Int): RackDevice
+  rack_device_remove_macro(id: Int!): RackDevice
+  rack_device_randomize_macros(id: Int!): RackDevice
+  rack_device_store_variation(id: Int!): RackDevice
+  rack_device_recall_selected_variation(id: Int!): RackDevice
+  rack_device_recall_last_used_variation(id: Int!): RackDevice
+  rack_device_delete_selected_variation(id: Int!): RackDevice
+  wavetable_device_set(id: Int!, properties: [WavetableDeviceSetInput!]!): WavetableDevice
+  wavetable_device_add_parameter_to_modulation_matrix(id: Int!, parameter_to_add: Int!): WavetableDevice
+  wavetable_device_set_modulation_value(id: Int!, modulation_target_index: Int!, modulation_source_index: Int!, value: Float!): WavetableDevice
+  eq8_device_set(id: Int!, properties: [Eq8DeviceSetInput!]!): Eq8Device
+  device_parameter_set(id: Int!, properties: [DeviceParameterSetInput!]!): DeviceParameter
+  device_parameter_re_enable_automation(id: Int!): DeviceParameter
+  chain_set(id: Int!, properties: [ChainSetInput!]!): Chain
+  chain_delete_device(id: Int!, index: Int!): Chain
+  chain_insert_device(id: Int!, device_name: String!, target_index: Int): Chain
+  drum_chain_set(id: Int!, properties: [DrumChainSetInput!]!): DrumChain
+  drum_pad_set(id: Int!, properties: [DrumPadSetInput!]!): DrumPad
+  drum_pad_delete_all_chains(id: Int!): DrumPad
+  application_view_focus_view(id: Int!, view_name: String!): ApplicationView
+  application_view_hide_view(id: Int!, view_name: String!): ApplicationView
+  application_view_scroll_view(id: Int!, direction: Int!, view_name: String!, modifier_pressed: Boolean!): ApplicationView
+  application_view_show_view(id: Int!, view_name: String!): ApplicationView
+  application_view_toggle_browse(id: Int!): ApplicationView
+  application_view_zoom_view(id: Int!, direction: Int!, view_name: String!, modifier_pressed: Boolean!): ApplicationView
+  track_view_set(id: Int!, properties: [TrackViewSetInput!]!): TrackView
+  take_lane_set(id: Int!, properties: [TakeLaneSetInput!]!): TakeLane
+  take_lane_create_audio_clip(id: Int!, file_path: String!, start_time: Float!): TakeLane
+  take_lane_create_midi_clip(id: Int!, start_time: Float!, length: Float!): TakeLane
+  device_view_set(id: Int!, properties: [DeviceViewSetInput!]!): DeviceView
+  rack_device_view_set(id: Int!, properties: [RackDeviceViewSetInput!]!): RackDeviceView
+  simpler_device_view_set(id: Int!, properties: [SimplerDeviceViewSetInput!]!): SimplerDeviceView
+  eq8_device_view_set(id: Int!, properties: [Eq8DeviceViewSetInput!]!): Eq8DeviceView
+  mixer_device_set(id: Int!, properties: [MixerDeviceSetInput!]!): MixerDevice
+  sample_set(id: Int!, properties: [SampleSetInput!]!): Sample
+  sample_insert_slice(id: Int!, slice_time: Int!): Sample
+  sample_move_slice(id: Int!, source_time: Int!, destination_time: Int!): Sample
+  sample_remove_slice(id: Int!, slice_time: Int!): Sample
+  sample_clear_slices(id: Int!): Sample
+  sample_reset_slices(id: Int!): Sample
+  cue_point_set(id: Int!, properties: [CuePointSetInput!]!): CuePoint
+  cue_point_jump(id: Int!): CuePoint
+  groove_set(id: Int!, properties: [GrooveSetInput!]!): Groove
+  compressor_device_set(id: Int!, properties: [CompressorDeviceSetInput!]!): CompressorDevice
+  drift_device_set(id: Int!, properties: [DriftDeviceSetInput!]!): DriftDevice
+  drum_cell_device_set(id: Int!, properties: [DrumCellDeviceSetInput!]!): DrumCellDevice
+  hybrid_reverb_device_set(id: Int!, properties: [HybridReverbDeviceSetInput!]!): HybridReverbDevice
+  looper_device_set(id: Int!, properties: [LooperDeviceSetInput!]!): LooperDevice
+  looper_device_clear(id: Int!): LooperDevice
+  looper_device_double_speed(id: Int!): LooperDevice
+  looper_device_half_speed(id: Int!): LooperDevice
+  looper_device_double_length(id: Int!): LooperDevice
+  looper_device_half_length(id: Int!): LooperDevice
+  looper_device_record(id: Int!): LooperDevice
+  looper_device_overdub(id: Int!): LooperDevice
+  looper_device_play(id: Int!): LooperDevice
+  looper_device_stop(id: Int!): LooperDevice
+  looper_device_undo(id: Int!): LooperDevice
+  looper_device_export_to_clip_slot(id: Int!, clip_slot: Int!): LooperDevice
+  meld_device_set(id: Int!, properties: [MeldDeviceSetInput!]!): MeldDevice
+  roar_device_set(id: Int!, properties: [RoarDeviceSetInput!]!): RoarDevice
+  shifter_device_set(id: Int!, properties: [ShifterDeviceSetInput!]!): ShifterDevice
+  spectral_resonator_device_set(id: Int!, properties: [SpectralResonatorDeviceSetInput!]!): SpectralResonatorDevice
+  plugin_device_set(id: Int!, properties: [PluginDeviceSetInput!]!): PluginDevice
+  tuning_system_set(id: Int!, properties: [TuningSystemSetInput!]!): TuningSystem
+  device_io_set(id: Int!, properties: [DeviceIOSetInput!]!): DeviceIO
+
+  """
+  Adds notes and returns the ids Live assigned, in the order the notes were
+  given.
+  """
+  clip_add_new_notes(id: Int!, notes: [NoteInput!]!): ClipNotesPayload
+
+  """
+  Live silently ignores the entire list when any note_id in it is not in the
+  clip: no error, nothing changes, and the returned clip is unchanged. Check the
+  ids first with clip(id) { get_notes_by_id(note_ids: [...]) } if that matters,
+  and compare the returned notes with what you asked for.
+  """
+  clip_apply_note_modifications(id: Int!, notes: [NoteInput!]!): Clip
+
+  """
+  Omit destination_time to place the copies the way the GUI's Duplicate does:
+  every copy is shifted by the span of the selection, its last note end minus
+  its first note start. The shift is not snapped to the editor grid, and
+  copies landing past loop_end do not extend the clip's region.
+  """
+  clip_duplicate_notes_by_id(id: Int!, note_ids: [Int!]!, destination_time: Float, transposition_amount: Int): Clip
+}
+
 type Song {
   id: Int!
   path: String!
@@ -130,221 +357,6 @@ input SongSetInput @oneOf {
   start_time: Float
   swing_amount: Float
   tempo: Float
-}
-
-"""
-Each <object>_set does one LOM set per properties item, in list order, then
-reads the object back once. It stops at the first set that fails, and the
-error names that item and the items already applied, which stay applied.
-"""
-type Mutation {
-  song_set(id: Int!, properties: [SongSetInput!]!): Song
-  song_capture_and_insert_scene(id: Int!): Song
-  song_capture_midi(id: Int!, destination: Int = 0): Song
-  song_continue_playing(id: Int!): Song
-  song_create_midi_track(id: Int!, index: Int = -1): Song
-  song_create_return_track(id: Int!): Song
-  song_create_scene(id: Int!, index: Int = -1): Song
-  song_delete_track(id: Int!, index: Int!): Song
-  song_force_link_beat_time(id: Int!): Song
-  song_jump_by(id: Int!, beats: Float!): Song
-  song_jump_to_next_cue(id: Int!): Song
-  song_jump_to_prev_cue(id: Int!): Song
-  song_play_selection(id: Int!): Song
-  song_re_enable_automation(id: Int!): Song
-  song_redo(id: Int!): Song
-  song_scrub_by(id: Int!, beats: Float!): Song
-  song_set_or_delete_cue(id: Int!): Song
-  song_start_playing(id: Int!): Song
-  song_stop_all_clips(id: Int!, quantized: Boolean = true): Song
-  song_stop_playing(id: Int!): Song
-  song_tap_tempo(id: Int!): Song
-  song_undo(id: Int!): Song
-  song_view_set(id: Int!, properties: [SongViewSetInput!]!): SongView
-  track_set(id: Int!, properties: [TrackSetInput!]!): Track
-  track_create_audio_clip(id: Int!, file_path: String!, position: Float!): Track
-  track_create_midi_clip(id: Int!, start_time: Float!, length: Float!): Track
-  track_create_take_lane(id: Int!): Track
-
-  """
-  A take lane's clip is left in place without an error. Compare the returned
-  clips with what you asked for.
-  """
-  track_delete_clip(id: Int!, clip: Int!): Track
-  track_duplicate_clip_slot(id: Int!, index: Int!): Track
-  track_duplicate_clip_to_arrangement(id: Int!, clip: Int!, destination_time: Float!): Track
-
-  """
-  An unknown device_name, or an instrument on a track that already holds one,
-  is dropped without an error. Compare the returned devices with what you asked
-  for.
-  """
-  track_insert_device(id: Int!, device_name: String!, target_index: Int): Track
-  track_jump_in_running_session_clip(id: Int!, beats: Float!): Track
-  track_stop_all_clips(id: Int!): Track
-  clip_slot_set(id: Int!, properties: [ClipSlotSetInput!]!): ClipSlot
-  clip_slot_create_clip(id: Int!, length: Float!): ClipSlot
-  clip_slot_delete_clip(id: Int!): ClipSlot
-  clip_slot_duplicate_clip_to(id: Int!, target_clip_slot: Int!): ClipSlot
-
-  """
-  The LOM takes these optional arguments positionally, so launch_quantization
-  without record_length is rejected with an error naming the missing one.
-  """
-  clip_slot_fire(id: Int!, record_length: Float, launch_quantization: Int): ClipSlot
-  clip_slot_set_fire_button_state(id: Int!, state: Boolean!): ClipSlot
-  clip_slot_stop(id: Int!): ClipSlot
-  scene_set(id: Int!, properties: [SceneSetInput!]!): Scene
-
-  """
-  The LOM takes these optional arguments positionally, so
-  can_select_scene_on_launch without force_legato is rejected with an error
-  naming the missing one.
-  """
-  scene_fire(id: Int!, force_legato: Boolean, can_select_scene_on_launch: Boolean): Scene
-  scene_fire_as_selected(id: Int!, force_legato: Boolean): Scene
-  scene_set_fire_button_state(id: Int!, state: Boolean!): Scene
-  clip_set(id: Int!, properties: [ClipSetInput!]!): Clip
-  clip_clear_all_envelopes(id: Int!): Clip
-  clip_clear_envelope(id: Int!, device_parameter: Int!): Clip
-  clip_crop(id: Int!): Clip
-  clip_deselect_all_notes(id: Int!): Clip
-  clip_duplicate_loop(id: Int!): Clip
-  clip_duplicate_region(id: Int!, region_start: Float!, region_length: Float!, destination_time: Float!, pitch: Int = -1, transposition_amount: Int = 0): Clip
-  clip_fire(id: Int!): Clip
-  clip_move_playing_pos(id: Int!, beats: Float!): Clip
-  clip_move_warp_marker(id: Int!, beat_time: Float!, beat_time_distance: Float!): Clip
-
-  """
-  Live's Quantize dialog in menu order: 0 = no quantization, 1 = 1/4,
-  2 = 1/8, 3 = 1/8T, 4 = 1/8 + 1/8T, 5 = 1/16, 6 = 1/16T, 7 = 1/16 + 1/16T,
-  8 = 1/32. Anything from 9 up is silently ignored, so an out-of-range grid
-  gives no error and an unquantized clip. Not the ClipView.grid_quantization
-  enum. Quantizing takes Song.swing_amount into account.
-  """
-  clip_quantize(id: Int!, quantization_grid: Int!, amount: Float!): Clip
-
-  """
-  Live's Quantize dialog in menu order: 0 = no quantization, 1 = 1/4,
-  2 = 1/8, 3 = 1/8T, 4 = 1/8 + 1/8T, 5 = 1/16, 6 = 1/16T, 7 = 1/16 + 1/16T,
-  8 = 1/32. Anything from 9 up is silently ignored, so an out-of-range grid
-  gives no error and an unquantized clip. Not the ClipView.grid_quantization
-  enum. Quantizing takes Song.swing_amount into account.
-  """
-  clip_quantize_pitch(id: Int!, pitch: Int!, quantization_grid: Int!, amount: Float!): Clip
-  clip_remove_notes_by_id(id: Int!, note_ids: [Int!]!): Clip
-  clip_remove_notes_extended(id: Int!, from_pitch: Int!, pitch_span: Int!, from_time: Float!, time_span: Float!): Clip
-  clip_remove_warp_marker(id: Int!, beat_time: Float!): Clip
-  clip_scrub(id: Int!, beat_time: Float!): Clip
-  clip_select_all_notes(id: Int!): Clip
-  clip_select_notes_by_id(id: Int!, note_ids: [Int!]!): Clip
-  clip_set_fire_button_state(id: Int!, state: Boolean!): Clip
-  clip_stop(id: Int!): Clip
-  clip_stop_scrub(id: Int!): Clip
-  clip_view_set(id: Int!, properties: [ClipViewSetInput!]!): ClipView
-  clip_view_hide_envelope(id: Int!): ClipView
-  clip_view_show_envelope(id: Int!): ClipView
-  clip_view_show_loop(id: Int!): ClipView
-  device_set(id: Int!, properties: [DeviceSetInput!]!): Device
-  device_store_chosen_bank(id: Int!, script_index: Int!, bank_index: Int!): Device
-  device_save_preset_to_compare_ab_slot(id: Int!): Device
-  simpler_device_set(id: Int!, properties: [SimplerDeviceSetInput!]!): SimplerDevice
-  simpler_device_crop(id: Int!): SimplerDevice
-  simpler_device_reverse(id: Int!): SimplerDevice
-  simpler_device_warp_as(id: Int!, beats: Int!): SimplerDevice
-  simpler_device_warp_double(id: Int!): SimplerDevice
-  simpler_device_warp_half(id: Int!): SimplerDevice
-  simpler_device_replace_sample(id: Int!, file_path: String!): SimplerDevice
-  rack_device_set(id: Int!, properties: [RackDeviceSetInput!]!): RackDevice
-  rack_device_copy_pad(id: Int!, source_index: Int!, destination_index: Int!): RackDevice
-  rack_device_add_macro(id: Int!): RackDevice
-  rack_device_insert_chain(id: Int!, index: Int): RackDevice
-  rack_device_remove_macro(id: Int!): RackDevice
-  rack_device_randomize_macros(id: Int!): RackDevice
-  rack_device_store_variation(id: Int!): RackDevice
-  rack_device_recall_selected_variation(id: Int!): RackDevice
-  rack_device_recall_last_used_variation(id: Int!): RackDevice
-  rack_device_delete_selected_variation(id: Int!): RackDevice
-  wavetable_device_set(id: Int!, properties: [WavetableDeviceSetInput!]!): WavetableDevice
-  wavetable_device_add_parameter_to_modulation_matrix(id: Int!, parameter_to_add: Int!): WavetableDevice
-  eq8_device_set(id: Int!, properties: [Eq8DeviceSetInput!]!): Eq8Device
-  device_parameter_set(id: Int!, properties: [DeviceParameterSetInput!]!): DeviceParameter
-  device_parameter_re_enable_automation(id: Int!): DeviceParameter
-  chain_set(id: Int!, properties: [ChainSetInput!]!): Chain
-  chain_delete_device(id: Int!, index: Int!): Chain
-  chain_insert_device(id: Int!, device_name: String!, target_index: Int): Chain
-  drum_chain_set(id: Int!, properties: [DrumChainSetInput!]!): DrumChain
-  drum_pad_set(id: Int!, properties: [DrumPadSetInput!]!): DrumPad
-  drum_pad_delete_all_chains(id: Int!): DrumPad
-  application_view_focus_view(id: Int!, view_name: String!): ApplicationView
-  application_view_hide_view(id: Int!, view_name: String!): ApplicationView
-  application_view_scroll_view(id: Int!, direction: Int!, view_name: String!, modifier_pressed: Boolean!): ApplicationView
-  application_view_show_view(id: Int!, view_name: String!): ApplicationView
-  application_view_toggle_browse(id: Int!): ApplicationView
-  application_view_zoom_view(id: Int!, direction: Int!, view_name: String!, modifier_pressed: Boolean!): ApplicationView
-  track_view_set(id: Int!, properties: [TrackViewSetInput!]!): TrackView
-  take_lane_set(id: Int!, properties: [TakeLaneSetInput!]!): TakeLane
-  take_lane_create_audio_clip(id: Int!, file_path: String!, start_time: Float!): TakeLane
-  take_lane_create_midi_clip(id: Int!, start_time: Float!, length: Float!): TakeLane
-  device_view_set(id: Int!, properties: [DeviceViewSetInput!]!): DeviceView
-  rack_device_view_set(id: Int!, properties: [RackDeviceViewSetInput!]!): RackDeviceView
-  simpler_device_view_set(id: Int!, properties: [SimplerDeviceViewSetInput!]!): SimplerDeviceView
-  eq8_device_view_set(id: Int!, properties: [Eq8DeviceViewSetInput!]!): Eq8DeviceView
-  mixer_device_set(id: Int!, properties: [MixerDeviceSetInput!]!): MixerDevice
-  sample_set(id: Int!, properties: [SampleSetInput!]!): Sample
-  sample_insert_slice(id: Int!, slice_time: Int!): Sample
-  sample_move_slice(id: Int!, source_time: Int!, destination_time: Int!): Sample
-  sample_remove_slice(id: Int!, slice_time: Int!): Sample
-  sample_clear_slices(id: Int!): Sample
-  sample_reset_slices(id: Int!): Sample
-  cue_point_set(id: Int!, properties: [CuePointSetInput!]!): CuePoint
-  cue_point_jump(id: Int!): CuePoint
-  groove_set(id: Int!, properties: [GrooveSetInput!]!): Groove
-  compressor_device_set(id: Int!, properties: [CompressorDeviceSetInput!]!): CompressorDevice
-  drift_device_set(id: Int!, properties: [DriftDeviceSetInput!]!): DriftDevice
-  drum_cell_device_set(id: Int!, properties: [DrumCellDeviceSetInput!]!): DrumCellDevice
-  hybrid_reverb_device_set(id: Int!, properties: [HybridReverbDeviceSetInput!]!): HybridReverbDevice
-  looper_device_set(id: Int!, properties: [LooperDeviceSetInput!]!): LooperDevice
-  looper_device_clear(id: Int!): LooperDevice
-  looper_device_double_speed(id: Int!): LooperDevice
-  looper_device_half_speed(id: Int!): LooperDevice
-  looper_device_double_length(id: Int!): LooperDevice
-  looper_device_half_length(id: Int!): LooperDevice
-  looper_device_record(id: Int!): LooperDevice
-  looper_device_overdub(id: Int!): LooperDevice
-  looper_device_play(id: Int!): LooperDevice
-  looper_device_stop(id: Int!): LooperDevice
-  looper_device_undo(id: Int!): LooperDevice
-  looper_device_export_to_clip_slot(id: Int!, clip_slot: Int!): LooperDevice
-  meld_device_set(id: Int!, properties: [MeldDeviceSetInput!]!): MeldDevice
-  roar_device_set(id: Int!, properties: [RoarDeviceSetInput!]!): RoarDevice
-  shifter_device_set(id: Int!, properties: [ShifterDeviceSetInput!]!): ShifterDevice
-  spectral_resonator_device_set(id: Int!, properties: [SpectralResonatorDeviceSetInput!]!): SpectralResonatorDevice
-  plugin_device_set(id: Int!, properties: [PluginDeviceSetInput!]!): PluginDevice
-  tuning_system_set(id: Int!, properties: [TuningSystemSetInput!]!): TuningSystem
-  device_io_set(id: Int!, properties: [DeviceIOSetInput!]!): DeviceIO
-
-  """
-  Adds notes and returns the ids Live assigned, in the order the notes were
-  given.
-  """
-  clip_add_new_notes(id: Int!, notes: [NoteInput!]!): ClipNotesPayload
-
-  """
-  Live silently ignores the entire list when any note_id in it is not in the
-  clip: no error, nothing changes, and the returned clip is unchanged. Check the
-  ids first with clip(id) { get_notes_by_id(note_ids: [...]) } if that matters,
-  and compare the returned notes with what you asked for.
-  """
-  clip_apply_note_modifications(id: Int!, notes: [NoteInput!]!): Clip
-
-  """
-  Omit destination_time to place the copies the way the GUI's Duplicate does:
-  every copy is shifted by the span of the selection, its last note end minus
-  its first note start. The shift is not snapped to the editor grid, and
-  copies landing past loop_end do not extend the clip's region.
-  """
-  clip_duplicate_notes_by_id(id: Int!, note_ids: [Int!]!, destination_time: Float, transposition_amount: Int): Clip
 }
 
 type SongView {

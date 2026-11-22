@@ -191,6 +191,41 @@ describe("song", () => {
     );
   });
 
+  it("calls the functions whose parameters the docs leave untyped, an object by id", async () => {
+    const { errors } = await gql(`mutation {
+      a: song_create_audio_track(id: 1) { id }
+      b: song_duplicate_track(id: 1, index: 0) { id }
+      c: song_delete_return_track(id: 1, index: 0) { id }
+      d: song_duplicate_scene(id: 1, index: 0) { id }
+      e: song_delete_scene(id: 1, index: 1) { id }
+      f: song_trigger_session_record(id: 1, record_length: 4) { id }
+      g: song_trigger_session_record(id: 1) { id }
+      h: song_view_select_device(id: 2, device: 60) { id }
+      i: track_delete_device(id: 10, index: 1) { id }
+      j: clip_slot_create_audio_clip(id: 21, path: "/a.wav") { id }
+      k: clip_view_select_envelope_parameter(id: 41, parameter: 70) { id }
+      l: application_press_current_dialog_button(id: 3, index: 0) { id }
+    }`);
+    assert.equal(errors, undefined);
+    assert.deepEqual(
+      lom.log.filter(([action]) => action === "call"),
+      [
+        ["call", 1, "create_audio_track", -1],
+        ["call", 1, "duplicate_track", 0],
+        ["call", 1, "delete_return_track", 0],
+        ["call", 1, "duplicate_scene", 0],
+        ["call", 1, "delete_scene", 1],
+        ["call", 1, "trigger_session_record", 4],
+        ["call", 1, "trigger_session_record"],
+        ["call", 2, "select_device", "id 60"],
+        ["call", 10, "delete_device", 1],
+        ["call", 21, "create_audio_clip", "/a.wav"],
+        ["call", 41, "select_envelope_parameter", "id 70"],
+        ["call", 3, "press_current_dialog_button", 0],
+      ],
+    );
+  });
+
   it("names the action, the property and the target in a failure", async () => {
     const response = await gql(
       "mutation { song_set(id: 999, properties: [{ tempo: 90 }]) { id } }",

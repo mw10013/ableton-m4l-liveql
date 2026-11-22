@@ -87,6 +87,23 @@ describe("device", () => {
     );
   });
 
+  it("sets a Wavetable modulation amount with the third argument the docs leave out", async () => {
+    lom.objects[69] = {
+      id: 69,
+      path: "live_set tracks 0 devices 2",
+      type: "WavetableDevice",
+      props: { class_name: ["InstrumentVector"] },
+    };
+    const { errors } = await gql(
+      "mutation { wavetable_device_set_modulation_value(id: 69, modulation_target_index: 0, modulation_source_index: 1, value: 0.25) { id } }",
+    );
+    assert.equal(errors, undefined);
+    assert.deepEqual(
+      lom.log.filter(([action]) => action === "call"),
+      [["call", 69, "set_modulation_value", 0, 1, 0.25]],
+    );
+  });
+
   it("leaves inherited members out of a subclass's setter", async () => {
     const response = await gql(
       'mutation { simpler_device_set(id: 60, properties: [{ name: "Kick" }]) { id } }',

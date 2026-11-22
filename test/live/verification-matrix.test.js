@@ -796,6 +796,158 @@ describe("live", { skip: SKIP }, () => {
   });
 
   /**
+   * The functions whose parameters the docs leave untyped, called on tracks,
+   * return tracks and scenes made for the purpose and deleted afterwards, so
+   * the fixture's own are back as they were. `trigger_session_record` and
+   * `press_current_dialog_button` are not called: the first records into
+   * whichever track is armed, and the second only means something while Live
+   * shows a dialog.
+   */
+  describe("functions whose parameters the docs leave untyped", () => {
+    const LISTS = "id tracks { id } return_tracks { id } scenes { id }";
+    let original;
+    const ids = (list) => list.map((o) => o.id);
+    const newTrack = async (kind) =>
+      (
+        await data(
+          `mutation { song_create_${kind}_track(id: ${original.id}) { tracks { id } } }`,
+        )
+      )[`song_create_${kind}_track`].tracks.at(-1).id;
+
+    before(async () => {
+      original = (await data(`{ live_set { ${LISTS} } }`)).live_set;
+    });
+
+    after(async () => {
+      const now = (await data(`{ live_set { ${LISTS} } }`)).live_set;
+      for (const [list, fn] of [
+        ["tracks", "delete_track"],
+        ["return_tracks", "delete_return_track"],
+        ["scenes", "delete_scene"],
+      ])
+        for (let i = now[list].length - 1; i >= original[list].length; i--)
+          await data(
+            `mutation { song_${fn}(id: ${original.id}, index: ${i}) { id } }`,
+          );
+      assert.deepEqual(
+        (await data(`{ live_set { ${LISTS} } }`)).live_set,
+        original,
+      );
+    });
+
+    it("creates and duplicates a track, and deletes a return track and a scene, by index", async () => {
+      const song = original.id;
+      const created = (
+        await data(
+          `mutation { song_create_audio_track(id: ${song}, index: -1) { tracks { id has_audio_input } } }`,
+        )
+      ).song_create_audio_track.tracks;
+      assert.equal(created.length, original.tracks.length + 1);
+      assert.equal(created.at(-1).has_audio_input, true);
+      assert.equal(
+        (
+          await data(
+            `mutation { song_duplicate_track(id: ${song}, index: ${created.length - 1}) { tracks { id } } }`,
+          )
+        ).song_duplicate_track.tracks.length,
+        created.length + 1,
+      );
+      const returns = (
+        await data(
+          `mutation { song_create_return_track(id: ${song}) { return_tracks { id } } }`,
+        )
+      ).song_create_return_track.return_tracks;
+      assert.equal(returns.length, original.return_tracks.length + 1);
+      assert.deepEqual(
+        ids(
+          (
+            await data(
+              `mutation { song_delete_return_track(id: ${song}, index: ${returns.length - 1}) { return_tracks { id } } }`,
+            )
+          ).song_delete_return_track.return_tracks,
+        ),
+        ids(original.return_tracks),
+      );
+      const last = original.scenes.length - 1;
+      assert.equal(
+        (
+          await data(
+            `mutation { song_duplicate_scene(id: ${song}, index: ${last}) { scenes { id } } }`,
+          )
+        ).song_duplicate_scene.scenes.length,
+        original.scenes.length + 1,
+      );
+      assert.deepEqual(
+        ids(
+          (
+            await data(
+              `mutation { song_delete_scene(id: ${song}, index: ${last + 1}) { scenes { id } } }`,
+            )
+          ).song_delete_scene.scenes,
+        ),
+        ids(original.scenes),
+      );
+    });
+
+    it("creates an audio clip in a slot from a file, and selects an envelope parameter in its view", async () => {
+      const track = await newTrack("audio");
+      const { clip_slots, mixer_device } = (
+        await data(
+          `{ track(id: ${track}) { clip_slots { id } mixer_device { volume { id } } } }`,
+        )
+      ).track;
+      const sample = path.join(
+        path.dirname(openedSet()),
+        "Samples/Imported/liveql-sine-a440.wav",
+      );
+      const { clip } = (
+        await data(
+          `mutation ($p: String!) { clip_slot_create_audio_clip(id: ${clip_slots[0].id}, path: $p) { clip { id is_audio_clip file_path view { id } } } }`,
+          { p: sample },
+        )
+      ).clip_slot_create_audio_clip;
+      assert.equal(clip.is_audio_clip, true);
+      assert.equal(clip.file_path, sample);
+      await data(
+        `mutation { clip_view_select_envelope_parameter(id: ${clip.view.id}, parameter: ${mixer_device.volume.id}) { id } }`,
+      );
+    });
+
+    it("selects a device by id, sets a Wavetable modulation amount, and deletes a device by index", async () => {
+      const track = await newTrack("midi");
+      const inserted = await data(
+        `mutation { a: track_insert_device(id: ${track}, device_name: "Wavetable") { id } b: track_insert_device(id: ${track}, device_name: "Compressor") { devices { id } view { id } } }`,
+      );
+      const [wavetable, compressor] = ids(inserted.b.devices);
+      const { song_view_select_device } = await data(
+        `mutation { song_view_select_device(id: ${view}, device: ${compressor}) { id } }`,
+      );
+      assert.equal(song_view_select_device.id, view);
+      assert.equal(
+        (
+          await data(
+            `{ track(id: ${track}) { view { selected_device { id } } } }`,
+          )
+        ).track.view.selected_device.id,
+        compressor,
+      );
+      await data(
+        `mutation { wavetable_device_set_modulation_value(id: ${wavetable}, modulation_target_index: 0, modulation_source_index: 1, value: 0.25) { id } }`,
+      );
+      assert.deepEqual(
+        ids(
+          (
+            await data(
+              `mutation { track_delete_device(id: ${track}, index: 1) { devices { id } } }`,
+            )
+          ).track_delete_device.devices,
+        ),
+        [wavetable],
+      );
+    });
+  });
+
+  /**
    * Compares what Live reports for each object of the fixture Set with what the
    * LOM docs say about its class. Every object's `info` is read and grouped by
    * `__typename`, and a member counts as present when any object of the class
