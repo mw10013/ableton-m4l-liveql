@@ -12,21 +12,60 @@ const {
 // This will be printed directly to the Max console
 Max.post(`liveql: loaded the ${path.basename(__filename)} script`);
 
-async function get(
+let pendingReads = [];
+
+/**
+ * Queues one object read for the next batched bridge `get`. Measured in Live
+ * 12.4.6, a bridge message cost 11-21 ms whether it read 1 member or 30, so a
+ * query that sent one `get` per object (about 318 for every device parameter
+ * of the fixture Set, 3.8 s) paid per message, not per `LiveAPI.get`. GraphQL
+ * resolves the siblings of a list across microtasks, as each parent's read
+ * settles, so the flush waits for the next macrotask with `setImmediate`:
+ * by then every sibling at that depth has queued its read, and a query costs
+ * about one message per level of the tree. A failed read rejects only its own
+ * promise; a failed message rejects every read in it. Only reads are batched:
+ * `set` and `call` go out at once, and GraphQL runs mutation fields one after
+ * another, each with its readback, so no read waits across a later write.
+ */
+function get(
   idOrPath,
   propertyKeysSingle = null,
   propertyKeysMultiple = null,
   childKeysSingle = null,
   childKeysMultiple = null,
 ) {
-  return exec({
-    action: "get",
-    idOrPath,
-    propertyKeysSingle,
-    propertyKeysMultiple,
-    childKeysSingle,
-    childKeysMultiple,
+  return new Promise((resolve, reject) => {
+    if (pendingReads.length === 0) setImmediate(flushReads);
+    pendingReads.push({
+      read: {
+        idOrPath,
+        propertyKeysSingle,
+        propertyKeysMultiple,
+        childKeysSingle,
+        childKeysMultiple,
+      },
+      resolve,
+      reject,
+    });
   });
+}
+
+function flushReads() {
+  const batch = pendingReads;
+  pendingReads = [];
+  exec({ action: "get", reads: batch.map((r) => r.read) }).then(
+    (results) =>
+      results.forEach(({ data, message }, i) =>
+        message === undefined
+          ? batch[i].resolve(data)
+          : batch[i].reject(
+              new Error(`liveql: get on ${batch[i].read.idOrPath}: ${message}`),
+            ),
+      ),
+    (err) => {
+      batch.forEach(({ reject }) => reject(err));
+    },
+  );
 }
 
 async function set(id, property, value) {
@@ -59,10 +98,17 @@ const actionResultHandlers = new Map();
  * property or function, and the target id are all still in hand, so a GraphQL
  * error reads `liveql: set loop_end on 42: ...` instead of just Live's text.
  */
-function describeAction({ action, idOrPath, property, args }) {
+function describeAction({ action, idOrPath, property, args, reads }) {
   const subject = property ?? args?.[0];
-  return `${action}${subject === undefined ? "" : ` ${subject}`} on ${idOrPath}`;
+  return `${action}${subject === undefined ? "" : ` ${subject}`} on ${idOrPath ?? reads.map((r) => r.idOrPath).join(", ")}`;
 }
+
+/**
+ * A JSON message as symbols of at most 8000 code points, because Max caps one
+ * symbol at 32767 bytes between `node.script` and `v8`; `liveql-m4l.js`
+ * splits its results the same way and its JSDoc has the measurement.
+ */
+const atoms = (json) => json.match(/.{1,8000}/gsu);
 
 async function exec(params) {
   actionId += 1;
@@ -71,13 +117,14 @@ async function exec(params) {
     actionResultHandlers.set(actionId, { resolve, reject });
   });
   const action = { actionId, ...params };
-  await Max.outlet(action.action, JSON.stringify(action));
+  await Max.outlet(action.action, ...atoms(JSON.stringify(action)));
   return p.catch((err) => {
     throw new Error(`liveql: ${describeAction(params)}: ${err.message}`);
   });
 }
 
-Max.addHandler("result", async (json) => {
+Max.addHandler("result", async (...parts) => {
+  const json = parts.join("");
   const result = JSON.parse(json);
   const handler = actionResultHandlers.get(result.actionId);
   actionResultHandlers.delete(result.actionId);

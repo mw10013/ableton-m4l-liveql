@@ -617,7 +617,7 @@ function createLom() {
   const read = (o, k) => o.props[k] ?? [];
   const notesOf = (id) => (notes[id] ??= []);
 
-  const get = (params) => {
+  const readObject = (params) => {
     const o = resolve(params.idOrPath);
     gets.push(params);
     const out = { id: o.id, path: o.path, liveApiType: o.type };
@@ -638,6 +638,14 @@ function createLom() {
       out[k] = asList(read(o, k)).filter(isChildId);
     return out;
   };
+  const get = ({ reads }) =>
+    reads.map((params) => {
+      try {
+        return { data: readObject(params) };
+      } catch (err) {
+        return { message: String(err) };
+      }
+    });
 
   const info = (params) => {
     const o = resolve(params.idOrPath);
