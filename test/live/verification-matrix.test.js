@@ -772,15 +772,16 @@ describe("live", { skip: SKIP }, () => {
     });
 
     it("records every member Live and the docs disagree on", async () => {
-      const CLIP = `${INFO} view { ${INFO} }`;
-      const NESTED = `${INFO} parameters { ${INFO} }`;
-      const CHAIN = `${INFO} devices { ${NESTED} }`;
-      const DEVICE = `${NESTED} ... on RackDevice { chain_selector { ${INFO} } chains { ${CHAIN} } return_chains { ${CHAIN} } drum_pads { ${INFO} chains { ${CHAIN} } } }`;
-      const TRACK = `${INFO} arrangement_clips { ${CLIP} } clip_slots { ${INFO} clip { ${CLIP} } } devices { ${DEVICE} }`;
+      const CLIP = `${INFO} view { ${INFO} } groove { ${INFO} }`;
+      const NESTED = `${INFO} parameters { ${INFO} } view { ${INFO} }`;
+      const CHAIN = `${INFO} mixer_device { ${INFO} } devices { ${NESTED} }`;
+      const DEVICE = `${NESTED} ... on SimplerDevice { sample { ${INFO} } } ... on RackDevice { chain_selector { ${INFO} } chains { ${CHAIN} } return_chains { ${CHAIN} } drum_pads { ${INFO} chains { ${CHAIN} } } }`;
+      const TRACK = `${INFO} view { ${INFO} } mixer_device { ${INFO} } take_lanes { ${INFO} arrangement_clips { ${CLIP} } } arrangement_clips { ${CLIP} } clip_slots { ${INFO} clip { ${CLIP} } } devices { ${DEVICE} }`;
       const { live_app, live_set } = await data(`{
-        live_app { ${INFO} get_version_string }
+        live_app { ${INFO} get_version_string view { ${INFO} } }
         live_set {
           ${INFO} view { ${INFO} } scenes { ${INFO} }
+          cue_points { ${INFO} } groove_pool { ${INFO} grooves { ${INFO} } }
           tracks { ${TRACK} } return_tracks { ${TRACK} } master_track { ${TRACK} }
         }
       }`);

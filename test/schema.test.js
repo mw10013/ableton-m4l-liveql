@@ -27,6 +27,20 @@ const LOM_OBJECT_TYPES = [
   "GenericChain",
   "DrumChain",
   "DrumPad",
+  "ApplicationView",
+  "TrackView",
+  "TakeLane",
+  "DeviceView",
+  "GenericDeviceView",
+  "RackDeviceView",
+  "SimplerDeviceView",
+  "Eq8DeviceView",
+  "MixerDevice",
+  "ChainMixerDevice",
+  "Sample",
+  "CuePoint",
+  "Groove",
+  "GroovePool",
 ];
 const MUTATION_PREFIX = {
   Song: "song",
@@ -46,6 +60,17 @@ const MUTATION_PREFIX = {
   Chain: "chain",
   DrumChain: "drum_chain",
   DrumPad: "drum_pad",
+  ApplicationView: "application_view",
+  TrackView: "track_view",
+  TakeLane: "take_lane",
+  DeviceView: "device_view",
+  RackDeviceView: "rack_device_view",
+  SimplerDeviceView: "simpler_device_view",
+  Eq8DeviceView: "eq8_device_view",
+  MixerDevice: "mixer_device",
+  Sample: "sample",
+  CuePoint: "cue_point",
+  Groove: "groove",
 };
 const INVENTED_FIELDS = new Set(["id", "info", "properties", "input"]);
 const INVENTED_ARGS = new Set(["id", "properties"]);

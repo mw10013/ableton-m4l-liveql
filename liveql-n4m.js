@@ -399,7 +399,7 @@ function lomClass(name) {
                 : { name: argName, sdl: spec.type, id: spec.id },
             )
           : params.map(paramArg);
-        const unresolved = params.filter((_, i) => !args[i]);
+        const unresolved = row?.args ? [] : params.filter((_, i) => !args[i]);
         if (unresolved.length > 0)
           return skip(
             member,
@@ -627,7 +627,11 @@ function callArgs(fieldName, params, args) {
  * An interface resolves to the subclass named by the bridge's `type`, which
  * is `LiveAPI.type` and so the LOM class (`SimplerDevice`, and `RackDevice`
  * for both an Instrument and a Drum Rack), or to `Generic<Class>` for the
- * class itself or a subclass outside the scope.
+ * class itself or a subclass outside the scope. Every device's view answers
+ * `LiveAPI.type` with a bare `View`, which names no class, so such an object
+ * resolves to the subclass whose own members the read holds: the bridge keeps
+ * only the members `info` lists, and a Rack's view alone lists
+ * `is_showing_chain_devices`, a Simpler's `selected_slice`.
  */
 function objectResolvers({
   name,
@@ -636,12 +640,18 @@ function objectResolvers({
   functions,
 }) {
   if (isInterface) {
-    const subclasses = new Set(subclassesOf(name).map((c) => c.name));
+    const subclasses = subclassesOf(name);
     return {
-      __resolveType: ({ type }) =>
-        subclasses.has(type.replaceAll(".", ""))
-          ? type.replaceAll(".", "")
-          : `Generic${name}`,
+      __resolveType: (o) => {
+        const type = o.type.replaceAll(".", "");
+        return (
+          subclasses.find((c) =>
+            type in LOM
+              ? c.name === type
+              : [...c.children, ...c.properties].some((m) => m.member in o),
+          )?.name ?? `Generic${name}`
+        );
+      },
     };
   }
   return {

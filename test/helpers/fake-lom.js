@@ -57,6 +57,7 @@ function songProps() {
     return_tracks: ["id", 13],
     visible_tracks: ["id", 10, "id", 11],
     scenes: ["id", 30],
+    cue_points: ["id", 90],
   };
 }
 
@@ -201,11 +202,14 @@ function parameterProps(overrides) {
 }
 
 /**
- * One MIDI track (10) holding a Simpler (60) with two parameters (70, 71) and a plain Device (61), with a clip slot holding MIDI clip 40, one audio track
+ * One MIDI track (10) holding a Simpler (60) with two parameters (70, 71) and a plain Device (61), with a clip slot holding MIDI clip 40 whose groove is 91, one audio track
  * (11) holding arrangement clip 50 and an Audio Effect Rack (62) whose chain (80) holds a plain Device (63), a return track (13) and a master track (12)
  * missing the members Live's `info` leaves out there. None of them is a Group
  * Track, so none has a fold_state. Song.View's
  * `highlighted_clip_slot` is `id 0` so the bridge's null child is covered.
+ * The Song has one cue point (90). Every device view's `LiveAPI.type` is a
+ * bare `View`, so only its members tell the Simpler's view (64) from the
+ * plain Device's (65).
  */
 function defaultObjects() {
   return {
@@ -246,7 +250,20 @@ function defaultObjects() {
         retrigger: [0],
         voices: [1],
         parameters: ["id", 70, "id", 71],
+        view: ["id", 64],
       }),
+    },
+    64: {
+      id: 64,
+      path: "live_set tracks 0 devices 0 view",
+      type: "View",
+      props: { is_collapsed: [0], selected_slice: [-1] },
+    },
+    65: {
+      id: 65,
+      path: "live_set tracks 0 devices 1 view",
+      type: "View",
+      props: { is_collapsed: [0] },
     },
     70: {
       id: 70,
@@ -274,6 +291,7 @@ function defaultObjects() {
         class_display_name: ["Operator"],
         class_name: ["Operator"],
         name: ["Operator"],
+        view: ["id", 65],
       }),
     },
     11: {
@@ -385,7 +403,26 @@ function defaultObjects() {
       id: 40,
       path: "live_set tracks 0 clip_slots 0 clip",
       type: "Clip",
-      props: clipProps(),
+      props: clipProps({ has_groove: [1], groove: ["id", 91] }),
+    },
+    90: {
+      id: 90,
+      path: "live_set cue_points 0",
+      type: "CuePoint",
+      props: { name: ["Verse"], time: [16] },
+    },
+    91: {
+      id: 91,
+      path: "live_set groove_pool grooves 0",
+      type: "Groove",
+      props: {
+        base: [3],
+        name: ["Swing 16ths 66"],
+        quantization_amount: [0],
+        random_amount: [0],
+        timing_amount: [100],
+        velocity_amount: [0],
+      },
     },
     41: {
       id: 41,
@@ -475,8 +512,10 @@ function createLom() {
       const arr = asList(read(o, k));
       if (arr.length === 1) out[k] = arr[0];
     }
-    for (const k of listed(params.propertyKeysMultiple))
-      out[k] = asList(read(o, k));
+    for (const k of listed(params.propertyKeysMultiple)) {
+      const list = asList(read(o, k));
+      out[k] = list.length === 1 && list[0] === "" ? [] : list;
+    }
     for (const k of listed(params.childKeysSingle)) {
       const id = asList(read(o, k))[1];
       out[k] = isChildId(id) ? id : null;

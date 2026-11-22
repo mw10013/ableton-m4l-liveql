@@ -9,6 +9,7 @@ type Application {
   Read only when selected.
   """
   info: String!
+  view: ApplicationView
   current_dialog_button_count: Int
   current_dialog_message: String
   open_dialog_count: Int
@@ -31,6 +32,7 @@ type Song {
   Read only when selected.
   """
   info: String!
+  cue_points: [CuePoint!]
   return_tracks: [Track!]
   scene(index: Int!): Scene
   scenes: [Scene!]
@@ -39,6 +41,7 @@ type Song {
   visible_tracks: [Track!]
   master_track: Track
   view: SongView
+  groove_pool: GroovePool
   appointed_device: Device
   arrangement_overdub: Boolean
   back_to_arranger: Boolean
@@ -258,6 +261,30 @@ type Mutation {
   drum_chain_set(id: Int!, properties: [DrumChainSetInput!]!): DrumChain
   drum_pad_set(id: Int!, properties: [DrumPadSetInput!]!): DrumPad
   drum_pad_delete_all_chains(id: Int!): DrumPad
+  application_view_focus_view(id: Int!, view_name: String!): ApplicationView
+  application_view_hide_view(id: Int!, view_name: String!): ApplicationView
+  application_view_scroll_view(id: Int!, direction: Int!, view_name: String!, modifier_pressed: Boolean!): ApplicationView
+  application_view_show_view(id: Int!, view_name: String!): ApplicationView
+  application_view_toggle_browse(id: Int!): ApplicationView
+  application_view_zoom_view(id: Int!, direction: Int!, view_name: String!, modifier_pressed: Boolean!): ApplicationView
+  track_view_set(id: Int!, properties: [TrackViewSetInput!]!): TrackView
+  take_lane_set(id: Int!, properties: [TakeLaneSetInput!]!): TakeLane
+  take_lane_create_audio_clip(id: Int!, file_path: String!, start_time: Float!): TakeLane
+  take_lane_create_midi_clip(id: Int!, start_time: Float!, length: Float!): TakeLane
+  device_view_set(id: Int!, properties: [DeviceViewSetInput!]!): DeviceView
+  rack_device_view_set(id: Int!, properties: [RackDeviceViewSetInput!]!): RackDeviceView
+  simpler_device_view_set(id: Int!, properties: [SimplerDeviceViewSetInput!]!): SimplerDeviceView
+  eq8_device_view_set(id: Int!, properties: [Eq8DeviceViewSetInput!]!): Eq8DeviceView
+  mixer_device_set(id: Int!, properties: [MixerDeviceSetInput!]!): MixerDevice
+  sample_set(id: Int!, properties: [SampleSetInput!]!): Sample
+  sample_insert_slice(id: Int!, slice_time: Int!): Sample
+  sample_move_slice(id: Int!, source_time: Int!, destination_time: Int!): Sample
+  sample_remove_slice(id: Int!, slice_time: Int!): Sample
+  sample_clear_slices(id: Int!): Sample
+  sample_reset_slices(id: Int!): Sample
+  cue_point_set(id: Int!, properties: [CuePointSetInput!]!): CuePoint
+  cue_point_jump(id: Int!): CuePoint
+  groove_set(id: Int!, properties: [GrooveSetInput!]!): Groove
 
   """
   Adds notes and returns the ids Live assigned, in the order the notes were
@@ -328,6 +355,7 @@ type Track {
   Read only when selected.
   """
   info: String!
+  take_lanes: [TakeLane!]
   clip_slot(index: Int!): ClipSlot
   clip_slots: [ClipSlot!]
   arrangement_clip(index: Int!): Clip
@@ -336,6 +364,8 @@ type Track {
 
   """Null when the track is not inside a Group Track."""
   group_track: Track
+  mixer_device: MixerDevice
+  view: TrackView
 
   """
   Null on tracks the LOM does not give it to, such as return and master tracks.
@@ -477,6 +507,7 @@ type Clip {
   """
   info: String!
   view: ClipView
+  groove: Groove
   color: Int
   color_index: Int
   end_marker: Float
@@ -536,7 +567,13 @@ type Clip {
   get_selected_notes_extended: NotesDictionary
 }
 
+"""A child is set by its id, and 0 clears it."""
 input ClipSetInput @oneOf {
+  """
+  Live ignores 0 here without raising, so this cannot clear a clip's groove.
+  Compare the returned has_groove with what you asked for.
+  """
+  groove: Int
   color: Int
   color_index: Int
 
@@ -631,6 +668,7 @@ interface Device {
   """
   info: String!
   parameters: [DeviceParameter!]
+  view: DeviceView
   can_have_chains: Boolean
   can_have_drum_pads: Boolean
   class_display_name: String
@@ -657,6 +695,7 @@ type GenericDevice implements Device {
   """
   info: String!
   parameters: [DeviceParameter!]
+  view: DeviceView
   can_have_chains: Boolean
   can_have_drum_pads: Boolean
   class_display_name: String
@@ -688,6 +727,8 @@ type SimplerDevice implements Device {
   """
   info: String!
   parameters: [DeviceParameter!]
+  view: DeviceView
+  sample: Sample
   can_have_chains: Boolean
   can_have_drum_pads: Boolean
   class_display_name: String
@@ -733,6 +774,7 @@ type RackDevice implements Device {
   """
   info: String!
   parameters: [DeviceParameter!]
+  view: DeviceView
   chain_selector: DeviceParameter
   chains: [Chain!]
   drum_pads: [DrumPad!]
@@ -776,6 +818,7 @@ type WavetableDevice implements Device {
   """
   info: String!
   parameters: [DeviceParameter!]
+  view: DeviceView
   can_have_chains: Boolean
   can_have_drum_pads: Boolean
   class_display_name: String
@@ -831,6 +874,7 @@ type Eq8Device implements Device {
   """
   info: String!
   parameters: [DeviceParameter!]
+  view: DeviceView
   can_have_chains: Boolean
   can_have_drum_pads: Boolean
   class_display_name: String
@@ -866,6 +910,7 @@ type MaxDevice implements Device {
   """
   info: String!
   parameters: [DeviceParameter!]
+  view: DeviceView
   can_have_chains: Boolean
   can_have_drum_pads: Boolean
   class_display_name: String
@@ -926,6 +971,7 @@ interface Chain {
   """
   info: String!
   devices: [Device!]
+  mixer_device: ChainMixerDevice
   color: Int
   color_index: Int
   is_auto_colored: Boolean
@@ -951,6 +997,7 @@ type GenericChain implements Chain {
   """
   info: String!
   devices: [Device!]
+  mixer_device: ChainMixerDevice
   color: Int
   color_index: Int
   is_auto_colored: Boolean
@@ -985,6 +1032,7 @@ type DrumChain implements Chain {
   """
   info: String!
   devices: [Device!]
+  mixer_device: ChainMixerDevice
   color: Int
   color_index: Int
   is_auto_colored: Boolean
@@ -1028,6 +1076,323 @@ type DrumPad {
 input DrumPadSetInput @oneOf {
   mute: Boolean
   solo: Boolean
+}
+
+type ApplicationView {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  browse_mode: Boolean
+  focused_document_view: String
+}
+
+type TrackView {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  selected_device: Device
+  device_insert_mode: Int
+  is_collapsed: Boolean
+}
+
+input TrackViewSetInput @oneOf {
+  """
+  Not the documented 0-2 enum: Live's info types this a bool, and setting 0
+  reads back 1 while setting 1 or 2 reads back 0, with no error. Compare the
+  returned value with what you asked for.
+  """
+  device_insert_mode: Int
+  is_collapsed: Boolean
+}
+
+type TakeLane {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  arrangement_clips: [Clip!]
+  name: String
+}
+
+input TakeLaneSetInput @oneOf {
+  name: String
+}
+
+interface DeviceView {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  is_collapsed: Boolean
+}
+
+type GenericDeviceView implements DeviceView {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  is_collapsed: Boolean
+}
+
+input DeviceViewSetInput @oneOf {
+  is_collapsed: Boolean
+}
+
+type RackDeviceView implements DeviceView {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  selected_drum_pad: DrumPad
+  selected_chain: Chain
+  is_collapsed: Boolean
+  drum_pads_scroll_position: Int
+  is_showing_chain_devices: Boolean
+}
+
+"""A child is set by its id, and 0 clears it."""
+input RackDeviceViewSetInput @oneOf {
+  selected_drum_pad: Int
+  selected_chain: Int
+  drum_pads_scroll_position: Int
+  is_showing_chain_devices: Boolean
+}
+
+type SimplerDeviceView implements DeviceView {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  is_collapsed: Boolean
+  selected_slice: Int
+}
+
+input SimplerDeviceViewSetInput @oneOf {
+  selected_slice: Int
+}
+
+type Eq8DeviceView implements DeviceView {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  is_collapsed: Boolean
+  selected_band: Int
+}
+
+input Eq8DeviceViewSetInput @oneOf {
+  selected_band: Int
+}
+
+type MixerDevice {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  sends: [DeviceParameter!]
+  cue_volume: DeviceParameter
+  crossfader: DeviceParameter
+  left_split_stereo: DeviceParameter
+  panning: DeviceParameter
+  right_split_stereo: DeviceParameter
+  song_tempo: DeviceParameter
+  track_activator: DeviceParameter
+  volume: DeviceParameter
+  crossfade_assign: Int
+  panning_mode: Int
+}
+
+input MixerDeviceSetInput @oneOf {
+  crossfade_assign: Int
+  panning_mode: Int
+}
+
+type ChainMixerDevice {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  sends: [DeviceParameter!]
+  chain_activator: DeviceParameter
+  panning: DeviceParameter
+  volume: DeviceParameter
+}
+
+type Sample {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  beats_granulation_resolution: Int
+  beats_transient_envelope: Float
+  beats_transient_loop_mode: Int
+  complex_pro_envelope: Float
+  complex_pro_formants: Float
+  end_marker: Int
+  file_path: String
+  gain: Float
+  length: Int
+  sample_rate: Int
+  slices: [Int!]
+  slicing_sensitivity: Float
+  start_marker: Int
+  texture_flux: Float
+  texture_grain_size: Float
+  tones_grain_size: Float
+  warp_mode: Int
+  warping: Boolean
+  slicing_style: Int
+  slicing_beat_division: Int
+  slicing_region_count: Int
+}
+
+input SampleSetInput @oneOf {
+  beats_granulation_resolution: Int
+  beats_transient_envelope: Float
+  beats_transient_loop_mode: Int
+  complex_pro_envelope: Float
+  complex_pro_formants: Float
+  end_marker: Int
+  gain: Float
+  slicing_sensitivity: Float
+  start_marker: Int
+  texture_flux: Float
+  texture_grain_size: Float
+  tones_grain_size: Float
+  warp_mode: Int
+  warping: Boolean
+  slicing_style: Int
+  slicing_beat_division: Int
+  slicing_region_count: Int
+}
+
+type CuePoint {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  name: String
+  time: Float
+}
+
+input CuePointSetInput @oneOf {
+  name: String
+}
+
+type Groove {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  base: Int
+  name: String
+  quantization_amount: Float
+  random_amount: Float
+  timing_amount: Float
+  velocity_amount: Float
+}
+
+input GrooveSetInput @oneOf {
+  base: Int
+  name: String
+  quantization_amount: Float
+  random_amount: Float
+  timing_amount: Float
+  velocity_amount: Float
+}
+
+type GroovePool {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  grooves: [Groove!]
 }
 
 type Note {

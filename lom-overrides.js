@@ -44,6 +44,19 @@ module.exports = {
     "Chain",
     "DrumChain",
     "DrumPad",
+    "ApplicationView",
+    "TrackView",
+    "TakeLane",
+    "DeviceView",
+    "RackDeviceView",
+    "SimplerDeviceView",
+    "Eq8DeviceView",
+    "MixerDevice",
+    "ChainMixerDevice",
+    "Sample",
+    "CuePoint",
+    "Groove",
+    "GroovePool",
   ],
   classes: {
     Application: {
@@ -179,6 +192,12 @@ module.exports = {
           "documented as a property, in no Clip's info (Live 12.4.6)",
         is_take_lane_clip:
           "documented as a property, in no Clip's info (Live 12.4.6)",
+      },
+      children: {
+        groove: {
+          inputDescription:
+            "Live ignores 0 here without raising, so this cannot clear a clip's groove.\nCompare the returned has_groove with what you asked for.",
+        },
       },
       properties: {
         name: { type: "String!", default: "" },
@@ -348,6 +367,101 @@ module.exports = {
           "documented as a child, info lists a children Chain (Live 12.4.6)",
       },
       children: { chains: { list: true } },
+    },
+    ApplicationView: {
+      drift: {
+        canonical_parent:
+          "undocumented, info lists a child Application (Live 12.4.6)",
+      },
+      functions: {
+        focus_view: { args: { view_name: "String!" } },
+        hide_view: { args: { view_name: "String!" } },
+        show_view: { args: { view_name: "String!" } },
+        scroll_view: {
+          args: {
+            direction: "Int!",
+            view_name: "String!",
+            modifier_pressed: "Boolean!",
+          },
+        },
+        zoom_view: {
+          args: {
+            direction: "Int!",
+            view_name: "String!",
+            modifier_pressed: "Boolean!",
+          },
+        },
+      },
+    },
+    TrackView: {
+      drift: {
+        canonical_parent:
+          "undocumented, info lists a child Track (Live 12.4.6)",
+        device_insert_mode: "documented as int, info says bool (Live 12.4.6)",
+      },
+      properties: {
+        device_insert_mode: {
+          inputDescription:
+            "Not the documented 0-2 enum: Live's info types this a bool, and setting 0\nreads back 1 while setting 1 or 2 reads back 0, with no error. Compare the\nreturned value with what you asked for.",
+        },
+      },
+    },
+    TakeLane: {
+      drift: {
+        canonical_parent:
+          "undocumented, info lists a child Track (Live 12.4.6)",
+      },
+    },
+    DeviceView: {
+      drift: {
+        canonical_parent:
+          "undocumented, info lists a child typed by the owning device's class, such as RackDevice (Live 12.4.6)",
+      },
+    },
+    RackDeviceView: {
+      drift: {
+        selected_chain:
+          "documented as Chain, info says DrumChain on a Drum Rack and Chain on other Racks (Live 12.4.6)",
+      },
+    },
+    MixerDevice: {
+      drift: {
+        canonical_parent:
+          "undocumented, info lists a child Track (Live 12.4.6)",
+      },
+    },
+    ChainMixerDevice: {
+      drift: {
+        canonical_parent:
+          "undocumented, info lists a child Chain, or DrumChain in a Drum Rack (Live 12.4.6)",
+      },
+    },
+    Sample: {
+      drift: {
+        canonical_parent:
+          "undocumented, info lists a child SimplerDevice (Live 12.4.6)",
+        sample_rate: "documented as int, info says float (Live 12.4.6)",
+        slices: "documented as list of int, info says tuple (Live 12.4.6)",
+      },
+      properties: {
+        slices: { type: "[Int!]" },
+      },
+    },
+    CuePoint: {
+      drift: {
+        canonical_parent: "undocumented, info lists a child Song (Live 12.4.6)",
+      },
+    },
+    Groove: {
+      drift: {
+        canonical_parent:
+          "undocumented, info lists a child GroovePool (Live 12.4.6)",
+      },
+    },
+    GroovePool: {
+      drift: {
+        canonical_parent: "undocumented, info lists a child Song (Live 12.4.6)",
+      },
     },
   },
 };

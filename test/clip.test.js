@@ -217,4 +217,21 @@ describe("clip", () => {
       { note_ids: [1], transposition_amount: 12 },
     ]);
   });
+
+  it("reads a clip's groove and sets it through groove_set", async () => {
+    const { data } = await gql(
+      "{ clip(id: 40) { has_groove groove { id name base } } }",
+    );
+    assert.deepEqual(data.clip, {
+      has_groove: true,
+      groove: { id: 91, name: "Swing 16ths 66", base: 3 },
+    });
+    const set = await gql(
+      "mutation { groove_set(id: 91, properties: [{ timing_amount: 50 }]) { timing_amount } }",
+    );
+    assert.deepEqual(set.data, { groove_set: { timing_amount: 50 } });
+    assert.deepEqual(lom.setsOf("timing_amount"), [
+      ["set", 91, "timing_amount", 50],
+    ]);
+  });
 });

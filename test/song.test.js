@@ -201,4 +201,17 @@ describe("song", () => {
       "liveql: set tempo on 999: Invalid live id or path: 999; song_set stopped at properties[0], applied: none",
     );
   });
+
+  it("reads a cue point and calls its jump", async () => {
+    const { data } = await gql("{ live_set { cue_points { id name time } } }");
+    assert.deepEqual(data.live_set.cue_points, [
+      { id: 90, name: "Verse", time: 16 },
+    ]);
+    const jumped = await gql("mutation { cue_point_jump(id: 90) { name } }");
+    assert.deepEqual(jumped.data, { cue_point_jump: { name: "Verse" } });
+    assert.deepEqual(
+      lom.log.filter(([action]) => action === "call"),
+      [["call", 90, "jump"]],
+    );
+  });
 });

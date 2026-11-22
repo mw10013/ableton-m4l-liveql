@@ -52,7 +52,10 @@ outletFailedResult.local = 1; // prevent Max from exposing as a message handler
  * single property is
  * recorded only when `LiveAPI.get` yields exactly one value, so a member that
  * reads as an empty list drops out of the result too; a
- * child is the id at index 1, where `id 0` means none; a child list is the ids
+ * child is the id at index 1, where `id 0` means none; a multi-value property
+ * that answers only the empty symbol is the empty list, which a Max list
+ * cannot hold (a Simpler sample with no slices reads `slices` as `""`); a
+ * child list is the ids
  * with the `id` tokens stripped. Every one of those reads is coerced because
  * `LiveAPI.get` does not always answer with an array: a return track's
  * `clip_slots` came back as something whose `.filter` is not a function, which
@@ -124,11 +127,12 @@ function get(json) {
 
     for (const k of propertyKeysMultiple) {
       const raw = live.get(k);
-      o[k] = Array.isArray(raw)
+      const list = Array.isArray(raw)
         ? raw
         : raw === undefined || raw === null
           ? []
           : [raw];
+      o[k] = list.length === 1 && list[0] === "" ? [] : list;
     }
 
     for (const k of childKeysSingle) {

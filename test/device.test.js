@@ -149,4 +149,26 @@ describe("device", () => {
       },
     ]);
   });
+
+  /**
+   * Every device view's `LiveAPI.type` is a bare `View`, so the read's members
+   * pick the subclass: only a Simpler's view lists selected_slice.
+   */
+  it("resolves a device's view to its subclass by the members its info lists", async () => {
+    const { data } = await gql(
+      "{ track(id: 10) { devices { view { __typename type is_collapsed ... on SimplerDeviceView { selected_slice } } } } }",
+    );
+    assert.deepEqual(
+      data.track.devices.map((d) => d.view),
+      [
+        {
+          __typename: "SimplerDeviceView",
+          type: "View",
+          is_collapsed: false,
+          selected_slice: -1,
+        },
+        { __typename: "GenericDeviceView", type: "View", is_collapsed: false },
+      ],
+    );
+  });
 });
