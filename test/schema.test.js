@@ -50,6 +50,9 @@ const LOM_OBJECT_TYPES = [
   "RoarDevice",
   "ShifterDevice",
   "SpectralResonatorDevice",
+  "PluginDevice",
+  "TuningSystem",
+  "DeviceIO",
 ];
 const MUTATION_PREFIX = {
   Song: "song",
@@ -88,6 +91,9 @@ const MUTATION_PREFIX = {
   RoarDevice: "roar_device",
   ShifterDevice: "shifter_device",
   SpectralResonatorDevice: "spectral_resonator_device",
+  PluginDevice: "plugin_device",
+  TuningSystem: "tuning_system",
+  DeviceIO: "device_io",
 };
 const INVENTED_FIELDS = new Set(["id", "info", "properties", "input"]);
 const INVENTED_ARGS = new Set(["id", "properties"]);

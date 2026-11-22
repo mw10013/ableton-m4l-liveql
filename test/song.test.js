@@ -214,4 +214,18 @@ describe("song", () => {
       [["call", 90, "jump"]],
     );
   });
+
+  it("reads the tuning system, whose path Live leaves empty, with its dictionaries as JSON strings", async () => {
+    const { data } = await gql(
+      "{ live_set { tuning_system { __typename id path name pseudo_octave_in_cents lowest_note } } }",
+    );
+    assert.deepEqual(data.live_set.tuning_system, {
+      __typename: "TuningSystem",
+      id: 95,
+      path: "",
+      name: "7-EDO",
+      pseudo_octave_in_cents: 1200,
+      lowest_note: '{"index_in_octave": 6, "octave": -7}',
+    });
+  });
 });

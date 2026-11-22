@@ -66,6 +66,9 @@ module.exports = {
     "RoarDevice",
     "ShifterDevice",
     "SpectralResonatorDevice",
+    "PluginDevice",
+    "TuningSystem",
+    "DeviceIO",
   ],
   classes: {
     Application: {
@@ -77,7 +80,15 @@ module.exports = {
       },
     },
     Song: {
+      drift: {
+        tuning_system:
+          "documented as a child, info lists a property TuningSystem (Live 12.4.6)",
+      },
       children: {
+        tuning_system: {
+          description:
+            "Its path is the empty string: Live gives the tuning system none.",
+        },
         tracks: { index: "track" },
         scenes: { index: "scene" },
       },
@@ -334,6 +345,12 @@ module.exports = {
           "documented as a property, in no MaxDevice's info (Live 12.4.6); absent because no fixture Max device can_compare_ab",
       },
     },
+    PluginDevice: {
+      drift: {
+        is_using_compare_preset_b:
+          "documented as a property, in no PluginDevice's info (Live 12.4.6); absent because the fixture's AUDelay has can_compare_ab false",
+      },
+    },
     WavetableDevice: {
       properties: {
         oscillator_1_wavetable_category: { type: "Int" },
@@ -481,6 +498,69 @@ module.exports = {
     GroovePool: {
       drift: {
         canonical_parent: "undocumented, info lists a child Song (Live 12.4.6)",
+      },
+    },
+    TuningSystem: {
+      drift: {
+        canonical_parent: "undocumented, info lists a child Song (Live 12.4.6)",
+      },
+      properties: {
+        lowest_note: {
+          type: "String",
+          description:
+            'Live\'s dictionary as a JSON string, such as\n`{"index_in_octave": 6, "octave": -7}`.',
+          inputDescription: "A JSON string of the dictionary the field reads.",
+        },
+        highest_note: {
+          type: "String",
+          description:
+            'Live\'s dictionary as a JSON string, such as\n`{"index_in_octave": 0, "octave": 12}`.',
+          inputDescription: "A JSON string of the dictionary the field reads.",
+        },
+        reference_pitch: {
+          type: "String",
+          description:
+            'Live\'s dictionary as a JSON string, such as\n`{"index_in_octave": 5, "octave": 3, "frequency": 440.0}`.',
+          inputDescription: "A JSON string of the dictionary the field reads.",
+        },
+        note_tunings: {
+          type: "String",
+          description:
+            'Live\'s dictionary as a JSON string, the cents of each note of the pseudo\noctave under one key: `{"note_tunings": [0.0, 171.43, ...]}`.',
+          inputDescription: "A JSON string of the dictionary the field reads.",
+        },
+      },
+    },
+    DeviceIO: {
+      drift: {
+        canonical_parent:
+          "undocumented, info lists a child MaxDevice (Live 12.4.6)",
+      },
+      properties: {
+        available_routing_channels: {
+          type: "String",
+          description:
+            'Live\'s dictionary as a JSON string, the channels under one key:\n`{"available_routing_channels": [{"display_name": "", "identifier": 50}]}`.',
+        },
+        available_routing_types: {
+          type: "String",
+          description:
+            'Live\'s dictionary as a JSON string, the types under one key:\n`{"available_routing_types": [{"display_name": "Ext. In", "identifier": 34}, ...]}`.',
+        },
+        routing_channel: {
+          type: "String",
+          description:
+            'Live\'s dictionary as a JSON string, under one key:\n`{"routing_channel": {"display_name": "", "identifier": 50}}`.',
+          inputDescription:
+            'A JSON string naming one of available_routing_channels, such as\n`{"identifier": 50}`.',
+        },
+        routing_type: {
+          type: "String",
+          description:
+            'Live\'s dictionary as a JSON string, under one key:\n`{"routing_type": {"display_name": "No Input", "identifier": 46}}`.',
+          inputDescription:
+            'A JSON string naming one of available_routing_types, such as\n`{"identifier": 46}`.',
+        },
       },
     },
     MeldDevice: {

@@ -42,6 +42,9 @@ type Song {
   master_track: Track
   view: SongView
   groove_pool: GroovePool
+
+  """Its path is the empty string: Live gives the tuning system none."""
+  tuning_system: TuningSystem
   appointed_device: Device
   arrangement_overdub: Boolean
   back_to_arranger: Boolean
@@ -316,6 +319,9 @@ type Mutation {
   roar_device_set(id: Int!, properties: [RoarDeviceSetInput!]!): RoarDevice
   shifter_device_set(id: Int!, properties: [ShifterDeviceSetInput!]!): ShifterDevice
   spectral_resonator_device_set(id: Int!, properties: [SpectralResonatorDeviceSetInput!]!): SpectralResonatorDevice
+  plugin_device_set(id: Int!, properties: [PluginDeviceSetInput!]!): PluginDevice
+  tuning_system_set(id: Int!, properties: [TuningSystemSetInput!]!): TuningSystem
+  device_io_set(id: Int!, properties: [DeviceIOSetInput!]!): DeviceIO
 
   """
   Adds notes and returns the ids Live assigned, in the order the notes were
@@ -942,6 +948,10 @@ type MaxDevice implements Device {
   info: String!
   parameters: [DeviceParameter!]
   view: DeviceView
+  audio_inputs: [DeviceIO!]
+  audio_outputs: [DeviceIO!]
+  midi_inputs: [DeviceIO!]
+  midi_outputs: [DeviceIO!]
   can_have_chains: Boolean
   can_have_drum_pads: Boolean
   class_display_name: String
@@ -1789,6 +1799,150 @@ input SpectralResonatorDeviceSetInput @oneOf {
   pitch_mode: Int
   pitch_bend_range: Int
   polyphony: Int
+}
+
+type PluginDevice implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  parameters: [DeviceParameter!]
+  view: DeviceView
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+  is_editor_open: Boolean
+  presets: [String!]
+  selected_preset_index: Int
+}
+
+input PluginDeviceSetInput @oneOf {
+  is_editor_open: Boolean
+  selected_preset_index: Int
+}
+
+type TuningSystem {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  name: String
+  pseudo_octave_in_cents: Float
+
+  """
+  Live's dictionary as a JSON string, such as
+  `{"index_in_octave": 6, "octave": -7}`.
+  """
+  lowest_note: String
+
+  """
+  Live's dictionary as a JSON string, such as
+  `{"index_in_octave": 0, "octave": 12}`.
+  """
+  highest_note: String
+
+  """
+  Live's dictionary as a JSON string, such as
+  `{"index_in_octave": 5, "octave": 3, "frequency": 440.0}`.
+  """
+  reference_pitch: String
+
+  """
+  Live's dictionary as a JSON string, the cents of each note of the pseudo
+  octave under one key: `{"note_tunings": [0.0, 171.43, ...]}`.
+  """
+  note_tunings: String
+}
+
+input TuningSystemSetInput @oneOf {
+  name: String
+
+  """A JSON string of the dictionary the field reads."""
+  lowest_note: String
+
+  """A JSON string of the dictionary the field reads."""
+  highest_note: String
+
+  """A JSON string of the dictionary the field reads."""
+  reference_pitch: String
+
+  """A JSON string of the dictionary the field reads."""
+  note_tunings: String
+}
+
+type DeviceIO {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+
+  """
+  Live's dictionary as a JSON string, the channels under one key:
+  `{"available_routing_channels": [{"display_name": "", "identifier": 50}]}`.
+  """
+  available_routing_channels: String
+
+  """
+  Live's dictionary as a JSON string, the types under one key:
+  `{"available_routing_types": [{"display_name": "Ext. In", "identifier": 34}, ...]}`.
+  """
+  available_routing_types: String
+  default_external_routing_channel_is_none: Boolean
+
+  """
+  Live's dictionary as a JSON string, under one key:
+  `{"routing_channel": {"display_name": "", "identifier": 50}}`.
+  """
+  routing_channel: String
+
+  """
+  Live's dictionary as a JSON string, under one key:
+  `{"routing_type": {"display_name": "No Input", "identifier": 46}}`.
+  """
+  routing_type: String
+}
+
+input DeviceIOSetInput @oneOf {
+  default_external_routing_channel_is_none: Boolean
+
+  """
+  A JSON string naming one of available_routing_channels, such as
+  `{"identifier": 50}`.
+  """
+  routing_channel: String
+
+  """
+  A JSON string naming one of available_routing_types, such as
+  `{"identifier": 46}`.
+  """
+  routing_type: String
 }
 
 type Note {

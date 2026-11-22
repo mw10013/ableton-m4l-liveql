@@ -449,6 +449,35 @@ describe("live", { skip: SKIP }, () => {
   });
 
   /**
+   * The LOM types TuningSystem's notes as dictionaries; the bridge reads one as
+   * the JSON string `LiveAPI.get` answers, and Live takes that string back.
+   */
+  it("sets a tuning system dictionary as a JSON string and reads it back", async () => {
+    const { live_set } = await data(
+      "{ live_set { tuning_system { id path lowest_note } } }",
+    );
+    const { id, lowest_note } = live_set.tuning_system;
+    record("TuningSystem path", JSON.stringify(live_set.tuning_system.path));
+    const moved = JSON.stringify({
+      ...JSON.parse(lowest_note),
+      octave: JSON.parse(lowest_note).octave + 1,
+    });
+    const set = (value) =>
+      data(
+        `mutation ($v: String!) { tuning_system_set(id: ${id}, properties: [{ lowest_note: $v }]) { lowest_note } }`,
+        { v: value },
+      );
+    try {
+      assert.deepEqual(
+        JSON.parse((await set(moved)).tuning_system_set.lowest_note),
+        JSON.parse(moved),
+      );
+    } finally {
+      await set(lowest_note);
+    }
+  });
+
+  /**
    * Return and master tracks are where the LOM's absent members show up. The
    * bridge used to die on them: a track with no clip slots answers clip_slots
    * with the empty symbol, not an empty list, and the whole object read threw.
@@ -761,11 +790,13 @@ describe("live", { skip: SKIP }, () => {
      * instrument inserted on a track that holds one, with audio effects after
      * it. The first track also gets a take lane holding a MIDI clip, which only
      * deleting its track removes: `Track.delete_clip` leaves a take lane's clip
-     * in place, and a TakeLane has no delete.
+     * in place, and a TakeLane has no delete. The empty Max Audio Effect is
+     * the one device with DeviceIO buses: the fixture's MIDI-effect LiveQL
+     * device lists all four bus children empty.
      */
     const INSERTED = [
       ["Drift", "Compressor", "Hybrid Reverb", "Looper"],
-      ["Meld", "Roar", "Shifter"],
+      ["Meld", "Roar", "Shifter", "Max Audio Effect"],
       ["DrumSampler", "Spectral Resonator"],
     ];
     let audioClip, audioTrack, song, tracks;
@@ -851,13 +882,13 @@ describe("live", { skip: SKIP }, () => {
       const CLIP = `${INFO} view { ${INFO} } groove { ${INFO} }`;
       const NESTED = `${INFO} parameters { ${INFO} } view { ${INFO} }`;
       const CHAIN = `${INFO} mixer_device { ${INFO} } devices { ${NESTED} }`;
-      const DEVICE = `${NESTED} ... on SimplerDevice { sample { ${INFO} } } ... on RackDevice { chain_selector { ${INFO} } chains { ${CHAIN} } return_chains { ${CHAIN} } drum_pads { ${INFO} chains { ${CHAIN} } } }`;
+      const DEVICE = `${NESTED} ... on SimplerDevice { sample { ${INFO} } } ... on MaxDevice { audio_inputs { ${INFO} } audio_outputs { ${INFO} } midi_inputs { ${INFO} } midi_outputs { ${INFO} } } ... on RackDevice { chain_selector { ${INFO} } chains { ${CHAIN} } return_chains { ${CHAIN} } drum_pads { ${INFO} chains { ${CHAIN} } } }`;
       const TRACK = `${INFO} view { ${INFO} } mixer_device { ${INFO} } take_lanes { ${INFO} arrangement_clips { ${CLIP} } } arrangement_clips { ${CLIP} } clip_slots { ${INFO} clip { ${CLIP} } } devices { ${DEVICE} }`;
       const { live_app, live_set } = await data(`{
         live_app { ${INFO} get_version_string view { ${INFO} } }
         live_set {
           ${INFO} view { ${INFO} } scenes { ${INFO} }
-          cue_points { ${INFO} } groove_pool { ${INFO} grooves { ${INFO} } }
+          tuning_system { ${INFO} } cue_points { ${INFO} } groove_pool { ${INFO} grooves { ${INFO} } }
           tracks { ${TRACK} } return_tracks { ${TRACK} } master_track { ${TRACK} }
         }
       }`);

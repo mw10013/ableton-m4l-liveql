@@ -143,6 +143,54 @@ describe("device", () => {
     ]);
   });
 
+  it("resolves a plug-in to PluginDevice and sets its own members through plugin_device_set", async () => {
+    const { data } = await gql(
+      "{ live_set { master_track { devices { __typename ... on PluginDevice { class_name presets selected_preset_index is_editor_open } } } } }",
+    );
+    assert.deepEqual(data.live_set.master_track.devices[0], {
+      __typename: "PluginDevice",
+      class_name: "AuPluginDevice",
+      presets: ["Untitled", "Slapback"],
+      selected_preset_index: 0,
+      is_editor_open: false,
+    });
+    const set = await gql(
+      "mutation { plugin_device_set(id: 67, properties: [{ selected_preset_index: 1 }]) { selected_preset_index } }",
+    );
+    assert.deepEqual(set.data.plugin_device_set, { selected_preset_index: 1 });
+  });
+
+  it("reads a Max device's buses as DeviceIO, dictionaries as Live's JSON strings, and sets one as a string", async () => {
+    const { data } = await gql(
+      "{ live_set { master_track { devices { ... on MaxDevice { audio_inputs { __typename id routing_type default_external_routing_channel_is_none } audio_outputs { id routing_type } midi_inputs { id } } } } } }",
+    );
+    assert.deepEqual(data.live_set.master_track.devices[1], {
+      audio_inputs: [
+        {
+          __typename: "DeviceIO",
+          id: 72,
+          routing_type:
+            '{"routing_type": {"display_name": "No Input", "identifier": 46}}',
+          default_external_routing_channel_is_none: false,
+        },
+      ],
+      audio_outputs: [
+        {
+          id: 73,
+          routing_type:
+            '{"routing_type": {"display_name": "No Output", "identifier": 29}}',
+        },
+      ],
+      midi_inputs: [],
+    });
+    await gql(
+      String.raw`mutation { device_io_set(id: 72, properties: [{ routing_type: "{\"identifier\": 34}" }]) { id } }`,
+    );
+    assert.deepEqual(lom.setsOf("routing_type"), [
+      ["set", 72, "routing_type", '{"identifier": 34}'],
+    ]);
+  });
+
   it("resolves a device nested in a rack's chain", async () => {
     const { data } = await gql(
       "{ track(id: 11) { devices { __typename ... on RackDevice { chains { __typename id name devices { __typename id name } } return_chains { id } } } } }",

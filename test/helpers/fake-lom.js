@@ -58,6 +58,7 @@ function songProps() {
     visible_tracks: ["id", 10, "id", 11],
     scenes: ["id", 30],
     cue_points: ["id", 90],
+    tuning_system: ["id", 95],
   };
 }
 
@@ -203,11 +204,11 @@ function parameterProps(overrides) {
 
 /**
  * One MIDI track (10) holding a Simpler (60) with two parameters (70, 71) and a plain Device (61), with a clip slot holding MIDI clip 40 whose groove is 91, one audio track
- * (11) holding arrangement clip 50 and an Audio Effect Rack (62) whose chain (80) holds a plain Device (63), a return track (13) holding a Shifter (66) and a master track (12)
+ * (11) holding arrangement clip 50 and an Audio Effect Rack (62) whose chain (80) holds a plain Device (63), a return track (13) holding a Shifter (66) and a master track (12) holding a plug-in (67) and a Max Audio Effect (68) whose audio buses are 72 and 73
  * missing the members Live's `info` leaves out there. None of them is a Group
  * Track, so none has a fold_state. Song.View's
  * `highlighted_clip_slot` is `id 0` so the bridge's null child is covered.
- * The Song has one cue point (90). Every device view's `LiveAPI.type` is a
+ * The Song has one cue point (90) and a tuning system (95). Every device view's `LiveAPI.type` is a
  * bare `View`, so only its members tell the Simpler's view (64) from the
  * plain Device's (65).
  */
@@ -345,7 +346,12 @@ function defaultObjects() {
       path: "live_set master_track",
       type: "Track",
       props: trackProps(
-        { name: ["Master"], can_be_armed: [0], clip_slots: "" },
+        {
+          name: ["Master"],
+          can_be_armed: [0],
+          clip_slots: "",
+          devices: ["id", 67, "id", 68],
+        },
         [
           "arm",
           "mute",
@@ -382,6 +388,82 @@ function defaultObjects() {
         pitch_bend_range: [2],
         pitch_mode_index: [0],
       }),
+    },
+    67: {
+      id: 67,
+      path: "live_set master_track devices 0",
+      type: "PluginDevice",
+      props: deviceProps({
+        class_display_name: ["AUDelay"],
+        class_name: ["AuPluginDevice"],
+        name: ["AUDelay"],
+        is_editor_open: [0],
+        presets: ["Untitled", "Slapback"],
+        selected_preset_index: [0],
+      }),
+    },
+    68: {
+      id: 68,
+      path: "live_set master_track devices 1",
+      type: "MaxDevice",
+      props: deviceProps({
+        class_display_name: ["Max Audio Effect"],
+        class_name: ["MxDeviceAudioEffect"],
+        name: ["Max Audio Effect"],
+        audio_inputs: ["id", 72],
+        audio_outputs: ["id", 73],
+        midi_inputs: [],
+        midi_outputs: [],
+      }),
+    },
+    72: {
+      id: 72,
+      path: "live_set master_track devices 1 audio_inputs 0",
+      type: "DeviceIO",
+      props: {
+        available_routing_channels: [
+          '{"available_routing_channels": [{"display_name": "", "identifier": 50}]}',
+        ],
+        available_routing_types: [
+          '{"available_routing_types": [{"display_name": "Ext. In", "identifier": 34}, {"display_name": "No Input", "identifier": 46}]}',
+        ],
+        default_external_routing_channel_is_none: [0],
+        routing_channel: [
+          '{"routing_channel": {"display_name": "", "identifier": 50}}',
+        ],
+        routing_type: [
+          '{"routing_type": {"display_name": "No Input", "identifier": 46}}',
+        ],
+      },
+    },
+    73: {
+      id: 73,
+      path: "live_set master_track devices 1 audio_outputs 0",
+      type: "DeviceIO",
+      props: {
+        routing_type: [
+          '{"routing_type": {"display_name": "No Output", "identifier": 29}}',
+        ],
+      },
+    },
+    /**
+     * Live answers the tuning system's `path` with null, which the bridge
+     * sends as the empty string.
+     */
+    95: {
+      id: 95,
+      path: null,
+      type: "TuningSystem",
+      props: {
+        name: ["7-EDO"],
+        pseudo_octave_in_cents: [1200],
+        lowest_note: ['{"index_in_octave": 6, "octave": -7}'],
+        highest_note: ['{"index_in_octave": 0, "octave": 12}'],
+        reference_pitch: [
+          '{"index_in_octave": 5, "octave": 3, "frequency": 440.0}',
+        ],
+        note_tunings: ['{"note_tunings": [0.0, 171.42857360839844]}'],
+      },
     },
     20: {
       id: 20,
@@ -523,7 +605,7 @@ function createLom() {
   const get = (params) => {
     const o = resolve(params.idOrPath);
     gets.push(params);
-    const out = { id: o.id, path: o.path, type: o.type };
+    const out = { id: o.id, path: o.path ?? "", type: o.type };
     const listed = (keys) => (keys ?? []).filter((k) => k in o.props);
     for (const k of listed(params.propertyKeysSingle)) {
       const arr = asList(read(o, k));
