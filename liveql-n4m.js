@@ -308,6 +308,7 @@ const LOM_TYPES = {
   long: "Int",
   float: "Float",
   symbol: "String",
+  StringVector: "[String!]",
   unicode: "String",
 };
 const FIELD_READERS = { Int: firstInt, String: firstString };

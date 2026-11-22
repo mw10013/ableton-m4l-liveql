@@ -250,6 +250,14 @@ type Mutation {
   wavetable_device_set(id: Int!, properties: [WavetableDeviceSetInput!]!): WavetableDevice
   wavetable_device_add_parameter_to_modulation_matrix(id: Int!, parameter_to_add: Int!): WavetableDevice
   eq8_device_set(id: Int!, properties: [Eq8DeviceSetInput!]!): Eq8Device
+  device_parameter_set(id: Int!, properties: [DeviceParameterSetInput!]!): DeviceParameter
+  device_parameter_re_enable_automation(id: Int!): DeviceParameter
+  chain_set(id: Int!, properties: [ChainSetInput!]!): Chain
+  chain_delete_device(id: Int!, index: Int!): Chain
+  chain_insert_device(id: Int!, device_name: String!, target_index: Int): Chain
+  drum_chain_set(id: Int!, properties: [DrumChainSetInput!]!): DrumChain
+  drum_pad_set(id: Int!, properties: [DrumPadSetInput!]!): DrumPad
+  drum_pad_delete_all_chains(id: Int!): DrumPad
 
   """
   Adds notes and returns the ids Live assigned, in the order the notes were
@@ -288,6 +296,9 @@ type SongView {
   detail_clip: Clip
   highlighted_clip_slot: ClipSlot
   mod_mapping_device: Device
+  mod_mapping_parameter: DeviceParameter
+  selected_chain: Chain
+  selected_parameter: DeviceParameter
   selected_scene: Scene
   selected_track: Track
   draw_mode: Boolean
@@ -299,6 +310,7 @@ input SongViewSetInput @oneOf {
   detail_clip: Int
   highlighted_clip_slot: Int
   mod_mapping_device: Int
+  selected_chain: Int
   selected_scene: Int
   selected_track: Int
   draw_mode: Boolean
@@ -618,6 +630,7 @@ interface Device {
   Read only when selected.
   """
   info: String!
+  parameters: [DeviceParameter!]
   can_have_chains: Boolean
   can_have_drum_pads: Boolean
   class_display_name: String
@@ -643,6 +656,7 @@ type GenericDevice implements Device {
   Read only when selected.
   """
   info: String!
+  parameters: [DeviceParameter!]
   can_have_chains: Boolean
   can_have_drum_pads: Boolean
   class_display_name: String
@@ -673,6 +687,7 @@ type SimplerDevice implements Device {
   Read only when selected.
   """
   info: String!
+  parameters: [DeviceParameter!]
   can_have_chains: Boolean
   can_have_drum_pads: Boolean
   class_display_name: String
@@ -717,6 +732,12 @@ type RackDevice implements Device {
   Read only when selected.
   """
   info: String!
+  parameters: [DeviceParameter!]
+  chain_selector: DeviceParameter
+  chains: [Chain!]
+  drum_pads: [DrumPad!]
+  return_chains: [Chain!]
+  visible_drum_pads: [DrumPad!]
   can_have_chains: Boolean
   can_have_drum_pads: Boolean
   class_display_name: String
@@ -754,6 +775,7 @@ type WavetableDevice implements Device {
   Read only when selected.
   """
   info: String!
+  parameters: [DeviceParameter!]
   can_have_chains: Boolean
   can_have_drum_pads: Boolean
   class_display_name: String
@@ -774,9 +796,13 @@ type WavetableDevice implements Device {
   oscillator_2_wavetable_category: Int
   oscillator_1_wavetable_index: Int
   oscillator_2_wavetable_index: Int
+  oscillator_1_wavetables: [String!]
+  oscillator_2_wavetables: [String!]
+  oscillator_wavetable_categories: [String!]
   poly_voices: Int
   unison_mode: Int
   unison_voice_count: Int
+  visible_modulation_target_names: [String!]
 }
 
 input WavetableDeviceSetInput @oneOf {
@@ -804,6 +830,7 @@ type Eq8Device implements Device {
   Read only when selected.
   """
   info: String!
+  parameters: [DeviceParameter!]
   can_have_chains: Boolean
   can_have_drum_pads: Boolean
   class_display_name: String
@@ -838,6 +865,7 @@ type MaxDevice implements Device {
   Read only when selected.
   """
   info: String!
+  parameters: [DeviceParameter!]
   can_have_chains: Boolean
   can_have_drum_pads: Boolean
   class_display_name: String
@@ -850,6 +878,156 @@ type MaxDevice implements Device {
 
   """Null when can_compare_ab is false: such a device's info leaves it out."""
   is_using_compare_preset_b: Boolean
+}
+
+type DeviceParameter {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  automation_state: Int
+  default_value: Float
+  is_enabled: Boolean
+  is_quantized: Boolean
+  max: Float
+  min: Float
+  name: String
+  original_name: String
+  state: Int
+  value: Float
+  display_value: Float
+
+  """
+  Null when is_quantized is false: such a parameter's info leaves it out.
+  """
+  value_items: [String!]
+}
+
+input DeviceParameterSetInput @oneOf {
+  value: Float
+  display_value: Float
+}
+
+interface Chain {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  devices: [Device!]
+  color: Int
+  color_index: Int
+  is_auto_colored: Boolean
+  has_audio_input: Boolean
+  has_audio_output: Boolean
+  has_midi_input: Boolean
+  has_midi_output: Boolean
+  mute: Boolean
+  muted_via_solo: Boolean
+  name: String
+  solo: Boolean
+}
+
+type GenericChain implements Chain {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  devices: [Device!]
+  color: Int
+  color_index: Int
+  is_auto_colored: Boolean
+  has_audio_input: Boolean
+  has_audio_output: Boolean
+  has_midi_input: Boolean
+  has_midi_output: Boolean
+  mute: Boolean
+  muted_via_solo: Boolean
+  name: String
+  solo: Boolean
+}
+
+input ChainSetInput @oneOf {
+  color: Int
+  color_index: Int
+  is_auto_colored: Boolean
+  mute: Boolean
+  name: String
+  solo: Boolean
+}
+
+type DrumChain implements Chain {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  devices: [Device!]
+  color: Int
+  color_index: Int
+  is_auto_colored: Boolean
+  has_audio_input: Boolean
+  has_audio_output: Boolean
+  has_midi_input: Boolean
+  has_midi_output: Boolean
+  mute: Boolean
+  muted_via_solo: Boolean
+  name: String
+  solo: Boolean
+  in_note: Int
+  out_note: Int
+  choke_group: Int
+}
+
+input DrumChainSetInput @oneOf {
+  in_note: Int
+  out_note: Int
+  choke_group: Int
+}
+
+type DrumPad {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  chains: [Chain!]
+  mute: Boolean
+  name: String
+  note: Int
+  solo: Boolean
+}
+
+input DrumPadSetInput @oneOf {
+  mute: Boolean
+  solo: Boolean
 }
 
 type Note {

@@ -22,6 +22,11 @@ const LOM_OBJECT_TYPES = [
   "WavetableDevice",
   "Eq8Device",
   "MaxDevice",
+  "DeviceParameter",
+  "Chain",
+  "GenericChain",
+  "DrumChain",
+  "DrumPad",
 ];
 const MUTATION_PREFIX = {
   Song: "song",
@@ -37,6 +42,10 @@ const MUTATION_PREFIX = {
   RackDevice: "rack_device",
   WavetableDevice: "wavetable_device",
   Eq8Device: "eq8_device",
+  DeviceParameter: "device_parameter",
+  Chain: "chain",
+  DrumChain: "drum_chain",
+  DrumPad: "drum_pad",
 };
 const INVENTED_FIELDS = new Set(["id", "info", "properties", "input"]);
 const INVENTED_ARGS = new Set(["id", "properties"]);

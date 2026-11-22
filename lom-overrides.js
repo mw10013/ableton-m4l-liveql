@@ -10,8 +10,9 @@
  *   empty read resolves to; `settable`, a member Live sets though the docs say
  *   it cannot be; `description` for the field and `inputDescription` for its
  *   `<Class>SetInput` field; `skip`, why a property is left out.
- * - `children.<name>`: `description`, and `index`, the name of a singular
- *   accessor that takes an index into the child list.
+ * - `children.<name>`: `description`; `index`, the name of a singular
+ *   accessor that takes an index into the child list; `list: true`, a child
+ *   list whose doc heading names the class without `list of`.
  * - `functions.<name>`: `args`, the GraphQL arguments in LOM call order, each
  *   an SDL type with an optional default or `{ type, id: true }` for an object
  *   passed by id, replacing what the docs give; `description`; `field`, the
@@ -39,6 +40,10 @@ module.exports = {
     "WavetableDevice",
     "Eq8Device",
     "MaxDevice",
+    "DeviceParameter",
+    "Chain",
+    "DrumChain",
+    "DrumPad",
   ],
   classes: {
     Application: {
@@ -313,6 +318,36 @@ module.exports = {
           skip: "the docs list no parameter for the amount to set",
         },
       },
+    },
+    DeviceParameter: {
+      drift: {
+        canonical_parent:
+          "undocumented, info lists a child typed by the owning device's class, such as Eq8Device (Live 12.4.6)",
+      },
+      properties: {
+        value_items: {
+          description:
+            "Null when is_quantized is false: such a parameter's info leaves it out.",
+        },
+      },
+    },
+    Chain: {
+      drift: {
+        canonical_parent:
+          "undocumented, info lists a child RackDevice (Live 12.4.6)",
+        devices:
+          "documented as a child, info lists a children Device (Live 12.4.6)",
+      },
+      children: { devices: { list: true } },
+    },
+    DrumPad: {
+      drift: {
+        canonical_parent:
+          "undocumented, info lists a child RackDevice (Live 12.4.6)",
+        chains:
+          "documented as a child, info lists a children Chain (Live 12.4.6)",
+      },
+      children: { chains: { list: true } },
     },
   },
 };

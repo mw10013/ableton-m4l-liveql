@@ -182,9 +182,27 @@ function deviceProps(overrides) {
   };
 }
 
+/** A non-quantized parameter's props; its `info` leaves out value_items. */
+function parameterProps(overrides) {
+  return {
+    name: ["Parameter"],
+    original_name: ["Parameter"],
+    is_enabled: [1],
+    is_quantized: [0],
+    min: [0],
+    max: [1],
+    default_value: [0],
+    value: [0],
+    display_value: [0],
+    automation_state: [0],
+    state: [0],
+    ...overrides,
+  };
+}
+
 /**
- * One MIDI track (10) holding a Simpler (60) and a plain Device (61), with a clip slot holding MIDI clip 40, one audio track
- * (11) holding arrangement clip 50, a return track (13) and a master track (12)
+ * One MIDI track (10) holding a Simpler (60) with two parameters (70, 71) and a plain Device (61), with a clip slot holding MIDI clip 40, one audio track
+ * (11) holding arrangement clip 50 and an Audio Effect Rack (62) whose chain (80) holds a plain Device (63), a return track (13) and a master track (12)
  * missing the members Live's `info` leaves out there. None of them is a Group
  * Track, so none has a fold_state. Song.View's
  * `highlighted_clip_slot` is `id 0` so the bridge's null child is covered.
@@ -227,6 +245,25 @@ function defaultObjects() {
         playback_mode: [0],
         retrigger: [0],
         voices: [1],
+        parameters: ["id", 70, "id", 71],
+      }),
+    },
+    70: {
+      id: 70,
+      path: "live_set tracks 0 devices 0 parameters 0",
+      type: "DeviceParameter",
+      props: parameterProps({ name: ["Volume"], value: [0.5] }),
+    },
+    /** Live's `info` lists value_items only on a quantized parameter. */
+    71: {
+      id: 71,
+      path: "live_set tracks 0 devices 0 parameters 1",
+      type: "DeviceParameter",
+      props: parameterProps({
+        name: ["Snap"],
+        is_quantized: [1],
+        value: [1],
+        value_items: ["Off", "On"],
       }),
     },
     61: {
@@ -248,6 +285,36 @@ function defaultObjects() {
         has_midi_input: [0],
         has_audio_input: [1],
         arrangement_clips: ["id", 50],
+        devices: ["id", 62],
+      }),
+    },
+    62: {
+      id: 62,
+      path: "live_set tracks 1 devices 0",
+      type: "RackDevice",
+      props: deviceProps({
+        can_have_chains: [1],
+        class_display_name: ["Audio Effect Rack"],
+        class_name: ["AudioEffectGroupDevice"],
+        name: ["Audio Effect Rack"],
+        chains: ["id", 80],
+        return_chains: [],
+      }),
+    },
+    80: {
+      id: 80,
+      path: "live_set tracks 1 devices 0 chains 0",
+      type: "Chain",
+      props: { name: ["Chain"], mute: [0], solo: [0], devices: ["id", 63] },
+    },
+    63: {
+      id: 63,
+      path: "live_set tracks 1 devices 0 chains 0 devices 0",
+      type: "Device",
+      props: deviceProps({
+        class_display_name: ["Saturator"],
+        class_name: ["Saturator"],
+        name: ["Saturator"],
       }),
     },
     /**

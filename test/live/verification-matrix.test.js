@@ -773,7 +773,10 @@ describe("live", { skip: SKIP }, () => {
 
     it("records every member Live and the docs disagree on", async () => {
       const CLIP = `${INFO} view { ${INFO} }`;
-      const TRACK = `${INFO} arrangement_clips { ${CLIP} } clip_slots { ${INFO} clip { ${CLIP} } } devices { ${INFO} }`;
+      const NESTED = `${INFO} parameters { ${INFO} }`;
+      const CHAIN = `${INFO} devices { ${NESTED} }`;
+      const DEVICE = `${NESTED} ... on RackDevice { chain_selector { ${INFO} } chains { ${CHAIN} } return_chains { ${CHAIN} } drum_pads { ${INFO} chains { ${CHAIN} } } }`;
+      const TRACK = `${INFO} arrangement_clips { ${CLIP} } clip_slots { ${INFO} clip { ${CLIP} } } devices { ${DEVICE} }`;
       const { live_app, live_set } = await data(`{
         live_app { ${INFO} get_version_string }
         live_set {
@@ -827,7 +830,10 @@ describe("live", { skip: SKIP }, () => {
        * A class with subclasses in scope is seen through `Generic<Class>`, its
        * plain objects, and a subclass is compared with its own members and its
        * parent's. A mismatch a subclass shares with its parent's plain objects
-       * is the parent's, so it is recorded once, under the parent.
+       * is the parent's, so it is recorded once, under the parent. An
+       * undocumented member counts as shared whatever type it lists, because a
+       * child like `canonical_parent` is typed by where the object sits: a
+       * Track for a device on a track, a Chain for one inside a Rack.
        */
       const typenameOf = (name) =>
         OVERRIDES.scope.some((n) => parentOf(n) === name)
@@ -876,12 +882,10 @@ describe("live", { skip: SKIP }, () => {
               `undocumented, info lists a ${got.kind} ${got.type ?? ""}`.trim(),
             );
         if (!parent) return found;
-        const inherited = new Set(
-          compare(parent).map(({ member, text }) => `${member} ${text}`),
-        );
-        return found.filter(
-          ({ member, text }) => !inherited.has(`${member} ${text}`),
-        );
+        const key = ({ member, text }) =>
+          `${member} ${text.startsWith("undocumented") ? "undocumented" : text}`;
+        const inherited = new Set(compare(parent).map(key));
+        return found.filter((m) => !inherited.has(key(m)));
       };
       const mismatches = OVERRIDES.scope.flatMap((name) =>
         compare(name).map(({ member, text }) => ({

@@ -94,4 +94,59 @@ describe("device", () => {
     assert.ok(response.errors?.length);
     assert.deepEqual(lom.log, []);
   });
+
+  it("reads a device's parameters, value_items only where info lists it", async () => {
+    const { data } = await gql(
+      "{ track(id: 10) { devices { parameters { id name value is_quantized value_items } } } }",
+    );
+    assert.deepEqual(data.track.devices[0].parameters, [
+      {
+        id: 70,
+        name: "Volume",
+        value: 0.5,
+        is_quantized: false,
+        value_items: null,
+      },
+      {
+        id: 71,
+        name: "Snap",
+        value: 1,
+        is_quantized: true,
+        value_items: ["Off", "On"],
+      },
+    ]);
+  });
+
+  it("sets a parameter's value through device_parameter_set", async () => {
+    const { data } = await gql(
+      "mutation { device_parameter_set(id: 70, properties: [{ value: 0.25 }]) { id value } }",
+    );
+    assert.deepEqual(data.device_parameter_set, { id: 70, value: 0.25 });
+    assert.deepEqual(
+      lom.log.filter(([action]) => action === "set"),
+      [["set", 70, "value", 0.25]],
+    );
+  });
+
+  it("resolves a device nested in a rack's chain", async () => {
+    const { data } = await gql(
+      "{ track(id: 11) { devices { __typename ... on RackDevice { chains { __typename id name devices { __typename id name } } return_chains { id } } } } }",
+    );
+    assert.deepEqual(data.track.devices, [
+      {
+        __typename: "RackDevice",
+        chains: [
+          {
+            __typename: "GenericChain",
+            id: 80,
+            name: "Chain",
+            devices: [
+              { __typename: "GenericDevice", id: 63, name: "Saturator" },
+            ],
+          },
+        ],
+        return_chains: [],
+      },
+    ]);
+  });
 });
