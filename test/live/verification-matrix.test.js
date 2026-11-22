@@ -1003,6 +1003,54 @@ describe("live", { skip: SKIP }, () => {
       );
     });
 
+    it("reads an audio clip's warp markers, and adds one from a typed dictionary", async () => {
+      const track = await newTrack("audio");
+      const sample = path.join(
+        path.dirname(openedSet()),
+        "Samples/Imported/liveql-sine-a440.wav",
+      );
+      const WARP =
+        "id warping available_warp_modes warp_markers { beat_time sample_time }";
+      const [clip] = (
+        await data(
+          `mutation ($f: String!) { track_create_audio_clip(id: ${track}, file_path: $f, position: 0) { arrangement_clips { ${WARP} } } }`,
+          { f: sample },
+        )
+      ).track_create_audio_clip.arrangement_clips;
+      record("new audio clip warp state", JSON.stringify(clip));
+      assert.ok(clip.available_warp_modes.every(Number.isInteger));
+      if (!clip.warping)
+        await data(
+          `mutation { clip_set(id: ${clip.id}, properties: [{ warping: true }]) { id } }`,
+        );
+      const add = async (marker) =>
+        gql(
+          `mutation ($m: WarpMarkerInput!) { clip_add_warp_marker(id: ${clip.id}, warp_marker: $m) { warp_markers { beat_time sample_time } } }`,
+          { m: marker },
+        );
+      const added = await add({ beat_time: 1 });
+      assert.equal(added.errors, undefined, JSON.stringify(added.errors));
+      const markers = added.data.clip_add_warp_marker.warp_markers;
+      assert.equal(markers.length, clip.warp_markers.length + 1);
+      assert.ok(markers.some((m) => m.beat_time === 1));
+      /**
+       * 0.5 beats over 0.01 s is far past 999 BPM, and 1000 s is past the
+       * sample's end: Live drops both without an error.
+       */
+      for (const marker of [
+        { beat_time: 0.5, sample_time: 0.01 },
+        { beat_time: 0.75, sample_time: 1000 },
+      ]) {
+        const dropped = await add(marker);
+        assert.equal(dropped.errors, undefined, JSON.stringify(dropped.errors));
+        assert.deepEqual(
+          dropped.data.clip_add_warp_marker.warp_markers,
+          markers,
+          `Live no longer drops ${JSON.stringify(marker)} silently`,
+        );
+      }
+    });
+
     it("reads the functions that only read as fields", async () => {
       const { live_app, live_set } = await data(`{
         live_app { get_document { id } view { available_main_views is_view_visible(view_name: "Browser") } }
@@ -1244,7 +1292,7 @@ describe("live", { skip: SKIP }, () => {
           )
           .join(" ");
       const DEVICE_IO = `cls: __typename ${selectionOf("DeviceIO")}`;
-      const TRACK = `cls: __typename ${selectionOf("Track")} devices { cls: __typename ... on CompressorDevice { ${selectionOf("CompressorDevice")} } ... on MaxDevice { audio_inputs { ${DEVICE_IO} } audio_outputs { ${DEVICE_IO} } midi_inputs { ${DEVICE_IO} } midi_outputs { ${DEVICE_IO} } } }`;
+      const TRACK = `cls: __typename ${selectionOf("Track")} arrangement_clips { cls: __typename ${selectionOf("Clip")} } devices { cls: __typename ... on CompressorDevice { ${selectionOf("CompressorDevice")} } ... on SimplerDevice { sample { cls: __typename ${selectionOf("Sample")} } } ... on MaxDevice { audio_inputs { ${DEVICE_IO} } audio_outputs { ${DEVICE_IO} } midi_inputs { ${DEVICE_IO} } midi_outputs { ${DEVICE_IO} } } }`;
       const response = await gql(`{ live_set {
         tuning_system { cls: __typename ${selectionOf("TuningSystem")} }
         tracks { ${TRACK} } return_tracks { ${TRACK} } master_track { ${TRACK} }

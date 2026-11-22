@@ -338,6 +338,16 @@ module.exports = {
             "Live drops an end_marker set before the current start_marker without\nraising. Order the items so start stays <= end, and compare the returned\nclip with what you asked for.",
         },
         position: { settable: true },
+        available_warp_modes: {
+          type: "[Int!]",
+          description: "Null on a MIDI clip.",
+        },
+        warp_markers: {
+          type: "[WarpMarker!]",
+          dictionary: "warp_markers",
+          description:
+            "Null on a MIDI clip. The last marker is hidden in Live's interface: Live\nuses it for the tempo of the last segment.",
+        },
       },
       functions: {
         get_all_notes_extended: { custom: true },
@@ -347,9 +357,7 @@ module.exports = {
         add_new_notes: { custom: true },
         apply_note_modifications: { custom: true },
         duplicate_notes_by_id: { custom: true },
-        add_warp_marker: {
-          skip: "takes a warp marker dict the docs describe only in prose",
-        },
+        add_warp_marker: { args: { warp_marker: "WarpMarkerInput!" } },
         select_notes_by_id: { args: { note_ids: "[Int!]!" } },
         remove_notes_by_id: { args: { note_ids: "[Int!]!" } },
         duplicate_region: {
@@ -612,6 +620,12 @@ module.exports = {
       },
       properties: {
         slices: { type: "[Int!]" },
+        warp_markers: {
+          type: "[WarpMarker!]",
+          dictionary: "warp_markers",
+          description:
+            "The last marker is hidden in Live's interface: Live uses it for the tempo\nof the last segment.",
+        },
       },
       functions: { gain_display_string: { field: "String!" } },
     },

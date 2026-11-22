@@ -106,6 +106,7 @@ type Mutation {
   scene_fire_as_selected(id: Int!, force_legato: Boolean): Scene
   scene_set_fire_button_state(id: Int!, state: Boolean!): Scene
   clip_set(id: Int!, properties: [ClipSetInput!]!): Clip
+  clip_add_warp_marker(id: Int!, warp_marker: WarpMarkerInput!): Clip
   clip_clear_all_envelopes(id: Int!): Clip
   clip_clear_envelope(id: Int!, device_parameter: Int!): Clip
   clip_crop(id: Int!): Clip
@@ -612,6 +613,9 @@ type Clip {
   info: String!
   view: ClipView
   groove: Groove
+
+  """Null on a MIDI clip."""
+  available_warp_modes: [Int!]
   color: Int
   color_index: Int
   end_marker: Float
@@ -639,6 +643,12 @@ type Clip {
   looping: Boolean
   muted: Boolean
   name: String!
+
+  """
+  Null on a MIDI clip. The last marker is hidden in Live's interface: Live
+  uses it for the tempo of the last segment.
+  """
+  warp_markers: [WarpMarker!]
   pitch_coarse: Int
   pitch_fine: Float
   playing_position: Float
@@ -1432,6 +1442,12 @@ type Sample {
   texture_flux: Float
   texture_grain_size: Float
   tones_grain_size: Float
+
+  """
+  The last marker is hidden in Live's interface: Live uses it for the tempo
+  of the last segment.
+  """
+  warp_markers: [WarpMarker!]
   warp_mode: Int
   warping: Boolean
   slicing_style: Int
@@ -2078,6 +2094,28 @@ input ReferencePitchInput {
   index_in_octave: Int!
   octave: Int!
   frequency: Float!
+}
+
+"""
+A warp marker: a position in seconds in the sample file, and the beat it
+plays at.
+"""
+type WarpMarker {
+  sample_time: Float!
+  beat_time: Float!
+}
+
+"""
+A warp marker to add, sent as the dictionary Live takes. Omit sample_time
+and Live picks the one that keeps the clip's timing, like a double-click in
+the Sample Display. Live adds markers only to a warped audio clip, and
+drops one it cannot place without raising, such as a sample_time past the
+sample or one that would take a segment outside 5-999 BPM: compare the
+returned warp_markers with what you asked for.
+"""
+input WarpMarkerInput {
+  beat_time: Float!
+  sample_time: Float
 }
 
 type ClipNotesPayload {

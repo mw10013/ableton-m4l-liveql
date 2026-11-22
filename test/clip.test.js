@@ -234,4 +234,37 @@ describe("clip", () => {
       ["set", 91, "timing_amount", 50],
     ]);
   });
+
+  it("reads an audio clip's warp markers as typed objects and adds one as the dictionary Live takes", async () => {
+    Object.assign(lom.objects[50].props, {
+      available_warp_modes: [0, 1, 4],
+      warp_markers: [
+        '{"warp_markers": [{"sample_time": 0.0, "beat_time": 0.0}, {"sample_time": 0.5, "beat_time": 1.0}]}',
+      ],
+    });
+    const { data, errors } = await gql(
+      "{ a: clip(id: 50) { available_warp_modes warp_markers { sample_time beat_time } } b: clip(id: 40) { warp_markers { beat_time } } }",
+    );
+    assert.equal(errors, undefined);
+    assert.deepEqual(data, {
+      a: {
+        available_warp_modes: [0, 1, 4],
+        warp_markers: [
+          { sample_time: 0, beat_time: 0 },
+          { sample_time: 0.5, beat_time: 1 },
+        ],
+      },
+      b: { warp_markers: null },
+    });
+    await gql(
+      "mutation { a: clip_add_warp_marker(id: 50, warp_marker: { beat_time: 2 }) { id } b: clip_add_warp_marker(id: 50, warp_marker: { beat_time: 3, sample_time: 1.5 }) { id } }",
+    );
+    assert.deepEqual(
+      lom.log.filter(([action]) => action === "call"),
+      [
+        ["call", 50, "add_warp_marker", { beat_time: 2 }],
+        ["call", 50, "add_warp_marker", { beat_time: 3, sample_time: 1.5 }],
+      ],
+    );
+  });
 });

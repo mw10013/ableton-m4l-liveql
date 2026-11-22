@@ -1104,6 +1104,28 @@ const typeDefs = /* GraphQL */ `
     frequency: Float!
   }
 
+  """
+  A warp marker: a position in seconds in the sample file, and the beat it
+  plays at.
+  """
+  type WarpMarker {
+    sample_time: Float!
+    beat_time: Float!
+  }
+
+  """
+  A warp marker to add, sent as the dictionary Live takes. Omit sample_time
+  and Live picks the one that keeps the clip's timing, like a double-click in
+  the Sample Display. Live adds markers only to a warped audio clip, and
+  drops one it cannot place without raising, such as a sample_time past the
+  sample or one that would take a segment outside 5-999 BPM: compare the
+  returned warp_markers with what you asked for.
+  """
+  input WarpMarkerInput {
+    beat_time: Float!
+    sample_time: Float
+  }
+
   type ClipNotesPayload {
     clip: Clip!
     note_ids: [Int!]!
