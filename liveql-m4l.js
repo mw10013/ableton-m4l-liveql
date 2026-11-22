@@ -114,12 +114,12 @@ function get(json) {
     /**
      * Live gives some objects no path: the Song's tuning system answers both
      * `path` and `unquotedpath` with null though the LOM documents
-     * `live_set tuning_system` (Live 12.4.6). Such a path is the empty string,
-     * so the object still reads instead of failing its non-null `path`.
+     * `live_set tuning_system` (Live 12.4.6). The bridge passes the null on,
+     * and the class's override types its `path` nullable.
      */
     const o = {
       id: Number(live.id), // LOM says this should be number instead of string
-      path: live.unquotedpath ?? "",
+      path: live.unquotedpath,
       type: live.type,
     };
     const keys = [

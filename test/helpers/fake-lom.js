@@ -448,7 +448,7 @@ function defaultObjects() {
     },
     /**
      * Live answers the tuning system's `path` with null, which the bridge
-     * sends as the empty string.
+     * passes on.
      */
     95: {
       id: 95,
@@ -605,7 +605,7 @@ function createLom() {
   const get = (params) => {
     const o = resolve(params.idOrPath);
     gets.push(params);
-    const out = { id: o.id, path: o.path ?? "", type: o.type };
+    const out = { id: o.id, path: o.path, type: o.type };
     const listed = (keys) => (keys ?? []).filter((k) => k in o.props);
     for (const k of listed(params.propertyKeysSingle)) {
       const arr = asList(read(o, k));

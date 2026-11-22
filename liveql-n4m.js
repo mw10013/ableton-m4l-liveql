@@ -353,6 +353,7 @@ function lomClass(name) {
   return {
     name,
     prefix: prefixOf(name),
+    pathType: o.path ?? "String!",
     parent: SCOPE.has(LOM[name].parent) ? LOM[name].parent : null,
     children: Object.entries(children).flatMap(
       ([member, { type, list, access }]) => {
@@ -510,6 +511,7 @@ const field = (text, sdl) => `${description(text, "    ")}    ${sdl}\n`;
 
 function objectSdl({
   name,
+  pathType,
   interface: isInterface,
   implements: parent,
   children,
@@ -519,7 +521,7 @@ function objectSdl({
   return [
     `  ${isInterface ? "interface" : "type"} ${name}${parent ? ` implements ${parent}` : ""} {\n`,
     field(null, "id: Int!"),
-    field(null, "path: String!"),
+    field(null, `path: ${pathType}`),
     field(null, "type: String!"),
     field(INFO_DESCRIPTION, "info: String!"),
     ...children.map(({ member, type, list, index, description: text }) =>

@@ -163,7 +163,11 @@ describe("schema", () => {
     for (const name of LOM_OBJECT_TYPES) {
       const fields = schema.getType(name).getFields();
       assert.equal(String(fields.id.type), "Int!", `${name}.id`);
-      assert.equal(String(fields.path.type), "String!", `${name}.path`);
+      assert.equal(
+        String(fields.path.type),
+        name === "TuningSystem" ? "String" : "String!",
+        `${name}.path`,
+      );
       assert.equal(String(fields.type.type), "String!", `${name}.type`);
     }
   });

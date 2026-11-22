@@ -5,6 +5,8 @@
  * - `scope`: the classes the schema exposes. A member typed by a class outside
  *   it is left out. A class whose `lom.json` parent is in scope inherits the
  *   parent's members, and a parent with subclasses in scope is an interface.
+ * - `path`: the GraphQL type of the class's `path`, `String!` unless Live
+ *   gives its objects none.
  * - `properties.<name>`: `type`, the GraphQL type when the doc type has no
  *   mapping or the field stays non-null; `default`, the value an absent or
  *   empty read resolves to; `settable`, a member Live sets though the docs say
@@ -86,8 +88,7 @@ module.exports = {
       },
       children: {
         tuning_system: {
-          description:
-            "Its path is the empty string: Live gives the tuning system none.",
+          description: "Its path is null: Live gives the tuning system none.",
         },
         tracks: { index: "track" },
         scenes: { index: "scene" },
@@ -501,6 +502,7 @@ module.exports = {
       },
     },
     TuningSystem: {
+      path: "String",
       drift: {
         canonical_parent: "undocumented, info lists a child Song (Live 12.4.6)",
       },

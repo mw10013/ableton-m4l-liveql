@@ -43,7 +43,7 @@ type Song {
   view: SongView
   groove_pool: GroovePool
 
-  """Its path is the empty string: Live gives the tuning system none."""
+  """Its path is null: Live gives the tuning system none."""
   tuning_system: TuningSystem
   appointed_device: Device
   arrangement_overdub: Boolean
@@ -1838,7 +1838,7 @@ input PluginDeviceSetInput @oneOf {
 
 type TuningSystem {
   id: Int!
-  path: String!
+  path: String
   type: String!
 
   """
