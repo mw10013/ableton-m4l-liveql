@@ -10,6 +10,7 @@
     "test": "node --test test/*.test.js",
     "test:n4m": "\"/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/Max/Max.app/Contents/Resources/C74/packages/Node for Max/source/bin/osx/node/node\" --test test/*.test.js",
     "test:live": "LIVEQL_E2E=1 node --test test/live/*.test.js",
+    "live:open": "node test/live/open.js",
     "build:dist": "rm -rf dist && mkdir -p dist && cp liveql.amxd liveql-m4l.js liveql-n4m.js package.json pnpm-lock.yaml pnpm-workspace.yaml dist/ && pnpm install --dir dist --prod --config.node-linker=hoisted --ignore-scripts"
   },
   "dependencies": {

@@ -2,6 +2,7 @@
 // bare globals — let/const breaks v8 attribute binding
 inlets = 1;
 outlets = 1;
+autowatch = 1;
 
 function getLive(idOrPath) {
   const live = new LiveAPI(

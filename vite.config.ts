@@ -182,6 +182,7 @@ export default defineConfig({
           outlet: "readonly",
           inlets: "writable",
           outlets: "writable",
+          autowatch: "writable",
         },
         rules: {
           "no-unused-vars": [

@@ -21,11 +21,9 @@ Development setup. To build a distributable device, see [Productionizing the dev
    pnpm install
    ```
 
-2. Drop `liveql.amxd` onto any track in your Live Set.
+2. Drop `liveql.amxd` onto a MIDI track in your Live Set. The server starts when the device loads; the Start button restarts it, on the port in the number box.
 
-3. Click the start button on the device to launch the server.
-
-4. The GraphQL API is now available at `http://localhost:5100/graphql`. The server also serves GraphiQL, an interactive query editor you can open in your browser at the same address.
+3. The GraphQL API is now available at `http://localhost:5100/graphql`. The server also serves GraphiQL, an interactive query editor you can open in your browser at the same address.
 
 ## Tests
 
@@ -43,8 +41,16 @@ uses, which is not the Node on your PATH.
 The questions only Live can answer live in `test/live/`, off by default because they mutate the open Set:
 
 ```bash
-pnpm test:live   # open a disposable Set with a MIDI clip and the device started first
+pnpm live:open   # open the fixture Set with this checkout's device
+pnpm test:live   # waits for the server, then runs against the open Set
 ```
+
+`test/live/fixture Project/` holds one of each LOM class the schema covers. `pnpm live:open` copies it to a
+temp dir, points the Set's LiveQL device at this checkout's `liveql.amxd`, and opens the copy, so a
+worktree tests its own scripts and the committed Set is never saved over. Each worktree needs its own
+`pnpm install`. Live asks to save the previous Set before it switches; that is the one manual step.
+Edits to `liveql-n4m.js` restart the server (`@watch 1`) and edits to `liveql-m4l.js` reload the `v8`
+script (`autowatch = 1`), so the device rarely needs reloading.
 
 ## Productionizing the device
 

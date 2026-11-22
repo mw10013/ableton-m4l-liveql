@@ -5,3 +5,5 @@ todo.md
 dist
 /refs
 .vitest/
+test/live/fixture Project/Backup/
+*.asd

@@ -1,25 +1,43 @@
 const assert = require("node:assert/strict");
+const { execFileSync } = require("node:child_process");
 const { describe, it, before, after } = require("node:test");
+const { checkoutDir, root } = require("./open.js");
 
 /**
  * The questions only a running Live can answer, written as assertions. Opt-in:
  * it mutates the open Set, so it never runs as part of `pnpm test`.
  *
- *   LIVEQL_E2E=1 pnpm test:live      (LIVEQL_URL overrides the endpoint)
+ *   pnpm live:open && pnpm test:live
  *
- * Expects a disposable Set with the LiveQL device started and at least one MIDI
- * track holding one clip; the clip's loop, markers and notes are restored
- * afterwards. Cases that answer an open question print a `RECORD:` line rather
+ * `LIVEQL_URL` overrides the endpoint and `LIVEQL_WAIT_S` how long to wait for
+ * it (120). Runs only against a Set `pnpm live:open` opened from this
+ * checkout, never a Set of real work, and expects at least one MIDI track
+ * holding one clip;
+ * the clip's loop, markers and notes are restored afterwards. Cases that answer an open question print a `RECORD:` line rather
  * than asserting an outcome — the answer belongs in the JSDoc of the code that
  * assumes it, in `liveql-n4m.js`, after a human has seen it.
  */
 const URL = process.env.LIVEQL_URL ?? "http://localhost:5100/graphql";
 const SKIP =
-  !process.env.LIVEQL_E2E &&
-  "set LIVEQL_E2E=1 and open a disposable Set with the device running";
+  !process.env.LIVEQL_E2E && "set LIVEQL_E2E=1 and run pnpm live:open first";
 
 const CLIP_STATE =
   "id looping loop_start loop_end start_marker end_marker position length end_time";
+/**
+ * `clip_set` applies its items in list order. This keeps the order the old
+ * `clip_set_properties` input object applied them in, its schema field order,
+ * so marker writes behave as they did when these answers were recorded.
+ */
+const CLIP_SET_ORDER = [
+  "looping",
+  "loop_start",
+  "loop_end",
+  "start_marker",
+  "end_marker",
+  "position",
+];
+const clipItems = (p) =>
+  CLIP_SET_ORDER.filter((k) => k in p).map((k) => ({ [k]: p[k] }));
 const NOTE =
   "note_id pitch start_time duration velocity mute probability velocity_deviation release_velocity";
 
@@ -38,6 +56,34 @@ async function data(query, variables) {
   return response.data;
 }
 
+/**
+ * `pnpm live:open` returns as soon as Live is asked to open the Set; the server
+ * answers only after Live has loaded it and the device has started Node, which
+ * takes tens of seconds on a cold launch. Until then the port refuses the
+ * connection, and while the bridge is still coming up a query can fail. Worse,
+ * while Live waits on its "save changes?" prompt the previous Set's server may
+ * still answer, and the suite would mutate that Set, so ready means the open
+ * Set is this checkout's `live:open` copy.
+ */
+async function waitForServer(timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const response = await gql("{ live_set { file_path } }").catch((err) => ({
+      errors: [err],
+    }));
+    const filePath = response.data?.live_set?.file_path;
+    if (filePath?.startsWith(`${checkoutDir}/`)) return;
+    if (Date.now() > deadline) {
+      assert.fail(
+        `no Set from ${checkoutDir} at ${URL} after ${timeoutMs / 1000}s (run pnpm live:open): ${filePath ?? response.errors?.[0]?.message}`,
+      );
+    }
+    await new Promise((resolve) => {
+      setTimeout(resolve, 1000);
+    });
+  }
+}
+
 function record(question, answer) {
   console.log(`RECORD: ${question} -> ${answer}`);
 }
@@ -46,15 +92,14 @@ describe("live", { skip: SKIP }, () => {
   let clip, original, originalNotes, track, view;
 
   before(async () => {
+    await waitForServer(Number(process.env.LIVEQL_WAIT_S ?? 120) * 1000);
     const { live_set } = await data(`{
       live_set {
         id name file_path
         view { id }
         tracks { id has_midi_input clip_slots { clip { ${CLIP_STATE} } } }
       }
-    }`).catch((err) => {
-      assert.fail(`no LiveQL server at ${URL}: ${err.message}`);
-    });
+    }`);
     view = live_set.view.id;
     track = live_set.tracks.find(
       (t) => t.has_midi_input && t.clip_slots.some((s) => s.clip),
@@ -99,10 +144,31 @@ describe("live", { skip: SKIP }, () => {
       ...properties
     } = original;
     await gql(
-      `mutation ($p: ClipPropertiesInput!) { clip_set_properties(id: ${clip}, properties: $p) { id } }`,
+      `mutation ($p: [ClipSetInput!]!) { clip_set(id: ${clip}, properties: $p) { id } }`,
       {
-        p: properties,
+        p: clipItems(properties),
       },
+    );
+  });
+
+  /**
+   * Live loads the device from whichever `liveql.amxd` the Set's `FileRef`
+   * names, and Max resolves both scripts from that device's folder, so a Set
+   * left over from another checkout runs that checkout's code. Node for Max
+   * starts the server with its script's folder as the working directory, which
+   * pins down which checkout is serving.
+   */
+  it("serves from this checkout", () => {
+    const lsof = (...args) =>
+      execFileSync("lsof", ["-nP", ...args], { encoding: "utf8" });
+    const pid = /^p(?<pid>\d+)$/mu.exec(
+      lsof(`-iTCP:${new globalThis.URL(URL).port}`, "-sTCP:LISTEN", "-Fp"),
+    )?.groups.pid;
+    assert.ok(pid, `no process listening for ${URL}`);
+    assert.equal(
+      /^n(?<cwd>.*)$/mu.exec(lsof("-a", "-p", pid, "-d", "cwd", "-Fn"))?.groups
+        .cwd,
+      root,
     );
   });
 
@@ -135,17 +201,17 @@ describe("live", { skip: SKIP }, () => {
   });
 
   /**
-   * Ordering markers so start never crosses end is the caller's job: each
-   * marker goes in its own mutation, sent as aliased fields of one document so
-   * they run serially in order. Grow moves the ends first, shrink the starts.
+   * Ordering markers so start never crosses end is the caller's job: `clip_set`
+   * applies its items in list order. Grow moves the ends first, shrink the
+   * starts.
    */
   const setMarkers = async (keys, p) =>
     (
-      await data(`mutation {
-      ${keys.map((k) => `${k}: clip_set_properties(id: ${clip}, properties: { ${k}: ${p[k]} }) { id }`).join("\n")}
-      state: clip_set_properties(id: ${clip}, properties: { looping: ${p.looping} }) { ${CLIP_STATE} }
-    }`)
-    ).state;
+      await data(
+        `mutation ($p: [ClipSetInput!]!) { clip_set(id: ${clip}, properties: $p) { ${CLIP_STATE} } }`,
+        { p: [...keys, "looping"].map((k) => ({ [k]: p[k] })) },
+      )
+    ).clip_set;
 
   it("grows the region one marker per mutation, ends first", async () => {
     const p = {
@@ -193,18 +259,18 @@ describe("live", { skip: SKIP }, () => {
 
   it("never silently accepts a start_marker behind the end marker", async () => {
     await data(
-      `mutation { clip_set_properties(id: ${clip}, properties: { start_marker: 0, end_marker: 4 }) { id } }`,
+      `mutation { clip_set(id: ${clip}, properties: [{ start_marker: 0 }, { end_marker: 4 }]) { id } }`,
     );
     const response = await gql(
-      `mutation { clip_set_properties(id: ${clip}, properties: { start_marker: 6 }) { start_marker end_marker } }`,
+      `mutation { clip_set(id: ${clip}, properties: [{ start_marker: 6 }]) { start_marker end_marker } }`,
     );
     const answer = response.errors
       ? `error: ${response.errors[0].message}`
-      : `no error, start_marker is ${response.data.clip_set_properties.start_marker}`;
+      : `no error, start_marker is ${response.data.clip_set.start_marker}`;
     record("start_marker past end_marker", answer);
     if (!response.errors) {
       assert.notEqual(
-        response.data.clip_set_properties.start_marker,
+        response.data.clip_set.start_marker,
         6,
         "Live took a start_marker behind the end marker",
       );
@@ -212,8 +278,8 @@ describe("live", { skip: SKIP }, () => {
   });
 
   it("reports whether loop_end aliases end_marker when the clip is unlooped", async () => {
-    const { clip_set_properties: unlooped } = await data(
-      `mutation { clip_set_properties(id: ${clip}, properties: { looping: false, start_marker: 0, end_marker: 4 }) { ${CLIP_STATE} } }`,
+    const { clip_set: unlooped } = await data(
+      `mutation { clip_set(id: ${clip}, properties: [{ looping: false }, { start_marker: 0 }, { end_marker: 4 }]) { ${CLIP_STATE} } }`,
     );
     record(
       "unlooped loop_end vs end_marker",
@@ -223,8 +289,8 @@ describe("live", { skip: SKIP }, () => {
       "unlooped end_time vs end_marker",
       `${unlooped.end_time} vs ${unlooped.end_marker}`,
     );
-    const { clip_set_properties: looped } = await data(
-      `mutation { clip_set_properties(id: ${clip}, properties: { looping: true, loop_start: 0, loop_end: 2 }) { ${CLIP_STATE} } }`,
+    const { clip_set: looped } = await data(
+      `mutation { clip_set(id: ${clip}, properties: [{ looping: true }, { loop_start: 0 }, { loop_end: 2 }]) { ${CLIP_STATE} } }`,
     );
     record(
       "looped end_time vs loop_end",
@@ -239,9 +305,9 @@ describe("live", { skip: SKIP }, () => {
     const set = async (grid_quantization) =>
       (
         await data(
-          `mutation { clip_view_set_properties(id: ${view_id}, properties: { grid_quantization: ${grid_quantization} }) { grid_quantization } }`,
+          `mutation { clip_view_set(id: ${view_id}, properties: [{ grid_quantization: ${grid_quantization} }]) { grid_quantization } }`,
         )
-      ).clip_view_set_properties.grid_quantization;
+      ).clip_view_set.grid_quantization;
     for (const grid of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
       assert.equal(await set(grid), grid);
     for (const out of [10, -1])
@@ -288,13 +354,13 @@ describe("live", { skip: SKIP }, () => {
     before(async () => {
       swing = (await data("{ live_set { id swing_amount } }")).live_set;
       await data(
-        `mutation { song_set_properties(id: ${swing.id}, properties: { swing_amount: 0 }) { id } }`,
+        `mutation { song_set(id: ${swing.id}, properties: [{ swing_amount: 0 }]) { id } }`,
       );
     });
 
     after(async () => {
       await gql(
-        `mutation { song_set_properties(id: ${swing.id}, properties: { swing_amount: ${swing.swing_amount} }) { id } }`,
+        `mutation { song_set(id: ${swing.id}, properties: [{ swing_amount: ${swing.swing_amount} }]) { id } }`,
       );
     });
 
@@ -310,7 +376,7 @@ describe("live", { skip: SKIP }, () => {
             `mutation { clip_remove_notes_by_id(id: ${clip}, note_ids: [${stale}]) { id } }`,
           );
         await data(
-          `mutation { clip_set_properties(id: ${clip}, properties: { looping: true, start_marker: 0, end_marker: 20, loop_start: 0, loop_end: 20 }) { id } }`,
+          `mutation { clip_set(id: ${clip}, properties: [{ looping: true }, { loop_start: 0 }, { loop_end: 20 }, { start_marker: 0 }, { end_marker: 20 }]) { id } }`,
         );
         await data(
           `mutation ($n: [NoteInput!]!) { clip_add_new_notes(id: ${clip}, notes: $n) { note_ids } }`,
@@ -371,11 +437,11 @@ describe("live", { skip: SKIP }, () => {
   });
 
   it("sets a child object by id", async () => {
-    const { song_view_set_detail_clip } = await data(
-      `mutation { song_view_set_detail_clip(id: ${view}, detail_clip: ${clip}) { detail_clip { id } } }`,
+    const { song_view_set } = await data(
+      `mutation { song_view_set(id: ${view}, properties: [{ detail_clip: ${clip} }]) { detail_clip { id } } }`,
     );
     record('set with the "id N" string form', "accepted");
-    assert.equal(song_view_set_detail_clip.detail_clip.id, clip);
+    assert.equal(song_view_set.detail_clip.id, clip);
   });
 
   /**
@@ -547,8 +613,8 @@ describe("live", { skip: SKIP }, () => {
           `mutation { clip_remove_notes_by_id(id: ${clip}, note_ids: [${stale}]) { id } }`,
         );
       await data(
-        `mutation ($p: ClipPropertiesInput!) { clip_set_properties(id: ${clip}, properties: $p) { id } }`,
-        { p: REGION },
+        `mutation ($p: [ClipSetInput!]!) { clip_set(id: ${clip}, properties: $p) { id } }`,
+        { p: clipItems(REGION) },
       );
       return (
         await data(
