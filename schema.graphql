@@ -142,6 +142,7 @@ type Mutation {
   song_create_midi_track(id: Int!, index: Int = -1): Song
   song_create_return_track(id: Int!): Song
   song_create_scene(id: Int!, index: Int = -1): Song
+  song_delete_track(id: Int!, index: Int!): Song
   song_force_link_beat_time(id: Int!): Song
   song_jump_by(id: Int!, beats: Float!): Song
   song_jump_to_next_cue(id: Int!): Song
@@ -161,9 +162,20 @@ type Mutation {
   track_create_audio_clip(id: Int!, file_path: String!, position: Float!): Track
   track_create_midi_clip(id: Int!, start_time: Float!, length: Float!): Track
   track_create_take_lane(id: Int!): Track
+
+  """
+  A take lane's clip is left in place without an error. Compare the returned
+  clips with what you asked for.
+  """
   track_delete_clip(id: Int!, clip: Int!): Track
   track_duplicate_clip_slot(id: Int!, index: Int!): Track
   track_duplicate_clip_to_arrangement(id: Int!, clip: Int!, destination_time: Float!): Track
+
+  """
+  An unknown device_name, or an instrument on a track that already holds one,
+  is dropped without an error. Compare the returned devices with what you asked
+  for.
+  """
   track_insert_device(id: Int!, device_name: String!, target_index: Int): Track
   track_jump_in_running_session_clip(id: Int!, beats: Float!): Track
   track_stop_all_clips(id: Int!): Track
@@ -285,6 +297,25 @@ type Mutation {
   cue_point_set(id: Int!, properties: [CuePointSetInput!]!): CuePoint
   cue_point_jump(id: Int!): CuePoint
   groove_set(id: Int!, properties: [GrooveSetInput!]!): Groove
+  drift_device_set(id: Int!, properties: [DriftDeviceSetInput!]!): DriftDevice
+  drum_cell_device_set(id: Int!, properties: [DrumCellDeviceSetInput!]!): DrumCellDevice
+  hybrid_reverb_device_set(id: Int!, properties: [HybridReverbDeviceSetInput!]!): HybridReverbDevice
+  looper_device_set(id: Int!, properties: [LooperDeviceSetInput!]!): LooperDevice
+  looper_device_clear(id: Int!): LooperDevice
+  looper_device_double_speed(id: Int!): LooperDevice
+  looper_device_half_speed(id: Int!): LooperDevice
+  looper_device_double_length(id: Int!): LooperDevice
+  looper_device_half_length(id: Int!): LooperDevice
+  looper_device_record(id: Int!): LooperDevice
+  looper_device_overdub(id: Int!): LooperDevice
+  looper_device_play(id: Int!): LooperDevice
+  looper_device_stop(id: Int!): LooperDevice
+  looper_device_undo(id: Int!): LooperDevice
+  looper_device_export_to_clip_slot(id: Int!, clip_slot: Int!): LooperDevice
+  meld_device_set(id: Int!, properties: [MeldDeviceSetInput!]!): MeldDevice
+  roar_device_set(id: Int!, properties: [RoarDeviceSetInput!]!): RoarDevice
+  shifter_device_set(id: Int!, properties: [ShifterDeviceSetInput!]!): ShifterDevice
+  spectral_resonator_device_set(id: Int!, properties: [SpectralResonatorDeviceSetInput!]!): SpectralResonatorDevice
 
   """
   Adds notes and returns the ids Live assigned, in the order the notes were
@@ -1393,6 +1424,371 @@ type GroovePool {
   """
   info: String!
   grooves: [Groove!]
+}
+
+type CompressorDevice implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  parameters: [DeviceParameter!]
+  view: DeviceView
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+}
+
+type DriftDevice implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  parameters: [DeviceParameter!]
+  view: DeviceView
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+  mod_matrix_filter_source_1_index: Int
+  mod_matrix_filter_source_1_list: [String!]
+  mod_matrix_filter_source_2_index: Int
+  mod_matrix_filter_source_2_list: [String!]
+  mod_matrix_lfo_source_index: Int
+  mod_matrix_lfo_source_list: [String!]
+  mod_matrix_pitch_source_1_index: Int
+  mod_matrix_pitch_source_1_list: [String!]
+  mod_matrix_pitch_source_2_index: Int
+  mod_matrix_pitch_source_2_list: [String!]
+  mod_matrix_shape_source_index: Int
+  mod_matrix_shape_source_list: [String!]
+  mod_matrix_source_1_index: Int
+  mod_matrix_source_1_list: [String!]
+  mod_matrix_source_2_index: Int
+  mod_matrix_source_2_list: [String!]
+  mod_matrix_source_3_index: Int
+  mod_matrix_source_3_list: [String!]
+  mod_matrix_target_1_index: Int
+  mod_matrix_target_1_list: [String!]
+  mod_matrix_target_2_index: Int
+  mod_matrix_target_2_list: [String!]
+  mod_matrix_target_3_index: Int
+  mod_matrix_target_3_list: [String!]
+  pitch_bend_range: Int
+  voice_count_index: Int
+  voice_count_list: [String!]
+  voice_mode_index: Int
+  voice_mode_list: [String!]
+}
+
+input DriftDeviceSetInput @oneOf {
+  mod_matrix_filter_source_1_index: Int
+  mod_matrix_filter_source_2_index: Int
+  mod_matrix_lfo_source_index: Int
+  mod_matrix_pitch_source_1_index: Int
+  mod_matrix_pitch_source_2_index: Int
+  mod_matrix_shape_source_index: Int
+  mod_matrix_source_1_index: Int
+  mod_matrix_source_2_index: Int
+  mod_matrix_source_3_index: Int
+  mod_matrix_target_1_index: Int
+  mod_matrix_target_2_index: Int
+  mod_matrix_target_3_index: Int
+  pitch_bend_range: Int
+  voice_count_index: Int
+  voice_mode_index: Int
+}
+
+type DrumCellDevice implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  parameters: [DeviceParameter!]
+  view: DeviceView
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+  gain: Float
+}
+
+input DrumCellDeviceSetInput @oneOf {
+  gain: Float
+}
+
+type HybridReverbDevice implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  parameters: [DeviceParameter!]
+  view: DeviceView
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+  ir_attack_time: Float
+  ir_category_index: Int
+  ir_category_list: [String!]
+  ir_decay_time: Float
+  ir_file_index: Int
+  ir_file_list: [String!]
+  ir_size_factor: Float
+  ir_time_shaping_on: Boolean
+}
+
+input HybridReverbDeviceSetInput @oneOf {
+  ir_attack_time: Float
+  ir_category_index: Int
+  ir_decay_time: Float
+  ir_file_index: Int
+  ir_size_factor: Float
+  ir_time_shaping_on: Boolean
+}
+
+type LooperDevice implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  parameters: [DeviceParameter!]
+  view: DeviceView
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+  loop_length: Float
+  overdub_after_record: Boolean
+  record_length_index: Int
+  record_length_list: [String!]
+  tempo: Float
+}
+
+input LooperDeviceSetInput @oneOf {
+  overdub_after_record: Boolean
+  record_length_index: Int
+}
+
+type MeldDevice implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  parameters: [DeviceParameter!]
+  view: DeviceView
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+  selected_engine: Int
+  unison_voices: Int
+  mono_poly: Int
+  poly_voices: Int
+}
+
+input MeldDeviceSetInput @oneOf {
+  selected_engine: Int
+  unison_voices: Int
+  mono_poly: Int
+  poly_voices: Int
+}
+
+type RoarDevice implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  parameters: [DeviceParameter!]
+  view: DeviceView
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+  routing_mode_index: Int
+  routing_mode_list: [String!]
+  env_listen: Boolean
+}
+
+input RoarDeviceSetInput @oneOf {
+  routing_mode_index: Int
+  env_listen: Boolean
+}
+
+type ShifterDevice implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  parameters: [DeviceParameter!]
+  view: DeviceView
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+  pitch_bend_range: Int
+  pitch_mode_index: Int
+}
+
+input ShifterDeviceSetInput @oneOf {
+  pitch_bend_range: Int
+  pitch_mode_index: Int
+}
+
+type SpectralResonatorDevice implements Device {
+  id: Int!
+  path: String!
+  type: String!
+
+  """
+  Raw `LiveAPI.info`: id, type, description, and the children, properties
+  and functions Live reports for this object, one per line, ending in `done`.
+  Read only when selected.
+  """
+  info: String!
+  parameters: [DeviceParameter!]
+  view: DeviceView
+  can_have_chains: Boolean
+  can_have_drum_pads: Boolean
+  class_display_name: String
+  class_name: String
+  is_active: Boolean
+  name: String
+  latency_in_samples: Int
+  latency_in_ms: Float
+  can_compare_ab: Boolean
+
+  """Null when can_compare_ab is false: such a device's info leaves it out."""
+  is_using_compare_preset_b: Boolean
+  frequency_dial_mode: Int
+  midi_gate: Int
+  mod_mode: Int
+  mono_poly: Int
+  pitch_mode: Int
+  pitch_bend_range: Int
+  polyphony: Int
+}
+
+input SpectralResonatorDeviceSetInput @oneOf {
+  frequency_dial_mode: Int
+  midi_gate: Int
+  mod_mode: Int
+  mono_poly: Int
+  pitch_mode: Int
+  pitch_bend_range: Int
+  polyphony: Int
 }
 
 type Note {

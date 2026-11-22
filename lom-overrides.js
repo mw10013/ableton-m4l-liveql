@@ -57,6 +57,15 @@ module.exports = {
     "CuePoint",
     "Groove",
     "GroovePool",
+    "CompressorDevice",
+    "DriftDevice",
+    "DrumCellDevice",
+    "HybridReverbDevice",
+    "LooperDevice",
+    "MeldDevice",
+    "RoarDevice",
+    "ShifterDevice",
+    "SpectralResonatorDevice",
   ],
   classes: {
     Application: {
@@ -91,6 +100,7 @@ module.exports = {
         capture_midi: { args: { destination: "Int = 0" } },
         create_midi_track: { args: { index: "Int = -1" } },
         create_scene: { args: { index: "Int = -1" } },
+        delete_track: { args: { index: "Int!" } },
       },
     },
     SongView: {
@@ -138,7 +148,15 @@ module.exports = {
         },
       },
       functions: {
-        delete_clip: { args: { clip: { type: "Int!", id: true } } },
+        delete_clip: {
+          args: { clip: { type: "Int!", id: true } },
+          description:
+            "A take lane's clip is left in place without an error. Compare the returned\nclips with what you asked for.",
+        },
+        insert_device: {
+          description:
+            "An unknown device_name, or an instrument on a track that already holds one,\nis dropped without an error. Compare the returned devices with what you asked\nfor.",
+        },
         duplicate_clip_slot: { args: { index: "Int!" } },
         duplicate_clip_to_arrangement: {
           args: {
@@ -398,6 +416,8 @@ module.exports = {
         canonical_parent:
           "undocumented, info lists a child Track (Live 12.4.6)",
         device_insert_mode: "documented as int, info says bool (Live 12.4.6)",
+        selected_device:
+          "documented as Device, info types it by the selected device's class, such as SpectralResonatorDevice (Live 12.4.6)",
       },
       properties: {
         device_insert_mode: {
@@ -461,6 +481,11 @@ module.exports = {
     GroovePool: {
       drift: {
         canonical_parent: "undocumented, info lists a child Song (Live 12.4.6)",
+      },
+    },
+    MeldDevice: {
+      drift: {
+        selected_engine: "documented as int, info says bool (Live 12.4.6)",
       },
     },
   },

@@ -128,6 +128,21 @@ describe("device", () => {
     );
   });
 
+  it("resolves a subclass the fixture Set lacks, such as a return track's Shifter", async () => {
+    const { data } = await gql(
+      "{ track(id: 13) { devices { __typename type class_name ... on ShifterDevice { pitch_bend_range pitch_mode_index } } } }",
+    );
+    assert.deepEqual(data.track.devices, [
+      {
+        __typename: "ShifterDevice",
+        type: "ShifterDevice",
+        class_name: "Shifter",
+        pitch_bend_range: 2,
+        pitch_mode_index: 0,
+      },
+    ]);
+  });
+
   it("resolves a device nested in a rack's chain", async () => {
     const { data } = await gql(
       "{ track(id: 11) { devices { __typename ... on RackDevice { chains { __typename id name devices { __typename id name } } return_chains { id } } } } }",

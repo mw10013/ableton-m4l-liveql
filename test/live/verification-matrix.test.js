@@ -735,12 +735,27 @@ describe("live", { skip: SKIP }, () => {
       list: "Vector",
     };
     const INFO = "cls: __typename info";
-    let audioClip, audioTrack;
+    /**
+     * The device classes the fixture lacks, inserted by browser name on
+     * throwaway MIDI tracks: one instrument per track, because Live drops an
+     * instrument inserted on a track that holds one, with audio effects after
+     * it. The first track also gets a take lane holding a MIDI clip, which only
+     * deleting its track removes: `Track.delete_clip` leaves a take lane's clip
+     * in place, and a TakeLane has no delete.
+     */
+    const INSERTED = [
+      ["Drift", "Compressor", "Hybrid Reverb", "Looper"],
+      ["Meld", "Roar", "Shifter"],
+      ["DrumSampler", "Spectral Resonator"],
+    ];
+    let audioClip, audioTrack, song, tracks;
 
     before(async () => {
       const { live_set } = await data(
-        "{ live_set { tracks { id has_audio_input is_foldable arrangement_clips { id } } } }",
+        "{ live_set { id tracks { id has_audio_input is_foldable arrangement_clips { id } } } }",
       );
+      song = live_set.id;
+      tracks = live_set.tracks.map((t) => t.id);
       audioTrack = live_set.tracks.find(
         (t) => t.has_audio_input && !t.is_foldable,
       ).id;
@@ -762,6 +777,36 @@ describe("live", { skip: SKIP }, () => {
         (c) => c.is_audio_clip && !before.has(c.id),
       )?.id;
       assert.ok(audioClip, "track_create_audio_clip made no audio clip");
+      const created = [];
+      for (const names of INSERTED) {
+        const track = (
+          await data(
+            `mutation { song_create_midi_track(id: ${song}) { tracks { id } } }`,
+          )
+        ).song_create_midi_track.tracks.at(-1).id;
+        const inserted = await data(
+          `mutation { ${names.map((n, i) => `d${i}: track_insert_device(id: ${track}, device_name: "${n}") { devices { name } }`).join(" ")} }`,
+        );
+        assert.equal(
+          inserted[`d${names.length - 1}`].devices.length,
+          names.length,
+          `inserted only some of ${names}`,
+        );
+        created.push(track);
+      }
+      const lane = (
+        await data(
+          `mutation { track_create_take_lane(id: ${created[0]}) { take_lanes { id } } }`,
+        )
+      ).track_create_take_lane.take_lanes.at(-1).id;
+      assert.equal(
+        (
+          await data(
+            `mutation { take_lane_create_midi_clip(id: ${lane}, start_time: 0, length: 4) { arrangement_clips { id } } }`,
+          )
+        ).take_lane_create_midi_clip.arrangement_clips.length,
+        1,
+      );
     });
 
     after(async () => {
@@ -769,6 +814,17 @@ describe("live", { skip: SKIP }, () => {
         await data(
           `mutation { track_delete_clip(id: ${audioTrack}, clip: ${audioClip}) { id } }`,
         );
+      const { live_set } = await data("{ live_set { tracks { id } } }");
+      for (let i = live_set.tracks.length - 1; i >= tracks.length; i--)
+        await data(
+          `mutation { song_delete_track(id: ${song}, index: ${i}) { id } }`,
+        );
+      assert.deepEqual(
+        (await data("{ live_set { tracks { id } } }")).live_set.tracks.map(
+          (t) => t.id,
+        ),
+        tracks,
+      );
     });
 
     it("records every member Live and the docs disagree on", async () => {

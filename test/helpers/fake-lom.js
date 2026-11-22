@@ -203,7 +203,7 @@ function parameterProps(overrides) {
 
 /**
  * One MIDI track (10) holding a Simpler (60) with two parameters (70, 71) and a plain Device (61), with a clip slot holding MIDI clip 40 whose groove is 91, one audio track
- * (11) holding arrangement clip 50 and an Audio Effect Rack (62) whose chain (80) holds a plain Device (63), a return track (13) and a master track (12)
+ * (11) holding arrangement clip 50 and an Audio Effect Rack (62) whose chain (80) holds a plain Device (63), a return track (13) holding a Shifter (66) and a master track (12)
  * missing the members Live's `info` leaves out there. None of them is a Group
  * Track, so none has a fold_state. Song.View's
  * `highlighted_clip_slot` is `id 0` so the bridge's null child is covered.
@@ -362,9 +362,26 @@ function defaultObjects() {
       path: "live_set return_tracks 0",
       type: "Track",
       props: trackProps(
-        { name: ["A Return"], can_be_armed: [0], clip_slots: "" },
+        {
+          name: ["A Return"],
+          can_be_armed: [0],
+          clip_slots: "",
+          devices: ["id", 66],
+        },
         ["arm", "playing_slot_index", "fired_slot_index", "arrangement_clips"],
       ),
+    },
+    66: {
+      id: 66,
+      path: "live_set return_tracks 0 devices 0",
+      type: "ShifterDevice",
+      props: deviceProps({
+        class_display_name: ["Shifter"],
+        class_name: ["Shifter"],
+        name: ["Shifter"],
+        pitch_bend_range: [2],
+        pitch_mode_index: [0],
+      }),
     },
     20: {
       id: 20,

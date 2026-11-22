@@ -41,6 +41,15 @@ const LOM_OBJECT_TYPES = [
   "CuePoint",
   "Groove",
   "GroovePool",
+  "CompressorDevice",
+  "DriftDevice",
+  "DrumCellDevice",
+  "HybridReverbDevice",
+  "LooperDevice",
+  "MeldDevice",
+  "RoarDevice",
+  "ShifterDevice",
+  "SpectralResonatorDevice",
 ];
 const MUTATION_PREFIX = {
   Song: "song",
@@ -71,6 +80,14 @@ const MUTATION_PREFIX = {
   Sample: "sample",
   CuePoint: "cue_point",
   Groove: "groove",
+  DriftDevice: "drift_device",
+  DrumCellDevice: "drum_cell_device",
+  HybridReverbDevice: "hybrid_reverb_device",
+  LooperDevice: "looper_device",
+  MeldDevice: "meld_device",
+  RoarDevice: "roar_device",
+  ShifterDevice: "shifter_device",
+  SpectralResonatorDevice: "spectral_resonator_device",
 };
 const INVENTED_FIELDS = new Set(["id", "info", "properties", "input"]);
 const INVENTED_ARGS = new Set(["id", "properties"]);
