@@ -44,6 +44,7 @@ vp run test:live          # opt-in end-to-end suite; needs Live and mutates the 
 vp run build:dist         # build the self-contained dist/ device (see README)
 pnpm lom:parse            # reparse the LOM docs into lom.json
 pnpm schema:print         # rewrite schema.graphql, and list the LOM members the build left out
+node scripts/bench.js     # time the read benchmark queries against the running device (median of 10)
 ```
 
 - Lint is Oxlint through Vite+, configured in `vite.config.ts`. `liveql-m4l.js` has its own override declaring Max's `v8` globals and message handlers.
